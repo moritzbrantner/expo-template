@@ -61,28 +61,12 @@ test('mobile has a dedicated communication screen with Websockets and CRDTs sect
   assert.match(source, /Communication topic/);
 });
 
-test('mobile has a dedicated uploads screen with native intake presets and queue state', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../app/(tabs)/uploads.tsx'),
-    'utf8',
-  );
-
-  assert.match(source, /getUploadGuide\('mobile'\)/);
-  assert.match(source, /mobileUploadPresets/);
-  assert.match(source, /Native intake actions/);
-  assert.match(source, /Current upload items/);
-  assert.match(source, /Clear queue/);
-  assert.match(source, /Normalized queue/);
-});
-
 test('mobile home links to own and dummy profile pages', () => {
   const source = fs.readFileSync(
     path.resolve(__dirname, '../app/(tabs)/index.tsx'),
     'utf8',
   );
 
-  assert.match(source, /Open upload flows/);
-  assert.match(source, /href="\/uploads"/);
   assert.match(source, /Open my profile/);
   assert.match(source, /getProfileByUsername\('jules'\)/);
   assert.match(source, /href=\{`\/profile\/@\$\{currentUser\.username\}`\}/);

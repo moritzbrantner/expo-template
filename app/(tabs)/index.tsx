@@ -1,5 +1,5 @@
-import ControlsShowcase from '@/components/controls-showcase';
+import InteractiveDiagrams from '@/components/interactive-diagrams';
 
 export default function HomeScreen() {
-  return <ControlsShowcase />;
+  return <InteractiveDiagrams />;
 }

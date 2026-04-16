@@ -14,7 +14,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'pnpm web',
+    command: 'bun web',
     port: 4002,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

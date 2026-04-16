@@ -1,9 +1,24 @@
-import { createServer } from 'node:http';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { dirname } from 'node:path';
 
 import nodemailer from 'nodemailer';
+
+interface StoredUser {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  passwordHash: string;
+}
+
+interface PublicUser {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
 
 const PORT = Number(process.env.PORT ?? 4001);
 const SMTP_HOST = process.env.SMTP_HOST ?? 'mailpit';
@@ -19,7 +34,7 @@ const transport = nodemailer.createTransport({
   secure: false,
 });
 
-function json(response, statusCode, payload) {
+function json(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, {
     'Access-Control-Allow-Origin': CORS_ORIGIN,
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -29,7 +44,7 @@ function json(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
-async function ensureStore() {
+async function ensureStore(): Promise<void> {
   await mkdir(dirname(DATA_FILE), { recursive: true });
 
   try {
@@ -39,24 +54,24 @@ async function ensureStore() {
   }
 }
 
-async function readUsers() {
+async function readUsers(): Promise<StoredUser[]> {
   await ensureStore();
   const raw = await readFile(DATA_FILE, 'utf8');
-  return JSON.parse(raw);
+  return JSON.parse(raw) as StoredUser[];
 }
 
-async function writeUsers(users) {
+async function writeUsers(users: StoredUser[]): Promise<void> {
   await ensureStore();
   await writeFile(DATA_FILE, JSON.stringify(users, null, 2), 'utf8');
 }
 
-function hashPassword(password) {
+function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
   const hash = scryptSync(password, salt, 64).toString('hex');
   return `${salt}:${hash}`;
 }
 
-function verifyPassword(password, storedHash) {
+function verifyPassword(password: string, storedHash: string): boolean {
   const [salt, expectedHash] = storedHash.split(':');
 
   if (!salt || !expectedHash) {
@@ -69,11 +84,11 @@ function verifyPassword(password, storedHash) {
   return expected.length === actualHash.length && timingSafeEqual(expected, actualHash);
 }
 
-function isValidEmail(email) {
+function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function toPublicUser(user) {
+function toPublicUser(user: StoredUser): PublicUser {
   return {
     id: user.id,
     name: user.name,
@@ -82,21 +97,21 @@ function toPublicUser(user) {
   };
 }
 
-async function parseBody(request) {
-  const chunks = [];
+async function parseBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
 
   for await (const chunk of request) {
-    chunks.push(chunk);
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk));
   }
 
   if (chunks.length === 0) {
     return {};
   }
 
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
 }
 
-async function sendWelcomeEmail(user) {
+async function sendWelcomeEmail(user: StoredUser): Promise<void> {
   await transport.sendMail({
     from: SMTP_FROM,
     to: user.email,
@@ -189,7 +204,7 @@ const server = createServer(async (request, response) => {
         return;
       }
 
-      const user = {
+      const user: StoredUser = {
         id: randomBytes(12).toString('hex'),
         name,
         email,

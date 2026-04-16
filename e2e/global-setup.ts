@@ -23,7 +23,12 @@ async function waitFor(url: string, label: string) {
 }
 
 export default async function globalSetup() {
-  execFileSync('docker', ['compose', 'up', '-d', '--build'], {
+  const composeArgs =
+    process.env.E2E_FORCE_BUILD === '1'
+      ? ['compose', 'up', '-d', '--build']
+      : ['compose', 'up', '-d'];
+
+  execFileSync('docker', composeArgs, {
     cwd: PROJECT_ROOT,
     stdio: 'inherit',
   });

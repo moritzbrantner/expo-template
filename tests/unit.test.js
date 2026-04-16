@@ -98,18 +98,29 @@ test('dev REST fixture is backed by folder-server and seeded example profiles', 
   assert.match(apiSource, /fetch\(`\$\{DEV_API_URL\}\/profiles`\)/);
 });
 
-test('mobile home exposes the local auth playground actions', () => {
-  const source = fs.readFileSync(
+test('mobile home delegates to the controls showcase and exposes auth session actions', () => {
+  const screenSource = fs.readFileSync(
     path.resolve(__dirname, '../app/(tabs)/index.tsx'),
     'utf8',
   );
+  const nativeShowcaseSource = fs.readFileSync(
+    path.resolve(__dirname, '../components/controls-showcase.tsx'),
+    'utf8',
+  );
+  const webShowcaseSource = fs.readFileSync(
+    path.resolve(__dirname, '../components/controls-showcase.web.tsx'),
+    'utf8',
+  );
 
-  assert.match(source, /Authentication playground/);
-  assert.match(source, /Create account/);
-  assert.match(source, /Sign in/);
-  assert.match(source, /Session state/);
-  assert.match(source, /router\.push\('\/auth\/sign-up'\)/);
-  assert.match(source, /router\.push\('\/auth\/sign-in'\)/);
+  assert.match(screenSource, /ControlsShowcase/);
+  assert.match(nativeShowcaseSource, /Authentication/);
+  assert.match(nativeShowcaseSource, /Session status/);
+  assert.match(nativeShowcaseSource, /testID="session-status"/);
+  assert.match(nativeShowcaseSource, /router\.push\('\/auth\/sign-in'\)/);
+  assert.match(webShowcaseSource, /Authentication/);
+  assert.match(webShowcaseSource, /Session status/);
+  assert.match(webShowcaseSource, /data-testid="session-status"/);
+  assert.match(webShowcaseSource, /router\.push\('\/auth\/sign-in'\)/);
 });
 
 test('mobile has a dedicated profile screen for @username routes', () => {

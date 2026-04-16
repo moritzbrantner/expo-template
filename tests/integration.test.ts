@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { type Server } from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { appManifest } from '../app.manifest';
+import { createAuthApiServer } from '../services/auth-api/app';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -76,20 +76,38 @@ function getAvailablePort(): Promise<number> {
   });
 }
 
-async function waitForHealthcheck(baseUrl: string): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    try {
-      const response = await fetch(`${baseUrl}/health`);
+async function startServer(server: Server, port: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve();
+    };
 
-      if (response.ok) {
-        return;
-      }
-    } catch {}
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, '127.0.0.1');
+  });
+}
 
-    await delay(100);
+async function stopServer(server: Server): Promise<void> {
+  if (!server.listening) {
+    return;
   }
 
-  throw new Error(`Server at ${baseUrl} did not become ready in time.`);
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
 }
 
 test('auth API exposes public user data for the mobile app', async () => {
@@ -97,7 +115,6 @@ test('auth API exposes public user data for the mobile app', async () => {
   const dataFile = path.join(tempDir, 'users.json');
   const port = await getAvailablePort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const authApiDirectory = path.join(projectRoot, 'services/auth-api');
 
   const users = [
     {
@@ -118,20 +135,14 @@ test('auth API exposes public user data for the mobile app', async () => {
 
   await writeFile(dataFile, JSON.stringify(users, null, 2), 'utf8');
 
-  const serverProcess = spawn(process.execPath, ['run', 'start'], {
-    cwd: authApiDirectory,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      DATA_FILE: dataFile,
-      SMTP_HOST: '127.0.0.1',
-      SMTP_PORT: '2525',
-    },
-    stdio: 'ignore',
+  const server = createAuthApiServer({
+    dataFile,
+    smtpHost: '127.0.0.1',
+    smtpPort: 2525,
   });
 
   try {
-    await waitForHealthcheck(baseUrl);
+    await startServer(server, port);
 
     const usersResponse = await fetch(`${baseUrl}/users`);
     assert.equal(usersResponse.status, 200);
@@ -157,8 +168,7 @@ test('auth API exposes public user data for the mobile app', async () => {
     const missingUserResponse = await fetch(`${baseUrl}/users/does-not-exist`);
     assert.equal(missingUserResponse.status, 404);
   } finally {
-    serverProcess.kill('SIGTERM');
-    await delay(100);
+    await stopServer(server);
     await rm(tempDir, { recursive: true, force: true });
   }
 });

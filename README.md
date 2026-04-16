@@ -20,6 +20,12 @@ Install dependencies:
 bun install
 ```
 
+Create a local env file from the tracked example:
+
+```bash
+cp .env.example .env
+```
+
 Run the app only:
 
 ```bash
@@ -31,6 +37,12 @@ Run the app against the local auth stack:
 ```bash
 bun test:e2e:services:up
 EXPO_PUBLIC_AUTH_API_URL=http://localhost:4401 bun web
+```
+
+Rebuild the auth stack only when Dockerfiles or service dependencies change:
+
+```bash
+bun test:e2e:services:rebuild
 ```
 
 Run the optional seeded fixture example:
@@ -52,6 +64,9 @@ The local auth stack includes:
 
 - `auth-api`: lightweight Node service for auth and public user data
 - `mailpit`: local SMTP inbox UI for signup emails
+
+Docker Compose is the supported local runtime for `auth-api`. The non-E2E Bun test suite starts the
+server in-process and does not require Docker.
 
 Open Mailpit at `http://localhost:8825`.
 
@@ -92,6 +107,6 @@ bun test
 bun run lint
 bunx tsc --noEmit
 bun run build
-bun run test:e2e
 bunx expo-doctor
+bun run test:e2e
 ```

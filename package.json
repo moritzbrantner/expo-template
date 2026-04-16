@@ -15,10 +15,13 @@
     "test": "node -e \"console.log('No automated tests configured for this app yet.')\"",
     "test:unit": "node --test ./tests/unit.test.js",
     "test:integration": "node --test ./tests/integration.test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:services:up": "docker compose up -d --build",
+    "test:e2e:services:down": "docker compose down -v"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.15.5",
     "@react-navigation/elements": "^2.9.10",
     "@react-navigation/native": "^7.1.33",

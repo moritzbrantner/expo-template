@@ -1,0 +1,26 @@
+services:
+  auth-api:
+    build:
+      context: ./services/auth-api
+    environment:
+      PORT: 4001
+      CORS_ORIGIN: '*'
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: noreply@example.test
+      DATA_FILE: /data/users.json
+      AUTH_API_ENABLE_TEST_ENDPOINTS: 'true'
+    ports:
+      - '4401:4001'
+    volumes:
+      - auth-api-data:/data
+    depends_on:
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '8825:8025'
+
+volumes:
+  auth-api-data:

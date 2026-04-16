@@ -6,8 +6,7 @@ import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { fetchUsersRequest, type AuthUser } from '@/lib/auth';
-import { useAuth } from '@/providers/auth-provider';
+import { fetchProfilesRequest, type ExampleProfile } from '@/lib/dev-api';
 
 const communicationSections = [
   {
@@ -32,47 +31,42 @@ const communicationSections = [
   },
 ];
 
-async function loadServerUsers({
-  setIsLoadingUsers,
-  setUsersError,
-  setServerUsers,
+async function loadExampleProfiles({
+  setIsLoadingProfiles,
+  setProfilesError,
+  setProfiles,
 }: {
-  setIsLoadingUsers: (value: boolean) => void;
-  setUsersError: (value: string | null) => void;
-  setServerUsers: (value: AuthUser[]) => void;
+  setIsLoadingProfiles: (value: boolean) => void;
+  setProfilesError: (value: string | null) => void;
+  setProfiles: (value: ExampleProfile[]) => void;
 }) {
   try {
-    setIsLoadingUsers(true);
-    setUsersError(null);
-    const response = await fetchUsersRequest();
-    setServerUsers(response.users);
+    setIsLoadingProfiles(true);
+    setProfilesError(null);
+    const response = await fetchProfilesRequest();
+    setProfiles(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to load users.';
-    setUsersError(message);
+    const message = error instanceof Error ? error.message : 'Unable to load example profiles.';
+    setProfilesError(message);
   } finally {
-    setIsLoadingUsers(false);
+    setIsLoadingProfiles(false);
   }
 }
 
 export default function CommunicationScreen() {
   const borderColor = useThemeColor({}, 'border');
   const mutedTextColor = useThemeColor({}, 'mutedText');
-  const { currentUser } = useAuth();
-  const [serverUsers, setServerUsers] = useState<AuthUser[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<ExampleProfile[]>([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+  const [profilesError, setProfilesError] = useState<string | null>(null);
 
   useEffect(() => {
-    void loadServerUsers({
-      setIsLoadingUsers,
-      setUsersError,
-      setServerUsers,
+    void loadExampleProfiles({
+      setIsLoadingProfiles,
+      setProfilesError,
+      setProfiles,
     });
   }, []);
-
-  const visibleUsers = currentUser
-    ? serverUsers.filter((user) => user.id !== currentUser.id)
-    : serverUsers;
 
   return (
     <ThemedView style={styles.page}>
@@ -93,28 +87,30 @@ export default function CommunicationScreen() {
             <ThemedText style={[styles.eyebrow, { color: mutedTextColor }]}>
               API example
             </ThemedText>
-            <ThemedText type="subtitle">Server users</ThemedText>
+            <ThemedText type="subtitle">Example profiles</ThemedText>
             <ThemedText style={{ color: mutedTextColor }}>
-              The mobile app calls <ThemedText type="defaultSemiBold">GET /users</ThemedText> on
-              the local Node API and renders public user data here.
+              The app calls <ThemedText type="defaultSemiBold">GET /profiles</ThemedText> on the
+              local folder-backed dev API so development and testing always have stable REST data.
             </ThemedText>
-            {isLoadingUsers ? (
+            {isLoadingProfiles ? (
               <ThemedText style={{ color: mutedTextColor }}>
-                Loading users from the server...
+                Loading example profiles from the dev API...
               </ThemedText>
-            ) : usersError ? (
-              <ThemedText style={{ color: mutedTextColor }}>{usersError}</ThemedText>
-            ) : visibleUsers.length === 0 ? (
+            ) : profilesError ? (
+              <ThemedText style={{ color: mutedTextColor }}>{profilesError}</ThemedText>
+            ) : profiles.length === 0 ? (
               <ThemedText style={{ color: mutedTextColor }}>
-                No other users yet. Create another account to see it appear here.
+                No example profiles are available right now.
               </ThemedText>
             ) : (
-              visibleUsers.map((user) => (
-                <ThemedView key={user.id} style={[styles.userRow, { borderColor }]}>
-                  <ThemedText type="defaultSemiBold">{user.name}</ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>{user.email}</ThemedText>
+              profiles.map((profile) => (
+                <ThemedView key={profile.username} style={[styles.userRow, { borderColor }]}>
+                  <ThemedText type="defaultSemiBold">{profile.name}</ThemedText>
+                  <ThemedText style={{ color: mutedTextColor }}>@{profile.username}</ThemedText>
+                  <ThemedText style={{ color: mutedTextColor }}>{profile.role}</ThemedText>
+                  <ThemedText style={{ color: mutedTextColor }}>{profile.location}</ThemedText>
                   <ThemedText style={{ color: mutedTextColor }}>
-                    Joined {new Date(user.createdAt).toLocaleDateString()}
+                    {profile.bio}
                   </ThemedText>
                 </ThemedView>
               ))
@@ -122,13 +118,13 @@ export default function CommunicationScreen() {
             <Pressable
               style={[styles.reloadButton, { borderColor }]}
               onPress={() =>
-                void loadServerUsers({
-                  setIsLoadingUsers,
-                  setUsersError,
-                  setServerUsers,
+                void loadExampleProfiles({
+                  setIsLoadingProfiles,
+                  setProfilesError,
+                  setProfiles,
                 })
               }>
-              <ThemedText type="defaultSemiBold">Reload users</ThemedText>
+              <ThemedText type="defaultSemiBold">Reload profiles</ThemedText>
             </Pressable>
           </ThemedView>
 

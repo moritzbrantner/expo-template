@@ -1,0 +1,7 @@
+{
+  "tables": {
+    "profiles": {
+      "primary_key": "username"
+    }
+  }
+}

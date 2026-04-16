@@ -54,3 +54,19 @@ export async function signInRequest(input: { email: string; password: string }) 
     user: AuthUser;
   }>(response);
 }
+
+export async function fetchUsersRequest() {
+  const response = await fetch(`${AUTH_API_URL}/users`);
+
+  return parseResponse<{
+    users: AuthUser[];
+  }>(response);
+}
+
+export async function fetchUserRequest(userId: string) {
+  const response = await fetch(`${AUTH_API_URL}/users/${userId}`);
+
+  return parseResponse<{
+    user: AuthUser;
+  }>(response);
+}

@@ -58,6 +58,17 @@ pnpm test:e2e:services:up
 
 Open Mailpit at `http://localhost:8825`.
 
+The same service now also exposes public user data for the mobile app:
+
+```bash
+curl http://localhost:4401/users
+curl http://localhost:4401/users/<user-id>
+```
+
+The `Communication` tab in the Expo app calls `GET /users` through
+`EXPO_PUBLIC_AUTH_API_URL`, so once you create a couple of accounts and sign in, the app can
+render other users fetched from the server.
+
 Run the browser e2e suite with:
 
 ```bash

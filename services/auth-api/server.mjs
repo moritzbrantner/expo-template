@@ -73,6 +73,15 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function toPublicUser(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    createdAt: user.createdAt,
+  };
+}
+
 async function parseBody(request) {
   const chunks = [];
 
@@ -103,6 +112,8 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  const requestUrl = new URL(request.url, `http://${request.headers.host ?? 'localhost'}`);
+
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       'Access-Control-Allow-Origin': CORS_ORIGIN,
@@ -114,12 +125,42 @@ const server = createServer(async (request, response) => {
   }
 
   try {
-    if (request.method === 'GET' && request.url === '/health') {
+    if (request.method === 'GET' && requestUrl.pathname === '/health') {
       json(response, 200, { ok: true });
       return;
     }
 
-    if (request.method === 'POST' && request.url === '/auth/signup') {
+    if (request.method === 'GET' && requestUrl.pathname === '/users') {
+      const users = await readUsers();
+      json(response, 200, {
+        users: users.map(toPublicUser),
+      });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname.startsWith('/users/')) {
+      const userId = requestUrl.pathname.slice('/users/'.length);
+
+      if (!userId) {
+        json(response, 400, { error: 'User id is required.' });
+        return;
+      }
+
+      const users = await readUsers();
+      const user = users.find((entry) => entry.id === userId);
+
+      if (!user) {
+        json(response, 404, { error: 'User not found.' });
+        return;
+      }
+
+      json(response, 200, {
+        user: toPublicUser(user),
+      });
+      return;
+    }
+
+    if (request.method === 'POST' && requestUrl.pathname === '/auth/signup') {
       const body = await parseBody(request);
       const name = String(body.name ?? '').trim();
       const email = String(body.email ?? '').trim().toLowerCase();
@@ -162,17 +203,12 @@ const server = createServer(async (request, response) => {
 
       json(response, 201, {
         message: 'Account created. Check Mailpit for the welcome email.',
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          createdAt: user.createdAt,
-        },
+        user: toPublicUser(user),
       });
       return;
     }
 
-    if (request.method === 'POST' && request.url === '/auth/signin') {
+    if (request.method === 'POST' && requestUrl.pathname === '/auth/signin') {
       const body = await parseBody(request);
       const email = String(body.email ?? '').trim().toLowerCase();
       const password = String(body.password ?? '');
@@ -186,17 +222,12 @@ const server = createServer(async (request, response) => {
 
       json(response, 200, {
         token: randomBytes(24).toString('hex'),
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          createdAt: user.createdAt,
-        },
+        user: toPublicUser(user),
       });
       return;
     }
 
-    if (ENABLE_TEST_ENDPOINTS && request.method === 'POST' && request.url === '/test/reset') {
+    if (ENABLE_TEST_ENDPOINTS && request.method === 'POST' && requestUrl.pathname === '/test/reset') {
       await writeUsers([]);
       json(response, 200, { ok: true });
       return;

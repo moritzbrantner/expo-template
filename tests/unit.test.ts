@@ -75,16 +75,20 @@ test('dev REST fixture is backed by folder-server and seeded example profiles', 
   assert.match(apiSource, /fetch\(`\$\{DEV_API_URL\}\/profiles`\)/);
 });
 
-test('mobile home delegates to the controls showcase and exposes auth session actions', () => {
+test('mobile home delegates to the interactive diagrams screen and exposes auth session actions', () => {
   const screenSource = readSource('app/(tabs)/index.tsx');
-  const nativeShowcaseSource = readSource('components/controls-showcase.tsx');
-  const webShowcaseSource = readSource('components/controls-showcase.web.tsx');
+  const nativeShowcaseSource = readSource('components/interactive-diagrams.tsx');
+  const webShowcaseSource = readSource('components/interactive-diagrams.web.tsx');
 
-  assert.match(screenSource, /ControlsShowcase/);
+  assert.match(screenSource, /InteractiveDiagrams/);
+  assert.match(nativeShowcaseSource, /Interactive diagrams/);
+  assert.match(nativeShowcaseSource, /Signal Mesh/);
   assert.match(nativeShowcaseSource, /Authentication/);
   assert.match(nativeShowcaseSource, /Session status/);
   assert.match(nativeShowcaseSource, /testID="session-status"/);
   assert.match(nativeShowcaseSource, /router\.push\('\/auth\/sign-in'\)/);
+  assert.match(webShowcaseSource, /Interactive diagrams/);
+  assert.match(webShowcaseSource, /Systems explained as a living canvas/);
   assert.match(webShowcaseSource, /Authentication/);
   assert.match(webShowcaseSource, /Session status/);
   assert.match(webShowcaseSource, /data-testid="session-status"/);

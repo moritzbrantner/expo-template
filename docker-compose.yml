@@ -1,4 +1,10 @@
 services:
+  dev-api:
+    build:
+      context: ./services/dev-api
+    ports:
+      - '4402:4002'
+
   auth-api:
     build:
       context: ./services/auth-api

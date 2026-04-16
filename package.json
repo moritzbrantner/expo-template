@@ -11,6 +11,8 @@
     "web": "expo start --web --port 4002",
     "lint": "expo lint",
     "dev": "expo start --port 4002",
+    "dev:api:up": "docker compose up -d dev-api",
+    "dev:api:down": "docker compose stop dev-api",
     "build": "expo export --platform web",
     "test": "node -e \"console.log('No automated tests configured for this app yet.')\"",
     "test:unit": "node --test ./tests/unit.test.js",

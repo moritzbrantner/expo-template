@@ -22,6 +22,14 @@ For the auth flow on web, you can point the app at the local test API:
 EXPO_PUBLIC_AUTH_API_URL=http://localhost:4401 pnpm web
 ```
 
+For the example REST endpoint used in development and testing, start the folder-backed API and
+point the app at it:
+
+```bash
+pnpm dev:api:up
+EXPO_PUBLIC_DEV_API_URL=http://localhost:4402 pnpm web
+```
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
@@ -79,6 +87,27 @@ Stop the local services with:
 
 ```bash
 pnpm test:e2e:services:down
+```
+
+## Dev REST fixture
+
+The repository also includes a read-only dev API served by
+[`moritzbrantner/folder-server`](https://github.com/moritzbrantner/folder-server).
+
+- `GET /profiles` returns seeded example profiles from `services/dev-api/data/profiles.json`
+- `GET /profiles/alex` returns a single example profile using `username` as the primary key
+- `GET /healthz` is exposed by `folder-server` for local health checks
+
+Start the service with:
+
+```bash
+pnpm dev:api:up
+```
+
+Stop it with:
+
+```bash
+pnpm dev:api:down
 ```
 
 ## Learn more

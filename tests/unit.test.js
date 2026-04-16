@@ -56,12 +56,46 @@ test('mobile has a dedicated communication screen with Websockets and CRDTs sect
   );
 
   assert.match(source, /Communication/);
-  assert.match(source, /Server users/);
-  assert.match(source, /GET \/users/);
-  assert.match(source, /Reload users/);
+  assert.match(source, /Example profiles/);
+  assert.match(source, /GET \/profiles/);
+  assert.match(source, /Reload profiles/);
+  assert.match(source, /folder-backed dev API/);
   assert.match(source, /Websockets/);
   assert.match(source, /CRDTs/);
   assert.match(source, /Communication topic/);
+});
+
+test('dev REST fixture is backed by folder-server and seeded example profiles', () => {
+  const composeSource = fs.readFileSync(
+    path.resolve(__dirname, '../docker-compose.yml'),
+    'utf8',
+  );
+  const dockerfileSource = fs.readFileSync(
+    path.resolve(__dirname, '../services/dev-api/Dockerfile'),
+    'utf8',
+  );
+  const profilesSource = fs.readFileSync(
+    path.resolve(__dirname, '../services/dev-api/data/profiles.json'),
+    'utf8',
+  );
+  const schemaSource = fs.readFileSync(
+    path.resolve(__dirname, '../services/dev-api/data/schema.json'),
+    'utf8',
+  );
+  const apiSource = fs.readFileSync(
+    path.resolve(__dirname, '../lib/dev-api.ts'),
+    'utf8',
+  );
+
+  assert.match(composeSource, /dev-api:/);
+  assert.match(composeSource, /4402:4002/);
+  assert.match(dockerfileSource, /moritzbrantner\/folder-server\.git/);
+  assert.match(dockerfileSource, /--readonly/);
+  assert.match(profilesSource, /"username": "alex"/);
+  assert.match(profilesSource, /"username": "jules"/);
+  assert.match(schemaSource, /"primary_key": "username"/);
+  assert.match(apiSource, /http:\/\/localhost:4402/);
+  assert.match(apiSource, /fetch\(`\$\{DEV_API_URL\}\/profiles`\)/);
 });
 
 test('mobile home exposes the local auth playground actions', () => {

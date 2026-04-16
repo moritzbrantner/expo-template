@@ -1,13 +1,17 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function readSource(relativePath: string): string {
+  return readFileSync(path.join(projectRoot, relativePath), 'utf8');
+}
 
 test('mobile settings screen has explicit light and dark theme controls', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../app/(tabs)/settings.tsx'),
-    'utf8',
-  );
+  const source = readSource('app/(tabs)/settings.tsx');
 
   assert.match(source, /ThemeModeToggle/);
   assert.match(source, /useThemeColor/);
@@ -17,20 +21,14 @@ test('mobile settings screen has explicit light and dark theme controls', () => 
 });
 
 test('mobile theme colors follow the app theme mode context', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../hooks/use-theme-color.ts'),
-    'utf8',
-  );
+  const source = readSource('hooks/use-theme-color.ts');
 
   assert.match(source, /useThemeMode/);
   assert.match(source, /activeTheme/);
 });
 
 test('mobile has a dedicated Three.js screen', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../app/(tabs)/three.tsx'),
-    'utf8',
-  );
+  const source = readSource('app/(tabs)/three.tsx');
 
   assert.match(source, /Three\.js/);
   assert.match(source, /dedicated mobile destination/);
@@ -38,10 +36,7 @@ test('mobile has a dedicated Three.js screen', () => {
 });
 
 test('mobile has a dedicated React Hook Form overview screen', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../app/(tabs)/react-hook-form.tsx'),
-    'utf8',
-  );
+  const source = readSource('app/(tabs)/react-hook-form.tsx');
 
   assert.match(source, /React Hook Form/);
   assert.match(source, /required validation/);
@@ -50,10 +45,7 @@ test('mobile has a dedicated React Hook Form overview screen', () => {
 });
 
 test('mobile has a dedicated communication screen with Websockets and CRDTs sections', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../app/(tabs)/communication.tsx'),
-    'utf8',
-  );
+  const source = readSource('app/(tabs)/communication.tsx');
 
   assert.match(source, /Communication/);
   assert.match(source, /Example profiles/);
@@ -66,26 +58,11 @@ test('mobile has a dedicated communication screen with Websockets and CRDTs sect
 });
 
 test('dev REST fixture is backed by folder-server and seeded example profiles', () => {
-  const composeSource = fs.readFileSync(
-    path.resolve(__dirname, '../docker-compose.yml'),
-    'utf8',
-  );
-  const dockerfileSource = fs.readFileSync(
-    path.resolve(__dirname, '../services/dev-api/Dockerfile'),
-    'utf8',
-  );
-  const profilesSource = fs.readFileSync(
-    path.resolve(__dirname, '../services/dev-api/data/profiles.json'),
-    'utf8',
-  );
-  const schemaSource = fs.readFileSync(
-    path.resolve(__dirname, '../services/dev-api/data/schema.json'),
-    'utf8',
-  );
-  const apiSource = fs.readFileSync(
-    path.resolve(__dirname, '../lib/dev-api.ts'),
-    'utf8',
-  );
+  const composeSource = readSource('docker-compose.yml');
+  const dockerfileSource = readSource('services/dev-api/Dockerfile');
+  const profilesSource = readSource('services/dev-api/data/profiles.json');
+  const schemaSource = readSource('services/dev-api/data/schema.json');
+  const apiSource = readSource('lib/dev-api.ts');
 
   assert.match(composeSource, /dev-api:/);
   assert.match(composeSource, /4402:4002/);
@@ -99,18 +76,9 @@ test('dev REST fixture is backed by folder-server and seeded example profiles', 
 });
 
 test('mobile home delegates to the controls showcase and exposes auth session actions', () => {
-  const screenSource = fs.readFileSync(
-    path.resolve(__dirname, '../app/(tabs)/index.tsx'),
-    'utf8',
-  );
-  const nativeShowcaseSource = fs.readFileSync(
-    path.resolve(__dirname, '../components/controls-showcase.tsx'),
-    'utf8',
-  );
-  const webShowcaseSource = fs.readFileSync(
-    path.resolve(__dirname, '../components/controls-showcase.web.tsx'),
-    'utf8',
-  );
+  const screenSource = readSource('app/(tabs)/index.tsx');
+  const nativeShowcaseSource = readSource('components/controls-showcase.tsx');
+  const webShowcaseSource = readSource('components/controls-showcase.web.tsx');
 
   assert.match(screenSource, /ControlsShowcase/);
   assert.match(nativeShowcaseSource, /Authentication/);
@@ -124,10 +92,7 @@ test('mobile home delegates to the controls showcase and exposes auth session ac
 });
 
 test('mobile has a dedicated profile screen for @username routes', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../app/profile/[profile].tsx'),
-    'utf8',
-  );
+  const source = readSource('app/profile/[profile].tsx');
 
   assert.match(source, /getProfileFromSegment/);
   assert.match(source, /@\/data\/profiles/);

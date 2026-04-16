@@ -1,18 +1,21 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
-const fs = require('node:fs');
-const fsp = require('node:fs/promises');
-const net = require('node:net');
-const os = require('node:os');
-const path = require('node:path');
-const { setTimeout: delay } = require('node:timers/promises');
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 test('mobile navigation exposes settings, libraries, and profile routes', () => {
-  const source = fs.readFileSync(path.resolve(__dirname, '../app/(tabs)/_layout.tsx'), 'utf8');
-  const stackSource = fs.readFileSync(path.resolve(__dirname, '../app/_layout.tsx'), 'utf8');
-  const iconSource = fs.readFileSync(
-    path.resolve(__dirname, '../components/ui/icon-symbol.tsx'),
+  const source = readFileSync(path.join(projectRoot, 'app/(tabs)/_layout.tsx'), 'utf8');
+  const stackSource = readFileSync(path.join(projectRoot, 'app/_layout.tsx'), 'utf8');
+  const iconSource = readFileSync(
+    path.join(projectRoot, 'components/ui/icon-symbol.tsx'),
     'utf8',
   );
 
@@ -37,7 +40,7 @@ test('mobile navigation exposes settings, libraries, and profile routes', () => 
   assert.match(stackSource, /title: 'Profile'/);
 });
 
-async function getAvailablePort() {
+function getAvailablePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
 
@@ -49,14 +52,13 @@ async function getAvailablePort() {
         return;
       }
 
-      const { port } = address;
       server.close((error) => {
         if (error) {
           reject(error);
           return;
         }
 
-        resolve(port);
+        resolve(address.port);
       });
     });
 
@@ -64,7 +66,7 @@ async function getAvailablePort() {
   });
 }
 
-async function waitForHealthcheck(baseUrl) {
+async function waitForHealthcheck(baseUrl: string): Promise<void> {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     try {
       const response = await fetch(`${baseUrl}/health`);
@@ -81,10 +83,11 @@ async function waitForHealthcheck(baseUrl) {
 }
 
 test('auth API exposes public user data for the mobile app', async () => {
-  const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'expo-template-auth-api-'));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'expo-template-auth-api-'));
   const dataFile = path.join(tempDir, 'users.json');
   const port = await getAvailablePort();
   const baseUrl = `http://127.0.0.1:${port}`;
+  const authApiDirectory = path.join(projectRoot, 'services/auth-api');
 
   const users = [
     {
@@ -103,10 +106,10 @@ test('auth API exposes public user data for the mobile app', async () => {
     },
   ];
 
-  await fsp.writeFile(dataFile, JSON.stringify(users, null, 2), 'utf8');
+  await writeFile(dataFile, JSON.stringify(users, null, 2), 'utf8');
 
-  const serverProcess = spawn(process.execPath, ['server.mjs'], {
-    cwd: path.resolve(__dirname, '../services/auth-api'),
+  const serverProcess = spawn(process.execPath, ['run', 'start'], {
+    cwd: authApiDirectory,
     env: {
       ...process.env,
       PORT: String(port),
@@ -125,7 +128,7 @@ test('auth API exposes public user data for the mobile app', async () => {
 
     const usersPayload = await usersResponse.json();
     assert.deepEqual(usersPayload, {
-      users: users.map(({ passwordHash, ...user }) => user),
+      users: users.map(({ passwordHash: _passwordHash, ...user }) => user),
     });
 
     const userResponse = await fetch(`${baseUrl}/users/user-jules`);
@@ -146,6 +149,6 @@ test('auth API exposes public user data for the mobile app', async () => {
   } finally {
     serverProcess.kill('SIGTERM');
     await delay(100);
-    await fsp.rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { recursive: true, force: true });
   }
 });

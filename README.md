@@ -7,27 +7,27 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 1. Install dependencies
 
    ```bash
-   pnpm install
+   bun install
    ```
 
 2. Start the app
 
    ```bash
-   pnpm start
+   bun start
    ```
 
 For the auth flow on web, you can point the app at the local test API:
 
 ```bash
-EXPO_PUBLIC_AUTH_API_URL=http://localhost:4401 pnpm web
+EXPO_PUBLIC_AUTH_API_URL=http://localhost:4401 bun web
 ```
 
 For the example REST endpoint used in development and testing, start the folder-backed API and
 point the app at it:
 
 ```bash
-pnpm dev:api:up
-EXPO_PUBLIC_DEV_API_URL=http://localhost:4402 pnpm web
+bun dev:api:up
+EXPO_PUBLIC_DEV_API_URL=http://localhost:4402 bun web
 ```
 
 In the output, you'll find options to open the app in a
@@ -44,7 +44,7 @@ You can start developing by editing the files inside the **app** directory. This
 When you're ready, run:
 
 ```bash
-pnpm reset-project
+bun reset-project
 ```
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
@@ -61,7 +61,7 @@ The Expo app persists the authenticated session with device storage, so a signed
 Start it manually with:
 
 ```bash
-pnpm test:e2e:services:up
+bun test:e2e:services:up
 ```
 
 Open Mailpit at `http://localhost:8825`.
@@ -80,13 +80,13 @@ render other users fetched from the server.
 Run the browser e2e suite with:
 
 ```bash
-pnpm test:e2e
+bun test:e2e
 ```
 
 Stop the local services with:
 
 ```bash
-pnpm test:e2e:services:down
+bun test:e2e:services:down
 ```
 
 ## Dev REST fixture
@@ -101,13 +101,13 @@ The repository also includes a read-only dev API served by
 Start the service with:
 
 ```bash
-pnpm dev:api:up
+bun dev:api:up
 ```
 
 Stop it with:
 
 ```bash
-pnpm dev:api:down
+bun dev:api:down
 ```
 
 ## Learn more

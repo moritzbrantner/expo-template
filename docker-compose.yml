@@ -7,7 +7,8 @@ services:
 
   auth-api:
     build:
-      context: ./services/auth-api
+      context: .
+      dockerfile: services/auth-api/Dockerfile
     environment:
       PORT: 4001
       CORS_ORIGIN: '*'

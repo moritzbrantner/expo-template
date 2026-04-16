@@ -8,7 +8,10 @@ import {
   useSpring,
   useTransform,
 } from 'motion/react';
+import { useRouter } from 'expo-router';
 import { CSSProperties, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
+
+import { useAuth } from '@/providers/auth-provider';
 
 type Suite = 'Lumen' | 'Cascade' | 'Velour';
 type Tone = 'Dawn' | 'Nocturne' | 'Citrus';
@@ -428,6 +431,8 @@ function PreviewOrb({
 }
 
 export default function ControlsShowcase() {
+  const router = useRouter();
+  const { currentUser, isHydrating, signOut } = useAuth();
   const reduceMotion = useReducedMotion();
   const [powerOn, setPowerOn] = useState(true);
   const [selectedSuite, setSelectedSuite] = useState<Suite>('Cascade');
@@ -436,6 +441,11 @@ export default function ControlsShowcase() {
 
   const activeSuite = suites.find((suite) => suite.id === selectedSuite) ?? suites[0];
   const activeTone = tones.find((tone) => tone.id === selectedTone) ?? tones[0];
+  const sessionStatus = isHydrating
+    ? 'Restoring session...'
+    : currentUser
+      ? `Signed in as ${currentUser.email}`
+      : 'No active session.';
 
   return (
     <div
@@ -482,6 +492,90 @@ export default function ControlsShowcase() {
           position: 'relative',
           zIndex: 1,
         }}>
+        <motion.section
+          initial={reduceMotion ? undefined : { opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          style={{
+            ...cardStyle,
+            alignItems: 'center',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 18,
+            justifyContent: 'space-between',
+            marginBottom: 24,
+            padding: 24,
+          }}>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div
+              style={{
+                color: 'rgba(247, 244, 238, 0.52)',
+                fontSize: 12,
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+              }}>
+              Authentication
+            </div>
+            <div
+              style={{
+                fontFamily: '"Avenir Next", "Segoe UI", sans-serif',
+                fontSize: 24,
+                fontWeight: 700,
+              }}>
+              Session status
+            </div>
+            <p
+              data-testid="session-status"
+              style={{
+                color: 'rgba(247, 244, 238, 0.8)',
+                fontFamily: '"Avenir Next", "Segoe UI", sans-serif',
+                lineHeight: 1.6,
+                margin: 0,
+              }}>
+              {sessionStatus}
+            </p>
+          </div>
+          {currentUser ? (
+            <button
+              data-testid="signout-button"
+              onClick={() => signOut()}
+              style={{
+                appearance: 'none',
+                background: 'linear-gradient(135deg, #C73838, #8A1C1C)',
+                border: 'none',
+                borderRadius: 999,
+                color: '#FFF6F3',
+                cursor: 'pointer',
+                fontFamily: '"Avenir Next", "Segoe UI", sans-serif',
+                fontSize: 15,
+                fontWeight: 700,
+                minHeight: 48,
+                padding: '0 20px',
+              }}
+              type="button">
+              Sign out
+            </button>
+          ) : (
+            <button
+              onClick={() => router.push('/auth/sign-in')}
+              style={{
+                appearance: 'none',
+                background: 'linear-gradient(135deg, #FFF4DB 0%, #FFC68A 50%, #FF7B6B 100%)',
+                border: 'none',
+                borderRadius: 999,
+                color: '#081018',
+                cursor: 'pointer',
+                fontFamily: '"Avenir Next", "Segoe UI", sans-serif',
+                fontSize: 15,
+                fontWeight: 700,
+                minHeight: 48,
+                padding: '0 20px',
+              }}
+              type="button">
+              Sign in
+            </button>
+          )}
+        </motion.section>
         <motion.section
           initial={reduceMotion ? undefined : { opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}

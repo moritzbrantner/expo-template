@@ -1,19 +1,58 @@
+import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useThemeMode } from '@/hooks/theme-mode';
+import { useAuth } from '@/providers/auth-provider';
 
 const suites = ['Lumen', 'Cascade', 'Velour'];
 
 export default function ControlsShowcase() {
+  const router = useRouter();
+  const { currentUser, isHydrating, signOut } = useAuth();
   const { activeTheme } = useThemeMode();
   const palette = Colors[activeTheme];
+  const sessionStatus = isHydrating
+    ? 'Restoring session...'
+    : currentUser
+      ? `Signed in as ${currentUser.email}`
+      : 'No active session.';
 
   return (
     <ScrollView
       style={[styles.screen, { backgroundColor: palette.background }]}
       contentContainerStyle={styles.content}>
+      <View
+        style={[
+          styles.sessionCard,
+          {
+            backgroundColor: palette.surface,
+            borderColor: palette.border,
+          },
+        ]}>
+        <View style={styles.sessionCopy}>
+          <ThemedText style={styles.sessionEyebrow}>Authentication</ThemedText>
+          <ThemedText type="subtitle">Session status</ThemedText>
+          <ThemedText testID="session-status">{sessionStatus}</ThemedText>
+        </View>
+        {currentUser ? (
+          <Pressable
+            accessibilityRole="button"
+            style={[styles.sessionButton, { backgroundColor: '#8A1C1C' }]}
+            testID="signout-button"
+            onPress={signOut}>
+            <ThemedText style={styles.sessionButtonText}>Sign out</ThemedText>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            style={[styles.sessionButton, { backgroundColor: palette.accent }]}
+            onPress={() => router.push('/auth/sign-in')}>
+            <ThemedText style={styles.sessionButtonText}>Sign in</ThemedText>
+          </Pressable>
+        )}
+      </View>
       <View
         style={[
           styles.hero,
@@ -67,6 +106,32 @@ const styles = StyleSheet.create({
   content: {
     gap: 18,
     padding: 20,
+  },
+  sessionCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 16,
+    padding: 20,
+  },
+  sessionCopy: {
+    gap: 6,
+  },
+  sessionEyebrow: {
+    fontSize: 12,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+  },
+  sessionButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 18,
+  },
+  sessionButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   hero: {
     borderRadius: 30,

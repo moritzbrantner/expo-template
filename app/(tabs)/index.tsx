@@ -1,122 +1,145 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { currentUser, getProfileByUsername } from '@/data/profiles';
-import { Link } from 'expo-router';
+import { Colors } from '@/constants/theme';
+import { useThemeMode } from '@/hooks/theme-mode';
+import { useAuth } from '@/providers/auth-provider';
 
 export default function HomeScreen() {
-  const teammateProfile = getProfileByUsername('jules');
+  const router = useRouter();
+  const { activeTheme } = useThemeMode();
+  const palette = Colors[activeTheme];
+  const { currentUser, isHydrating, signOut } = useAuth();
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
+    <ScrollView
+      style={[styles.screen, { backgroundColor: palette.background }]}
+      contentContainerStyle={styles.content}
+      testID="home-screen">
+      <View
+        style={[
+          styles.hero,
+          {
+            backgroundColor: activeTheme === 'dark' ? '#0D1B22' : '#EAF6FB',
+            borderColor: palette.border,
+          },
+        ]}>
+        <ThemedText type="title">Authentication playground</ThemedText>
+        <ThemedText style={{ color: palette.mutedText }}>
+          The app now includes standalone signup and signin routes backed by a local auth API and
+          Mailpit for email capture.
         </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">pnpm reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Profiles</ThemedText>
-        <ThemedText>Open your own mobile profile or jump to a dummy teammate page.</ThemedText>
-        <Link href={`/profile/@${currentUser.username}`} style={styles.profileLink}>
-          <ThemedText type="defaultSemiBold">Open my profile</ThemedText>
-        </Link>
-        {teammateProfile ? (
-          <Link href={`/profile/@${teammateProfile.username}`} style={styles.profileLink}>
-            <ThemedText type="defaultSemiBold">
-              Open @{teammateProfile.username}&apos;s profile
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="link"
+            style={[styles.primaryButton, { backgroundColor: palette.accent }]}
+            testID="home-signup-link"
+            onPress={() => router.push('/auth/sign-up')}>
+            <ThemedText style={styles.primaryButtonLabel}>Create account</ThemedText>
+          </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            style={[
+              styles.secondaryButton,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+              },
+            ]}
+            testID="home-signin-link"
+            onPress={() => router.push('/auth/sign-in')}>
+            <ThemedText type="defaultSemiBold">Sign in</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+      <ThemedView
+        style={[
+          styles.statusCard,
+          {
+            backgroundColor: palette.surface,
+            borderColor: palette.border,
+          },
+        ]}>
+        <ThemedText type="subtitle">Session state</ThemedText>
+        {isHydrating ? (
+          <>
+            <ThemedText testID="session-status">Restoring session...</ThemedText>
+            <ThemedText style={{ color: palette.mutedText }}>
+              Loading the last authenticated session from device storage.
             </ThemedText>
-          </Link>
-        ) : null}
+          </>
+        ) : currentUser ? (
+          <>
+            <ThemedText testID="session-status">
+              Signed in as <ThemedText type="defaultSemiBold">{currentUser.email}</ThemedText>
+            </ThemedText>
+            <ThemedText style={{ color: palette.mutedText }}>
+              Welcome back, {currentUser.name}.
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.secondaryButton, { borderColor: palette.border }]}
+              testID="signout-button"
+              onPress={signOut}>
+              <ThemedText type="defaultSemiBold">Sign out</ThemedText>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <ThemedText testID="session-status">No active session.</ThemedText>
+            <ThemedText style={{ color: palette.mutedText }}>
+              Sign up first, then sign in to see the authenticated state here.
+            </ThemedText>
+          </>
+        )}
       </ThemedView>
-    </ParallaxScrollView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  screen: {
+    flex: 1,
+  },
+  content: {
+    gap: 18,
+    padding: 20,
+  },
+  hero: {
+    gap: 14,
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 24,
+  },
+  actions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  profileLink: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  primaryButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 18,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(127, 127, 127, 0.45)',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  primaryButtonLabel: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  statusCard: {
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
   },
 });

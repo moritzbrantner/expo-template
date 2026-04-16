@@ -16,6 +16,12 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    pnpm start
    ```
 
+For the auth flow on web, you can point the app at the local test API:
+
+```bash
+EXPO_PUBLIC_AUTH_API_URL=http://localhost:4401 pnpm web
+```
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
@@ -34,6 +40,46 @@ pnpm reset-project
 ```
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+
+## Auth e2e stack
+
+The repository includes a local auth testing stack:
+
+- `auth-api`: lightweight Node service for `/auth/signup` and `/auth/signin`
+- `mailpit`: local SMTP + inbox UI used to capture signup emails
+
+The Expo app persists the authenticated session with device storage, so a signed-in user stays authenticated across reloads until they sign out.
+
+Start it manually with:
+
+```bash
+pnpm test:e2e:services:up
+```
+
+Open Mailpit at `http://localhost:8825`.
+
+The same service now also exposes public user data for the mobile app:
+
+```bash
+curl http://localhost:4401/users
+curl http://localhost:4401/users/<user-id>
+```
+
+The `Communication` tab in the Expo app calls `GET /users` through
+`EXPO_PUBLIC_AUTH_API_URL`, so once you create a couple of accounts and sign in, the app can
+render other users fetched from the server.
+
+Run the browser e2e suite with:
+
+```bash
+pnpm test:e2e
+```
+
+Stop the local services with:
+
+```bash
+pnpm test:e2e:services:down
+```
 
 ## Learn more
 

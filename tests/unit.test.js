@@ -56,21 +56,26 @@ test('mobile has a dedicated communication screen with Websockets and CRDTs sect
   );
 
   assert.match(source, /Communication/);
+  assert.match(source, /Server users/);
+  assert.match(source, /GET \/users/);
+  assert.match(source, /Reload users/);
   assert.match(source, /Websockets/);
   assert.match(source, /CRDTs/);
   assert.match(source, /Communication topic/);
 });
 
-test('mobile home links to own and dummy profile pages', () => {
+test('mobile home exposes the local auth playground actions', () => {
   const source = fs.readFileSync(
     path.resolve(__dirname, '../app/(tabs)/index.tsx'),
     'utf8',
   );
 
-  assert.match(source, /Open my profile/);
-  assert.match(source, /getProfileByUsername\('jules'\)/);
-  assert.match(source, /href=\{`\/profile\/@\$\{currentUser\.username\}`\}/);
-  assert.match(source, /href=\{`\/profile\/@\$\{teammateProfile\.username\}`\}/);
+  assert.match(source, /Authentication playground/);
+  assert.match(source, /Create account/);
+  assert.match(source, /Sign in/);
+  assert.match(source, /Session state/);
+  assert.match(source, /router\.push\('\/auth\/sign-up'\)/);
+  assert.match(source, /router\.push\('\/auth\/sign-in'\)/);
 });
 
 test('mobile has a dedicated profile screen for @username routes', () => {

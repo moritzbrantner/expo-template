@@ -17,8 +17,14 @@ export function ThemeModeToggle() {
       <ThemedText style={[styles.description, { color: mutedTextColor }]}>
         Switch between light and dark appearance for the mobile app.
       </ThemedText>
+      <ThemedText
+        testID="theme-mode-status"
+        style={[styles.description, { color: mutedTextColor }]}>
+        Saved preference: {activeTheme === 'dark' ? 'Dark' : 'Light'}
+      </ThemedText>
       <View style={styles.buttonRow}>
         <Pressable
+          testID="theme-mode-light"
           accessibilityRole="button"
           style={[
             styles.button,
@@ -32,6 +38,7 @@ export function ThemeModeToggle() {
           <ThemedText style={styles.buttonLabel}>Light</ThemedText>
         </Pressable>
         <Pressable
+          testID="theme-mode-dark"
           accessibilityRole="button"
           style={[
             styles.button,

@@ -7,6 +7,16 @@ export type AuthUser = {
   createdAt: string;
 };
 
+export class ApiRequestError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+  }
+}
+
 type ApiErrorPayload = {
   error?: string;
 };
@@ -19,7 +29,7 @@ async function parseResponse<T>(response: Response) {
   const payload = (await response.json().catch(() => null)) as ApiErrorPayload | ApiSuccessPayload<T> | null;
 
   if (!response.ok) {
-    throw new Error(payload?.error ?? 'The request could not be completed.');
+    throw new ApiRequestError(payload?.error ?? 'The request could not be completed.', response.status);
   }
 
   return (payload ?? {}) as ApiSuccessPayload<T>;

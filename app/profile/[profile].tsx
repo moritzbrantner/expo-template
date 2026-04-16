@@ -1,38 +1,116 @@
 import { Link, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { getProfileFromSegment } from '@/data/profiles';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { ApiRequestError, fetchUserRequest, type AuthUser } from '@/lib/auth';
+
+type ProfileState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'not-found' }
+  | { status: 'success'; user: AuthUser };
 
 export default function ProfileScreen() {
   const borderColor = useThemeColor({}, 'border');
   const mutedTextColor = useThemeColor({}, 'mutedText');
   const { profile } = useLocalSearchParams<{ profile?: string | string[] }>();
-  const profileSegment = Array.isArray(profile) ? profile[0] : profile;
-  const user = profileSegment ? getProfileFromSegment(profileSegment) : null;
+  const userId = Array.isArray(profile) ? profile[0] : profile;
+  const [profileState, setProfileState] = useState<ProfileState>({ status: 'loading' });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadUserProfile() {
+      if (!userId) {
+        if (isMounted) {
+          setProfileState({ status: 'not-found' });
+        }
+        return;
+      }
+
+      setProfileState({ status: 'loading' });
+
+      try {
+        const response = await fetchUserRequest(userId);
+
+        if (isMounted) {
+          setProfileState({
+            status: 'success',
+            user: response.user,
+          });
+        }
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        if (error instanceof ApiRequestError && error.status === 404) {
+          setProfileState({ status: 'not-found' });
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'Unable to load this profile.';
+        setProfileState({ status: 'error', message });
+      }
+    }
+
+    void loadUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   return (
     <ThemedView style={styles.page}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content}>
-          {user ? (
+          {profileState.status === 'loading' ? (
+            <ThemedView
+              style={[styles.card, { borderColor }]}
+              lightColor={Colors.light.surface}
+              darkColor={Colors.dark.surface}>
+              <ThemedText type="subtitle">Loading profile</ThemedText>
+              <ThemedText style={{ color: mutedTextColor }}>
+                Fetching user details from the auth API.
+              </ThemedText>
+            </ThemedView>
+          ) : profileState.status === 'error' ? (
+            <ThemedView
+              style={[styles.card, { borderColor }]}
+              lightColor={Colors.light.surface}
+              darkColor={Colors.dark.surface}>
+              <ThemedText type="subtitle">Profile unavailable</ThemedText>
+              <ThemedText style={{ color: mutedTextColor }}>{profileState.message}</ThemedText>
+            </ThemedView>
+          ) : profileState.status === 'not-found' ? (
+            <ThemedView
+              style={[styles.card, { borderColor }]}
+              lightColor={Colors.light.surface}
+              darkColor={Colors.dark.surface}>
+              <ThemedText type="subtitle">Profile not found</ThemedText>
+              <ThemedText style={{ color: mutedTextColor }}>
+                This route expects a live auth-api user id such as `/profile/1234abcd`.
+              </ThemedText>
+            </ThemedView>
+          ) : (
             <>
               <ThemedView
+                testID="profile-detail-card"
                 style={[styles.hero, { borderColor }]}
                 lightColor={Colors.light.surface}
                 darkColor={Colors.dark.surface}>
-                <ThemedText style={[styles.eyebrow, { color: mutedTextColor }]}>
-                  Mobile profile
+                <ThemedText style={[styles.eyebrow, { color: mutedTextColor }]}>Auth user</ThemedText>
+                <ThemedText type="title">{profileState.user.name}</ThemedText>
+                <ThemedText style={[styles.meta, { color: mutedTextColor }]}>
+                  {profileState.user.email}
                 </ThemedText>
-                <ThemedText type="title">{user.name}</ThemedText>
-                <ThemedText style={[styles.handle, { color: mutedTextColor }]}>
-                  @{user.username}
-                </ThemedText>
-                <ThemedText style={styles.bio}>{user.bio}</ThemedText>
+                <ThemedText style={styles.bio}>User id: {profileState.user.id}</ThemedText>
               </ThemedView>
 
               <ThemedView
@@ -40,43 +118,27 @@ export default function ProfileScreen() {
                 lightColor={Colors.light.surface}
                 darkColor={Colors.dark.surface}>
                 <ThemedText type="subtitle">Overview</ThemedText>
-                <ThemedText>{user.role}</ThemedText>
-                <ThemedText style={{ color: mutedTextColor }}>{user.location}</ThemedText>
-                <ThemedText style={styles.about}>{user.about}</ThemedText>
+                <ThemedText>Email: {profileState.user.email}</ThemedText>
+                <ThemedText style={{ color: mutedTextColor }}>Created at</ThemedText>
+                <ThemedText style={styles.about}>
+                  {new Date(profileState.user.createdAt).toLocaleString()}
+                </ThemedText>
               </ThemedView>
 
               <ThemedView
                 style={[styles.card, { borderColor }]}
                 lightColor={Colors.light.surface}
                 darkColor={Colors.dark.surface}>
-                <ThemedText type="subtitle">Focus areas</ThemedText>
-                <ThemedView style={styles.interests}>
-                  {user.interests.map((interest) => (
-                    <ThemedView
-                      key={interest}
-                      style={[styles.interestPill, { borderColor }]}
-                      lightColor={Colors.light.surface}
-                      darkColor={Colors.dark.surface}>
-                      <ThemedText>{interest}</ThemedText>
-                    </ThemedView>
-                  ))}
-                </ThemedView>
+                <ThemedText type="subtitle">Route contract</ThemedText>
+                <ThemedText style={{ color: mutedTextColor }}>
+                  This screen resolves `GET /users/:id` from `EXPO_PUBLIC_AUTH_API_URL`.
+                </ThemedText>
               </ThemedView>
             </>
-          ) : (
-            <ThemedView
-              style={[styles.card, { borderColor }]}
-              lightColor={Colors.light.surface}
-              darkColor={Colors.dark.surface}>
-              <ThemedText type="subtitle">Profile not found</ThemedText>
-              <ThemedText>
-                This mobile route only resolves handles that look like /profile/@username.
-              </ThemedText>
-            </ThemedView>
           )}
 
-          <Link href="/" style={[styles.backLink, { borderColor }]}>
-            <ThemedText type="defaultSemiBold">Back home</ThemedText>
+          <Link href="/communication" style={[styles.backLink, { borderColor }]}>
+            <ThemedText type="defaultSemiBold">Back to communication</ThemedText>
           </Link>
         </ScrollView>
       </SafeAreaView>
@@ -108,7 +170,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     fontSize: 12,
   },
-  handle: {
+  meta: {
     fontSize: 16,
   },
   bio: {
@@ -122,17 +184,6 @@ const styles = StyleSheet.create({
   },
   about: {
     lineHeight: 22,
-  },
-  interests: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  interestPill: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   backLink: {
     borderWidth: 1,

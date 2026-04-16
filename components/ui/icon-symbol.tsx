@@ -18,10 +18,7 @@ const MAPPING = {
   'slider.horizontal.3': 'tune',
   'paperplane.fill': 'send',
   'bubble.left.and.bubble.right.fill': 'forum',
-  'square.and.arrow.up.fill': 'upload',
   'gearshape.fill': 'settings',
-  'cube.fill': 'view-in-ar',
-  'list.bullet.clipboard.fill': 'fact-check',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
 } as IconMapping;

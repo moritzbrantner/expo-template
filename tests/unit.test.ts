@@ -1,106 +1,116 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import test, { afterEach } from 'node:test';
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-function readSource(relativePath: string): string {
-  return readFileSync(path.join(projectRoot, relativePath), 'utf8');
-}
+import {
+  ApiRequestError,
+  fetchUserRequest,
+  fetchUsersRequest,
+} from '../lib/auth';
+import {
+  THEME_MODE_STORAGE_KEY,
+  loadPersistedThemeMode,
+  normalizeThemeMode,
+  persistThemeMode,
+} from '../lib/theme-storage';
 
-test('mobile settings screen has explicit light and dark theme controls', () => {
-  const source = readSource('app/(tabs)/settings.tsx');
+const originalFetch = global.fetch;
+const originalGetItem = AsyncStorage.getItem;
+const originalSetItem = AsyncStorage.setItem;
 
-  assert.match(source, /ThemeModeToggle/);
-  assert.match(source, /useThemeColor/);
-  assert.match(source, /lightColor=\{Colors\.light\.surface\}/);
-  assert.match(source, /Settings/);
-  assert.match(source, /applied immediately/);
+afterEach(() => {
+  global.fetch = originalFetch;
+  AsyncStorage.getItem = originalGetItem;
+  AsyncStorage.setItem = originalSetItem;
 });
 
-test('mobile theme colors follow the app theme mode context', () => {
-  const source = readSource('hooks/use-theme-color.ts');
-
-  assert.match(source, /useThemeMode/);
-  assert.match(source, /activeTheme/);
+test('theme mode helpers normalize persisted values', () => {
+  assert.equal(normalizeThemeMode('light'), 'light');
+  assert.equal(normalizeThemeMode('dark'), 'dark');
+  assert.equal(normalizeThemeMode('system'), null);
+  assert.equal(normalizeThemeMode(null), null);
 });
 
-test('mobile has a dedicated Three.js screen', () => {
-  const source = readSource('app/(tabs)/three.tsx');
+test('theme mode helpers load and persist saved preference', async () => {
+  let writtenValue: { key: string; value: string } | null = null;
 
-  assert.match(source, /Three\.js/);
-  assert.match(source, /dedicated mobile destination/);
-  assert.match(source, /navigation menu/);
+  AsyncStorage.getItem = async (key) => {
+    assert.equal(key, THEME_MODE_STORAGE_KEY);
+    return 'dark';
+  };
+
+  AsyncStorage.setItem = async (key, value) => {
+    writtenValue = { key, value };
+  };
+
+  assert.equal(await loadPersistedThemeMode(), 'dark');
+
+  await persistThemeMode('light');
+
+  assert.deepEqual(writtenValue, {
+    key: THEME_MODE_STORAGE_KEY,
+    value: 'light',
+  });
 });
 
-test('mobile has a dedicated React Hook Form overview screen', () => {
-  const source = readSource('app/(tabs)/react-hook-form.tsx');
+test('fetchUsersRequest returns auth-api users', async () => {
+  global.fetch = async (input) => {
+    assert.equal(String(input), 'http://localhost:4401/users');
 
-  assert.match(source, /React Hook Form/);
-  assert.match(source, /required validation/);
-  assert.match(source, /dirty state/);
-  assert.match(source, /reset\(newValues\)/);
+    return new Response(
+      JSON.stringify({
+        users: [
+          {
+            id: 'user-1',
+            name: 'Ada Lovelace',
+            email: 'ada@example.test',
+            createdAt: '2026-04-16T10:00:00.000Z',
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+  };
+
+  const payload = await fetchUsersRequest();
+
+  assert.deepEqual(payload, {
+    users: [
+      {
+        id: 'user-1',
+        name: 'Ada Lovelace',
+        email: 'ada@example.test',
+        createdAt: '2026-04-16T10:00:00.000Z',
+      },
+    ],
+  });
 });
 
-test('mobile has a dedicated communication screen with Websockets and CRDTs sections', () => {
-  const source = readSource('app/(tabs)/communication.tsx');
+test('fetchUserRequest surfaces auth-api errors with status information', async () => {
+  global.fetch = async (input) => {
+    assert.equal(String(input), 'http://localhost:4401/users/missing-user');
 
-  assert.match(source, /Communication/);
-  assert.match(source, /Example profiles/);
-  assert.match(source, /GET \/profiles/);
-  assert.match(source, /Reload profiles/);
-  assert.match(source, /folder-backed dev API/);
-  assert.match(source, /Websockets/);
-  assert.match(source, /CRDTs/);
-  assert.match(source, /Communication topic/);
-});
+    return new Response(JSON.stringify({ error: 'User not found.' }), {
+      status: 404,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  };
 
-test('dev REST fixture is backed by folder-server and seeded example profiles', () => {
-  const composeSource = readSource('docker-compose.yml');
-  const dockerfileSource = readSource('services/dev-api/Dockerfile');
-  const profilesSource = readSource('services/dev-api/data/profiles.json');
-  const schemaSource = readSource('services/dev-api/data/schema.json');
-  const apiSource = readSource('lib/dev-api.ts');
-
-  assert.match(composeSource, /dev-api:/);
-  assert.match(composeSource, /4402:4002/);
-  assert.match(dockerfileSource, /moritzbrantner\/folder-server\.git/);
-  assert.match(dockerfileSource, /--readonly/);
-  assert.match(profilesSource, /"username": "alex"/);
-  assert.match(profilesSource, /"username": "jules"/);
-  assert.match(schemaSource, /"primary_key": "username"/);
-  assert.match(apiSource, /http:\/\/localhost:4402/);
-  assert.match(apiSource, /fetch\(`\$\{DEV_API_URL\}\/profiles`\)/);
-});
-
-test('mobile home delegates to the interactive diagrams screen and exposes auth session actions', () => {
-  const screenSource = readSource('app/(tabs)/index.tsx');
-  const nativeShowcaseSource = readSource('components/interactive-diagrams.tsx');
-  const webShowcaseSource = readSource('components/interactive-diagrams.web.tsx');
-
-  assert.match(screenSource, /InteractiveDiagrams/);
-  assert.match(nativeShowcaseSource, /Interactive diagrams/);
-  assert.match(nativeShowcaseSource, /Signal Mesh/);
-  assert.match(nativeShowcaseSource, /Authentication/);
-  assert.match(nativeShowcaseSource, /Session status/);
-  assert.match(nativeShowcaseSource, /testID="session-status"/);
-  assert.match(nativeShowcaseSource, /router\.push\('\/auth\/sign-in'\)/);
-  assert.match(webShowcaseSource, /Interactive diagrams/);
-  assert.match(webShowcaseSource, /Systems explained as a living canvas/);
-  assert.match(webShowcaseSource, /Authentication/);
-  assert.match(webShowcaseSource, /Session status/);
-  assert.match(webShowcaseSource, /data-testid="session-status"/);
-  assert.match(webShowcaseSource, /router\.push\('\/auth\/sign-in'\)/);
-});
-
-test('mobile has a dedicated profile screen for @username routes', () => {
-  const source = readSource('app/profile/[profile].tsx');
-
-  assert.match(source, /getProfileFromSegment/);
-  assert.match(source, /@\/data\/profiles/);
-  assert.match(source, /Profile not found/);
-  assert.match(source, /Mobile profile/);
-  assert.match(source, /\/profile\/@username/);
+  await assert.rejects(
+    () => fetchUserRequest('missing-user'),
+    (error: unknown) => {
+      assert.ok(error instanceof ApiRequestError);
+      assert.equal(error.status, 404);
+      assert.equal(error.message, 'User not found.');
+      return true;
+    },
+  );
 });

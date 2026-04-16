@@ -28,7 +28,7 @@ export default function SettingsScreen() {
             darkColor={Colors.dark.surface}>
             <ThemeModeToggle />
             <ThemedText style={[styles.hint, { color: mutedTextColor }]}>
-              Theme changes are applied immediately throughout the app.
+              Theme changes are applied immediately and saved across reloads.
             </ThemedText>
           </ThemedView>
         </ScrollView>

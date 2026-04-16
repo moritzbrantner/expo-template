@@ -9,35 +9,45 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { appManifest } from '../app.manifest';
+
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-test('mobile navigation exposes settings, libraries, and profile routes', () => {
-  const source = readFileSync(path.join(projectRoot, 'app/(tabs)/_layout.tsx'), 'utf8');
+test('navigation surface only exposes the supported tabs and keeps the profile stack route', () => {
+  const tabsSource = readFileSync(path.join(projectRoot, 'app/(tabs)/_layout.tsx'), 'utf8');
   const stackSource = readFileSync(path.join(projectRoot, 'app/_layout.tsx'), 'utf8');
-  const iconSource = readFileSync(
-    path.join(projectRoot, 'components/ui/icon-symbol.tsx'),
+
+  assert.match(tabsSource, /name="index"/);
+  assert.match(tabsSource, /name="explore"/);
+  assert.match(tabsSource, /name="communication"/);
+  assert.match(tabsSource, /name="settings"/);
+  assert.doesNotMatch(tabsSource, /name="uploads"/);
+  assert.doesNotMatch(tabsSource, /name="three"/);
+  assert.doesNotMatch(tabsSource, /name="react-hook-form"/);
+  assert.match(stackSource, /name="profile\/\[profile\]"/);
+});
+
+test('manifest metadata only advertises the current template surface', () => {
+  assert.deepEqual(appManifest.featureFlags, ['tabs', 'auth', 'profiles', 'theme']);
+  assert.ok(!('entryWorkspace' in appManifest));
+  assert.ok(!('sharedPackages' in appManifest));
+});
+
+test('communication and profile routes use auth-api user ids instead of seeded profile handles', () => {
+  const communicationSource = readFileSync(
+    path.join(projectRoot, 'app/(tabs)/communication.tsx'),
     'utf8',
   );
+  const profileSource = readFileSync(path.join(projectRoot, 'app/profile/[profile].tsx'), 'utf8');
 
-  assert.match(source, /name="communication"/);
-  assert.match(source, /title: 'Communication'/);
-  assert.match(source, /bubble\.left\.and\.bubble\.right\.fill/);
-  assert.match(source, /name="uploads"/);
-  assert.match(source, /title: 'Uploads'/);
-  assert.match(source, /square\.and\.arrow\.up\.fill/);
-  assert.match(source, /name="settings"/);
-  assert.match(source, /title: 'Settings'/);
-  assert.match(source, /gearshape\.fill/);
-  assert.match(source, /name="three"/);
-  assert.match(source, /title: 'Three\.js'/);
-  assert.match(source, /cube\.fill/);
-  assert.match(source, /name="react-hook-form"/);
-  assert.match(source, /title: 'Form'/);
-  assert.match(source, /list\.bullet\.clipboard\.fill/);
-  assert.match(iconSource, /'bubble\.left\.and\.bubble\.right\.fill': 'forum'/);
-  assert.match(iconSource, /'square\.and\.arrow\.up\.fill': 'upload'/);
-  assert.match(stackSource, /name="profile\/\[profile\]"/);
-  assert.match(stackSource, /title: 'Profile'/);
+  assert.match(communicationSource, /fetchUsersRequest/);
+  assert.match(communicationSource, /router\.push\(`\/profile\/\$\{user\.id\}`\)/);
+  assert.doesNotMatch(communicationSource, /fetchProfilesRequest/);
+  assert.match(profileSource, /fetchUserRequest/);
+  assert.match(profileSource, /error\.status === 404/);
+  assert.match(profileSource, /\/profile\/1234abcd/);
+  assert.doesNotMatch(profileSource, /getProfileFromSegment/);
+  assert.doesNotMatch(profileSource, /@username/);
 });
 
 function getAvailablePort(): Promise<number> {

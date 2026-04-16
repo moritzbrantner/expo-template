@@ -14,7 +14,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'bun web',
+    command: 'bun web --clear',
     port: 4002,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

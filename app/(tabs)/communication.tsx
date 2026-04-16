@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,7 +7,7 @@ import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { fetchProfilesRequest, type ExampleProfile } from '@/lib/dev-api';
+import { fetchUsersRequest, type AuthUser } from '@/lib/auth';
 
 const communicationSections = [
   {
@@ -31,40 +32,41 @@ const communicationSections = [
   },
 ];
 
-async function loadExampleProfiles({
-  setIsLoadingProfiles,
-  setProfilesError,
-  setProfiles,
+async function loadUsers({
+  setIsLoadingUsers,
+  setUsersError,
+  setUsers,
 }: {
-  setIsLoadingProfiles: (value: boolean) => void;
-  setProfilesError: (value: string | null) => void;
-  setProfiles: (value: ExampleProfile[]) => void;
+  setIsLoadingUsers: (value: boolean) => void;
+  setUsersError: (value: string | null) => void;
+  setUsers: (value: AuthUser[]) => void;
 }) {
   try {
-    setIsLoadingProfiles(true);
-    setProfilesError(null);
-    const response = await fetchProfilesRequest();
-    setProfiles(response);
+    setIsLoadingUsers(true);
+    setUsersError(null);
+    const response = await fetchUsersRequest();
+    setUsers(response.users);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to load example profiles.';
-    setProfilesError(message);
+    const message = error instanceof Error ? error.message : 'Unable to load users.';
+    setUsersError(message);
   } finally {
-    setIsLoadingProfiles(false);
+    setIsLoadingUsers(false);
   }
 }
 
 export default function CommunicationScreen() {
+  const router = useRouter();
   const borderColor = useThemeColor({}, 'border');
   const mutedTextColor = useThemeColor({}, 'mutedText');
-  const [profiles, setProfiles] = useState<ExampleProfile[]>([]);
-  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
-  const [profilesError, setProfilesError] = useState<string | null>(null);
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   useEffect(() => {
-    void loadExampleProfiles({
-      setIsLoadingProfiles,
-      setProfilesError,
-      setProfiles,
+    void loadUsers({
+      setIsLoadingUsers,
+      setUsersError,
+      setUsers,
     });
   }, []);
 
@@ -85,46 +87,52 @@ export default function CommunicationScreen() {
             lightColor={Colors.light.surface}
             darkColor={Colors.dark.surface}>
             <ThemedText style={[styles.eyebrow, { color: mutedTextColor }]}>
-              API example
+              Public directory
             </ThemedText>
-            <ThemedText type="subtitle">Example profiles</ThemedText>
+            <ThemedText type="subtitle">Users from auth-api</ThemedText>
             <ThemedText style={{ color: mutedTextColor }}>
-              The app calls <ThemedText type="defaultSemiBold">GET /profiles</ThemedText> on the
-              local folder-backed dev API so development and testing always have stable REST data.
+              The app calls <ThemedText type="defaultSemiBold">GET /users</ThemedText> on
+              `EXPO_PUBLIC_AUTH_API_URL` and treats that auth service as the source of truth for
+              signed-up users visible in the template.
             </ThemedText>
-            {isLoadingProfiles ? (
+            {isLoadingUsers ? (
               <ThemedText style={{ color: mutedTextColor }}>
-                Loading example profiles from the dev API...
+                Loading users from the auth API...
               </ThemedText>
-            ) : profilesError ? (
-              <ThemedText style={{ color: mutedTextColor }}>{profilesError}</ThemedText>
-            ) : profiles.length === 0 ? (
+            ) : usersError ? (
+              <ThemedText style={{ color: mutedTextColor }}>{usersError}</ThemedText>
+            ) : users.length === 0 ? (
               <ThemedText style={{ color: mutedTextColor }}>
-                No example profiles are available right now.
+                No users are available right now.
               </ThemedText>
             ) : (
-              profiles.map((profile) => (
-                <ThemedView key={profile.username} style={[styles.userRow, { borderColor }]}>
-                  <ThemedText type="defaultSemiBold">{profile.name}</ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>@{profile.username}</ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>{profile.role}</ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>{profile.location}</ThemedText>
+              users.map((user) => (
+                <Pressable
+                  key={user.id}
+                  testID={`communication-user-${user.id}`}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.userRow, { borderColor }, pressed && styles.userRowPressed]}
+                  onPress={() => router.push(`/profile/${user.id}`)}>
+                  <ThemedText type="defaultSemiBold">{user.name}</ThemedText>
+                  <ThemedText style={{ color: mutedTextColor }}>{user.email}</ThemedText>
+                  <ThemedText style={{ color: mutedTextColor }}>User id: {user.id}</ThemedText>
                   <ThemedText style={{ color: mutedTextColor }}>
-                    {profile.bio}
+                    Joined: {new Date(user.createdAt).toLocaleString()}
                   </ThemedText>
-                </ThemedView>
+                </Pressable>
               ))
             )}
             <Pressable
+              testID="communication-reload-users"
               style={[styles.reloadButton, { borderColor }]}
               onPress={() =>
-                void loadExampleProfiles({
-                  setIsLoadingProfiles,
-                  setProfilesError,
-                  setProfiles,
+                void loadUsers({
+                  setIsLoadingUsers,
+                  setUsersError,
+                  setUsers,
                 })
               }>
-              <ThemedText type="defaultSemiBold">Reload profiles</ThemedText>
+              <ThemedText type="defaultSemiBold">Reload users</ThemedText>
             </Pressable>
           </ThemedView>
 
@@ -179,6 +187,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
+  },
+  userRowPressed: {
+    opacity: 0.85,
   },
   reloadButton: {
     alignSelf: 'flex-start',

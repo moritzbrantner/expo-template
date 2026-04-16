@@ -4,10 +4,8 @@ export const appManifest = {
   displayName: 'Mobile',
   platform: 'mobile',
   packageName: 'mobile',
-  entryWorkspace: 'apps/mobile',
   releaseCadence: 'independent',
-  sharedPackages: ['@repo/upload-playbook'],
-  featureFlags: ['tabs', 'profiles', 'uploads'],
+  featureFlags: ['tabs', 'auth', 'profiles', 'theme'],
   deployment: {
     runtime: 'expo',
     scheme: 'mobile',

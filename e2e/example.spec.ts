@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const AUTH_API_URL = 'http://127.0.0.1:4401';
 const MAILPIT_API_URL = 'http://127.0.0.1:8825/api/v1/messages';
@@ -32,6 +32,14 @@ async function waitForWelcomeEmail(email: string) {
       });
     })
     .toBeTruthy();
+}
+
+async function signInThroughUi(page: Page, email: string) {
+  await page.goto('/auth/sign-in');
+  await page.getByTestId('signin-email-input').fill(email);
+  await page.getByTestId('signin-password-input').fill('password123');
+  await page.getByTestId('signin-submit-button').click();
+  await expect(page).toHaveURL('/');
 }
 
 test.describe('authentication', () => {
@@ -179,5 +187,51 @@ test.describe('authentication', () => {
       'Invalid email or password.',
     );
     await expect(page).toHaveURL(/\/auth\/sign-in/);
+  });
+
+  test('communication shows auth-api users and opens live profiles by id', async ({
+    page,
+    request,
+  }) => {
+    await resetAuthState();
+
+    const email = `directory-${Date.now()}@example.test`;
+
+    const signUpResponse = await request.post(`${AUTH_API_URL}/auth/signup`, {
+      data: {
+        name: 'Directory User',
+        email,
+        password: 'password123',
+      },
+    });
+
+    expect(signUpResponse.ok()).toBeTruthy();
+
+    const signUpPayload = await signUpResponse.json();
+    const userId = String(signUpPayload.user.id);
+
+    await signInThroughUi(page, email);
+    await page.goto('/communication');
+
+    const userRow = page.getByTestId(`communication-user-${userId}`);
+
+    await expect(userRow).toContainText('Directory User');
+    await expect(userRow).toContainText(email);
+    await userRow.click();
+
+    await expect(page).toHaveURL(new RegExp(`/profile/${userId}$`));
+    await expect(page.getByTestId('profile-detail-card')).toContainText('Directory User');
+    await expect(page.getByTestId('profile-detail-card')).toContainText(email);
+  });
+
+  test('theme mode persists across reload on web', async ({ page }) => {
+    await page.goto('/settings');
+
+    await page.getByTestId('theme-mode-dark').click();
+    await expect(page.getByTestId('theme-mode-status')).toContainText('Saved preference: Dark');
+
+    await page.reload();
+
+    await expect(page.getByTestId('theme-mode-status')).toContainText('Saved preference: Dark');
   });
 });

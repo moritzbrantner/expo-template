@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createContext,
   useContext,
@@ -7,11 +8,25 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { signInRequest, signUpRequest, updateUserAvatarRequest, type AuthUser } from '@/lib/auth';
-import { clearPersistedSession, loadPersistedSession, persistSession } from '@/lib/auth-storage';
+import {
+  ApiRequestError,
+  configureApiClient,
+  fetchSessionRequest,
+  signInRequest,
+  signOutRequest,
+  signUpRequest,
+  updateMyAvatarRequest,
+  updateMyProfileRequest,
+  type Permission,
+  type ProfileDetail,
+  type SessionUser,
+} from '@/lib/auth';
+import { clearPersistedSession, loadPersistedSessionToken, persistSessionToken } from '@/lib/auth-storage';
+import { hasPermission as checkPermission } from '@/shared/social';
 
 type SignUpInput = {
-  name: string;
+  displayName: string;
+  username: string;
   email: string;
   password: string;
 };
@@ -21,47 +36,89 @@ type SignInInput = {
   password: string;
 };
 
+type UpdateProfileInput = {
+  displayName: string;
+  username: string;
+  bio: string;
+};
+
 type AuthContextValue = {
-  currentUser: AuthUser | null;
+  currentUser: SessionUser | null;
   sessionToken: string | null;
   isHydrating: boolean;
-  signUp: (input: SignUpInput) => Promise<{ message: string; user: AuthUser }>;
-  signIn: (input: SignInInput) => Promise<AuthUser>;
-  updateProfilePicture: (avatarDataUrl: string | null) => Promise<AuthUser>;
-  signOut: () => void;
+  signUp: (input: SignUpInput) => Promise<{ message: string; user: SessionUser }>;
+  signIn: (input: SignInInput) => Promise<SessionUser>;
+  signOut: () => Promise<void>;
+  updateProfile: (input: UpdateProfileInput) => Promise<ProfileDetail>;
+  updateProfilePicture: (avatarDataUrl: string | null) => Promise<ProfileDetail>;
+  hasPermission: (permission: Permission) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const queryClient = useQueryClient();
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [isHydrating, setIsHydrating] = useState(true);
+  const [isStorageReady, setIsStorageReady] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function restoreSession() {
-      const session = await loadPersistedSession();
+    async function restoreToken() {
+      const token = await loadPersistedSessionToken();
 
       if (!isMounted) {
         return;
       }
 
-      if (session) {
-        setCurrentUser(session.user);
-        setSessionToken(session.token);
-      }
-
-      setIsHydrating(false);
+      setSessionToken(token);
+      setIsStorageReady(true);
     }
 
-    void restoreSession();
+    void restoreToken();
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  async function clearLocalSession() {
+    setSessionToken(null);
+    await clearPersistedSession();
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        return key === 'activity' || key === 'profiles' || key === 'profile' || key === 'admin' || key === 'session';
+      },
+    });
+  }
+
+  useEffect(() => {
+    configureApiClient({
+      getToken: () => sessionToken,
+      onUnauthorized: () => {
+        void clearLocalSession();
+      },
+    });
+  }, [queryClient, sessionToken]);
+
+  const sessionQuery = useQuery({
+    queryKey: ['session', sessionToken],
+    enabled: isStorageReady && Boolean(sessionToken),
+    retry: false,
+    queryFn: fetchSessionRequest,
+  });
+
+  useEffect(() => {
+    if (!(sessionQuery.error instanceof ApiRequestError) || sessionQuery.error.status !== 401) {
+      return;
+    }
+
+    void clearLocalSession();
+  }, [sessionQuery.error]);
+
+  const currentUser = sessionQuery.data?.user ?? null;
+  const isHydrating = !isStorageReady || (!!sessionToken && sessionQuery.isPending);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -69,43 +126,59 @@ export function AuthProvider({ children }: PropsWithChildren) {
       sessionToken,
       isHydrating,
       async signUp(input) {
-        const response = await signUpRequest(input);
-        return response;
+        return signUpRequest(input);
       },
       async signIn(input) {
         const response = await signInRequest(input);
-        setCurrentUser(response.user);
         setSessionToken(response.token);
-        await persistSession({
-          token: response.token,
+        await persistSessionToken(response.token);
+        queryClient.setQueryData(['session', response.token], {
           user: response.user,
         });
         return response.user;
       },
-      async updateProfilePicture(avatarDataUrl) {
-        if (!currentUser) {
-          throw new Error('Sign in to update your profile picture.');
+      async signOut() {
+        try {
+          await signOutRequest();
+        } catch {
+          // Local cleanup is still the source of truth for the app shell.
         }
 
-        const response = await updateUserAvatarRequest(currentUser.id, avatarDataUrl);
-        setCurrentUser(response.user);
+        await clearLocalSession();
+      },
+      async updateProfile(input) {
+        const response = await updateMyProfileRequest(input);
 
         if (sessionToken) {
-          await persistSession({
-            token: sessionToken,
+          queryClient.setQueryData(['session', sessionToken], {
             user: response.user,
           });
         }
 
-        return response.user;
+        queryClient.setQueryData(['profile', response.profile.username], {
+          profile: response.profile,
+        });
+        return response.profile;
       },
-      signOut() {
-        setCurrentUser(null);
-        setSessionToken(null);
-        void clearPersistedSession();
+      async updateProfilePicture(avatarDataUrl) {
+        const response = await updateMyAvatarRequest(avatarDataUrl);
+
+        if (sessionToken) {
+          queryClient.setQueryData(['session', sessionToken], {
+            user: response.user,
+          });
+        }
+
+        queryClient.setQueryData(['profile', response.profile.username], {
+          profile: response.profile,
+        });
+        return response.profile;
+      },
+      hasPermission(permission) {
+        return checkPermission(currentUser, permission);
       },
     }),
-    [currentUser, isHydrating, sessionToken],
+    [currentUser, isHydrating, queryClient, sessionToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

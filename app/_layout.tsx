@@ -1,26 +1,37 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import 'react-native-reanimated';
 
 import { ThemeModeProvider, useThemeMode } from '@/hooks/theme-mode';
 import { AuthProvider } from '@/providers/auth-provider';
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
 function AppNavigator() {
   const { activeTheme } = useThemeMode();
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            staleTime: 30_000,
+          },
+        },
+      }),
+  );
 
   return (
     <ThemeProvider value={activeTheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="profile/[profile]" options={{ title: 'Profile' }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Stack>
+            <Stack.Screen name="(public)" options={{ headerShown: false }} />
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          </Stack>
+        </AuthProvider>
+      </QueryClientProvider>
       <StatusBar style={activeTheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
   );
@@ -29,9 +40,7 @@ function AppNavigator() {
 export default function RootLayout() {
   return (
     <ThemeModeProvider>
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
+      <AppNavigator />
     </ThemeModeProvider>
   );
 }

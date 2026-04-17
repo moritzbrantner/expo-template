@@ -6,8 +6,8 @@ COPY package.json bun.lock ./
 COPY services/auth-api/package.json ./services/auth-api/package.json
 RUN bun install --frozen-lockfile --production --filter auth-api
 
-COPY services/auth-api/app.ts ./services/auth-api/app.ts
-COPY services/auth-api/server.ts ./services/auth-api/server.ts
+COPY shared ./shared
+COPY services/auth-api ./services/auth-api
 
 WORKDIR /app/services/auth-api
 

@@ -16,6 +16,7 @@ services:
       SMTP_PORT: 1025
       SMTP_FROM: noreply@example.test
       DATA_FILE: /data/users.json
+      AUTH_API_ADMIN_EMAILS: admin@example.test
       AUTH_API_ENABLE_TEST_ENDPOINTS: 'true'
     ports:
       - '4401:4001'

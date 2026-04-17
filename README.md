@@ -1,16 +1,15 @@
-# Expo Router Auth Template
+# expo-template
 
-An Expo Router template with a local auth stack, persisted session state, saved theme mode, and a
-live user directory backed by `auth-api`.
+Expo Router platform scaffold for auth, authz, social discovery, public profiles, and app-shell behavior backed by the local `auth-api` service.
 
 ## What this repo includes
 
-- Expo Router app with tabs for diagrams, explore, communication, and settings
-- `auth-api` for `/auth/signup`, `/auth/signin`, `GET /users`, and `GET /users/:id`
-- Mailpit for local signup email capture
+- Expo Router public/app shell split with reusable auth and authenticated-app baselines
+- local `auth-api` for sign-up, sign-in, sessions, profiles, follows, activity, and admin role updates
+- Mailpit for local auth email smoke coverage
 - persisted auth session storage
 - persisted theme preference storage
-- optional `dev-api` seeded REST fixture example kept separate from app user data
+- opt-in local fixture services kept separate from the scaffold contract
 
 ## Get started
 
@@ -45,7 +44,7 @@ Rebuild the auth stack only when Dockerfiles or service dependencies change:
 bun test:e2e:services:rebuild
 ```
 
-Run the optional seeded fixture example:
+Run the optional seeded fixture service:
 
 ```bash
 bun dev:api:up
@@ -70,21 +69,22 @@ server in-process and does not require Docker.
 
 Open Mailpit at `http://localhost:8825`.
 
-The Expo app uses `auth-api` as the canonical user-facing backend:
+The Expo app uses `auth-api` as the canonical scaffold backend:
 
-- `Communication` calls `GET /users` through `EXPO_PUBLIC_AUTH_API_URL`
-- `/profile/[profile]` resolves `GET /users/:id`
+- `Discover` calls the profile APIs through `EXPO_PUBLIC_AUTH_API_URL`
+- `/u/[username]` resolves public profiles by username
 - signed-up users become visible in the directory after account creation
 - auth session state is restored from storage on reload
+- authenticated app tabs stay behind the protected shell
 
 Useful manual checks:
 
 ```bash
-curl http://localhost:4401/users
-curl http://localhost:4401/users/<user-id>
+curl http://localhost:4401/profiles
+curl http://localhost:4401/profiles/<username>
 ```
 
-Run the browser e2e suite with:
+Run the browser smoke/auth suite with:
 
 ```bash
 bun test:e2e
@@ -94,7 +94,7 @@ bun test:e2e
 
 `dev-api` is an explicitly separate seeded REST example served by
 [`moritzbrantner/folder-server`](https://github.com/moritzbrantner/folder-server). It is not the
-source of truth for app users.
+source of truth for scaffold users or auth state.
 
 - `GET /profiles` returns seeded example profiles from `services/dev-api/data/profiles.json`
 - `GET /profiles/alex` returns a seeded example profile by `username`
@@ -104,6 +104,8 @@ source of truth for app users.
 
 ```bash
 bun test
+bun run test:unit
+bun run test:integration
 bun run lint
 bunx tsc --noEmit
 bun run build

@@ -14,12 +14,13 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'bun web --clear',
+    command: 'bun web --clear --non-interactive',
     port: 4002,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {
       EXPO_PUBLIC_AUTH_API_URL: 'http://127.0.0.1:4401',
+      EXPO_NO_TELEMETRY: '1',
     },
   },
   projects: [

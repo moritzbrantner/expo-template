@@ -1,34 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { AuthUser } from '@/lib/auth';
+export const AUTH_SESSION_STORAGE_KEY = 'auth.session';
 
-const AUTH_SESSION_STORAGE_KEY = 'auth.session';
-
-export type PersistedAuthSession = {
-  token: string;
-  user: AuthUser;
-};
-
-export async function loadPersistedSession() {
+export async function loadPersistedSessionToken() {
   try {
     const rawValue = await AsyncStorage.getItem(AUTH_SESSION_STORAGE_KEY);
-
-    if (!rawValue) {
-      return null;
-    }
-
-    return JSON.parse(rawValue) as PersistedAuthSession;
+    return rawValue?.trim() ? rawValue : null;
   } catch (error) {
-    console.warn('Failed to restore auth session.', error);
+    console.warn('Failed to restore auth session token.', error);
     return null;
   }
 }
 
-export async function persistSession(session: PersistedAuthSession) {
+export async function persistSessionToken(token: string) {
   try {
-    await AsyncStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session));
+    await AsyncStorage.setItem(AUTH_SESSION_STORAGE_KEY, token);
   } catch (error) {
-    console.warn('Failed to persist auth session.', error);
+    console.warn('Failed to persist auth session token.', error);
   }
 }
 
@@ -36,6 +24,6 @@ export async function clearPersistedSession() {
   try {
     await AsyncStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
   } catch (error) {
-    console.warn('Failed to clear auth session.', error);
+    console.warn('Failed to clear auth session token.', error);
   }
 }

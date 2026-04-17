@@ -4,8 +4,10 @@ export const appManifest = {
   displayName: 'Mobile',
   platform: 'mobile',
   packageName: 'mobile',
+  entryWorkspace: '.',
   releaseCadence: 'independent',
-  featureFlags: ['tabs', 'auth', 'profiles', 'theme'],
+  sharedPackages: [],
+  featureFlags: ['navigation', 'tabs', 'auth', 'authz', 'social', 'profiles', 'theme'],
   deployment: {
     runtime: 'expo',
     scheme: 'mobile',

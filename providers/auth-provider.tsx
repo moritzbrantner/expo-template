@@ -7,7 +7,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { signInRequest, signUpRequest, type AuthUser } from '@/lib/auth';
+import { signInRequest, signUpRequest, updateUserAvatarRequest, type AuthUser } from '@/lib/auth';
 import { clearPersistedSession, loadPersistedSession, persistSession } from '@/lib/auth-storage';
 
 type SignUpInput = {
@@ -27,6 +27,7 @@ type AuthContextValue = {
   isHydrating: boolean;
   signUp: (input: SignUpInput) => Promise<{ message: string; user: AuthUser }>;
   signIn: (input: SignInInput) => Promise<AuthUser>;
+  updateProfilePicture: (avatarDataUrl: string | null) => Promise<AuthUser>;
   signOut: () => void;
 };
 
@@ -79,6 +80,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
           token: response.token,
           user: response.user,
         });
+        return response.user;
+      },
+      async updateProfilePicture(avatarDataUrl) {
+        if (!currentUser) {
+          throw new Error('Sign in to update your profile picture.');
+        }
+
+        const response = await updateUserAvatarRequest(currentUser.id, avatarDataUrl);
+        setCurrentUser(response.user);
+
+        if (sessionToken) {
+          await persistSession({
+            token: sessionToken,
+            user: response.user,
+          });
+        }
+
         return response.user;
       },
       signOut() {

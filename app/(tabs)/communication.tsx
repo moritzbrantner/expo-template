@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProfileAvatar } from '@/components/profile-avatar';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -113,12 +114,22 @@ export default function CommunicationScreen() {
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.userRow, { borderColor }, pressed && styles.userRowPressed]}
                   onPress={() => router.push(`/profile/${user.id}`)}>
-                  <ThemedText type="defaultSemiBold">{user.name}</ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>{user.email}</ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>User id: {user.id}</ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>
-                    Joined: {new Date(user.createdAt).toLocaleString()}
-                  </ThemedText>
+                  <View style={styles.userRowHeader}>
+                    <ProfileAvatar
+                      name={user.name}
+                      uri={user.avatarUrl}
+                      size={54}
+                      borderColor={borderColor}
+                    />
+                    <View style={styles.userRowCopy}>
+                      <ThemedText type="defaultSemiBold">{user.name}</ThemedText>
+                      <ThemedText style={{ color: mutedTextColor }}>{user.email}</ThemedText>
+                      <ThemedText style={{ color: mutedTextColor }}>User id: {user.id}</ThemedText>
+                      <ThemedText style={{ color: mutedTextColor }}>
+                        Joined: {new Date(user.createdAt).toLocaleString()}
+                      </ThemedText>
+                    </View>
+                  </View>
                 </Pressable>
               ))
             )}
@@ -183,10 +194,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   userRow: {
-    gap: 4,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
+  },
+  userRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  userRowCopy: {
+    flex: 1,
+    gap: 4,
   },
   userRowPressed: {
     opacity: 0.85,

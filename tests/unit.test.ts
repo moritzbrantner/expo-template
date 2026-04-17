@@ -7,6 +7,7 @@ import {
   ApiRequestError,
   fetchUserRequest,
   fetchUsersRequest,
+  updateUserAvatarRequest,
 } from '../lib/auth';
 import {
   THEME_MODE_STORAGE_KEY,
@@ -66,6 +67,7 @@ test('fetchUsersRequest returns auth-api users', async () => {
             name: 'Ada Lovelace',
             email: 'ada@example.test',
             createdAt: '2026-04-16T10:00:00.000Z',
+            avatarUrl: null,
           },
         ],
       }),
@@ -87,6 +89,7 @@ test('fetchUsersRequest returns auth-api users', async () => {
         name: 'Ada Lovelace',
         email: 'ada@example.test',
         createdAt: '2026-04-16T10:00:00.000Z',
+        avatarUrl: null,
       },
     ],
   });
@@ -113,4 +116,45 @@ test('fetchUserRequest surfaces auth-api errors with status information', async 
       return true;
     },
   );
+});
+
+test('updateUserAvatarRequest posts the cropped avatar payload', async () => {
+  global.fetch = async (input, init) => {
+    assert.equal(String(input), 'http://localhost:4401/users/user-1/avatar');
+    assert.equal(init?.method, 'POST');
+    assert.deepEqual(init?.headers, {
+      'Content-Type': 'application/json',
+    });
+    assert.equal(init?.body, JSON.stringify({ avatarDataUrl: 'data:image/jpeg;base64,avatar' }));
+
+    return new Response(
+      JSON.stringify({
+        user: {
+          id: 'user-1',
+          name: 'Ada Lovelace',
+          email: 'ada@example.test',
+          createdAt: '2026-04-16T10:00:00.000Z',
+          avatarUrl: 'data:image/jpeg;base64,avatar',
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+  };
+
+  const payload = await updateUserAvatarRequest('user-1', 'data:image/jpeg;base64,avatar');
+
+  assert.deepEqual(payload, {
+    user: {
+      id: 'user-1',
+      name: 'Ada Lovelace',
+      email: 'ada@example.test',
+      createdAt: '2026-04-16T10:00:00.000Z',
+      avatarUrl: 'data:image/jpeg;base64,avatar',
+    },
+  });
 });

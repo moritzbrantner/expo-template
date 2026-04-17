@@ -122,6 +122,7 @@ test('auth API exposes public user data for the mobile app', async () => {
       name: 'Alex Mercer',
       email: 'alex@example.test',
       createdAt: '2026-04-16T10:00:00.000Z',
+      avatarUrl: null,
       passwordHash: 'salt:secret',
     },
     {
@@ -129,6 +130,7 @@ test('auth API exposes public user data for the mobile app', async () => {
       name: 'Jules Costa',
       email: 'jules@example.test',
       createdAt: '2026-04-16T11:00:00.000Z',
+      avatarUrl: 'data:image/jpeg;base64,seeded-avatar',
       passwordHash: 'salt:secret',
     },
   ];
@@ -162,11 +164,42 @@ test('auth API exposes public user data for the mobile app', async () => {
         name: 'Jules Costa',
         email: 'jules@example.test',
         createdAt: '2026-04-16T11:00:00.000Z',
+        avatarUrl: 'data:image/jpeg;base64,seeded-avatar',
       },
     });
 
     const missingUserResponse = await fetch(`${baseUrl}/users/does-not-exist`);
     assert.equal(missingUserResponse.status, 404);
+
+    const avatarResponse = await fetch(`${baseUrl}/users/user-alex/avatar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        avatarDataUrl: 'data:image/jpeg;base64,dXBkYXRlZC1hdmF0YXI=',
+      }),
+    });
+
+    assert.equal(avatarResponse.status, 200);
+    assert.deepEqual(await avatarResponse.json(), {
+      user: {
+        id: 'user-alex',
+        name: 'Alex Mercer',
+        email: 'alex@example.test',
+        createdAt: '2026-04-16T10:00:00.000Z',
+        avatarUrl: 'data:image/jpeg;base64,dXBkYXRlZC1hdmF0YXI=',
+      },
+    });
+
+    const persistedUsers = JSON.parse(readFileSync(dataFile, 'utf8')) as Array<{
+      id: string;
+      avatarUrl: string | null;
+    }>;
+    assert.equal(
+      persistedUsers.find((user) => user.id === 'user-alex')?.avatarUrl,
+      'data:image/jpeg;base64,dXBkYXRlZC1hdmF0YXI=',
+    );
   } finally {
     await stopServer(server);
     await rm(tempDir, { recursive: true, force: true });

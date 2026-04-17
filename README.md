@@ -112,3 +112,5 @@ bun run build
 bunx expo-doctor
 bun run test:e2e
 ```
+
+See [SCAFFOLD_ALIGNMENT.md](./SCAFFOLD_ALIGNMENT.md) for the repo's scaffold-family role and anti-drift contract.

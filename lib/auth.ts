@@ -5,6 +5,7 @@ export type AuthUser = {
   name: string;
   email: string;
   createdAt: string;
+  avatarUrl: string | null;
 };
 
 export class ApiRequestError extends Error {
@@ -75,6 +76,22 @@ export async function fetchUsersRequest() {
 
 export async function fetchUserRequest(userId: string) {
   const response = await fetch(`${AUTH_API_URL}/users/${userId}`);
+
+  return parseResponse<{
+    user: AuthUser;
+  }>(response);
+}
+
+export async function updateUserAvatarRequest(userId: string, avatarDataUrl: string | null) {
+  const response = await fetch(`${AUTH_API_URL}/users/${userId}/avatar`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      avatarDataUrl,
+    }),
+  });
 
   return parseResponse<{
     user: AuthUser;

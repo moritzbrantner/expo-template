@@ -1,8 +1,9 @@
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProfileAvatar } from '@/components/profile-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -105,11 +106,23 @@ export default function ProfileScreen() {
                 style={[styles.hero, { borderColor }]}
                 lightColor={Colors.light.surface}
                 darkColor={Colors.dark.surface}>
-                <ThemedText style={[styles.eyebrow, { color: mutedTextColor }]}>Auth user</ThemedText>
-                <ThemedText type="title">{profileState.user.name}</ThemedText>
-                <ThemedText style={[styles.meta, { color: mutedTextColor }]}>
-                  {profileState.user.email}
-                </ThemedText>
+                <View style={styles.heroTopRow}>
+                  <ProfileAvatar
+                    name={profileState.user.name}
+                    uri={profileState.user.avatarUrl}
+                    size={88}
+                    borderColor={borderColor}
+                  />
+                  <View style={styles.heroCopy}>
+                    <ThemedText style={[styles.eyebrow, { color: mutedTextColor }]}>
+                      Auth user
+                    </ThemedText>
+                    <ThemedText type="title">{profileState.user.name}</ThemedText>
+                    <ThemedText style={[styles.meta, { color: mutedTextColor }]}>
+                      {profileState.user.email}
+                    </ThemedText>
+                  </View>
+                </View>
                 <ThemedText style={styles.bio}>User id: {profileState.user.id}</ThemedText>
               </ThemedView>
 
@@ -164,6 +177,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     padding: 20,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  heroCopy: {
+    flex: 1,
+    gap: 4,
   },
   eyebrow: {
     textTransform: 'uppercase',

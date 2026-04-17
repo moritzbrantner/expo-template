@@ -8,6 +8,7 @@ interface StoredUser {
   name: string;
   email: string;
   createdAt: string;
+  avatarUrl?: string | null;
   passwordHash: string;
 }
 
@@ -16,6 +17,7 @@ interface PublicUser {
   name: string;
   email: string;
   createdAt: string;
+  avatarUrl: string | null;
 }
 
 export interface AuthApiConfig {
@@ -92,7 +94,12 @@ function toPublicUser(user: StoredUser): PublicUser {
     name: user.name,
     email: user.email,
     createdAt: user.createdAt,
+    avatarUrl: user.avatarUrl ?? null,
   };
+}
+
+function isValidAvatarDataUrl(value: string): boolean {
+  return /^data:image\/(jpeg|jpg|png|webp);base64,[a-z0-9+/=]+$/i.test(value);
 }
 
 async function parseBody(request: IncomingMessage): Promise<Record<string, unknown>> {
@@ -196,6 +203,49 @@ export function createAuthApiServer(config: AuthApiConfig = {}): Server {
         return;
       }
 
+      if (request.method === 'POST' && requestUrl.pathname.startsWith('/users/')) {
+        const [, usersSegment, userId, action] = requestUrl.pathname.split('/');
+
+        if (usersSegment !== 'users' || action !== 'avatar' || !userId) {
+          json(response, 404, { error: 'Not found.' }, corsOrigin);
+          return;
+        }
+
+        const body = await parseBody(request);
+        const avatarInput = body.avatarDataUrl;
+        const avatarDataUrl =
+          avatarInput === null || avatarInput === undefined ? null : String(avatarInput).trim();
+
+        if (
+          avatarDataUrl &&
+          (!isValidAvatarDataUrl(avatarDataUrl) || avatarDataUrl.length > 2_000_000)
+        ) {
+          json(response, 400, { error: 'Avatar image must be a valid base64-encoded image.' }, corsOrigin);
+          return;
+        }
+
+        const users = await readUsers(dataFile);
+        const user = users.find((entry) => entry.id === userId);
+
+        if (!user) {
+          json(response, 404, { error: 'User not found.' }, corsOrigin);
+          return;
+        }
+
+        user.avatarUrl = avatarDataUrl;
+        await writeUsers(dataFile, users);
+
+        json(
+          response,
+          200,
+          {
+            user: toPublicUser(user),
+          },
+          corsOrigin,
+        );
+        return;
+      }
+
       if (request.method === 'POST' && requestUrl.pathname === '/auth/signup') {
         const body = await parseBody(request);
         const name = String(body.name ?? '').trim();
@@ -240,6 +290,7 @@ export function createAuthApiServer(config: AuthApiConfig = {}): Server {
           name,
           email,
           createdAt: new Date().toISOString(),
+          avatarUrl: null,
           passwordHash: hashPassword(password),
         };
 

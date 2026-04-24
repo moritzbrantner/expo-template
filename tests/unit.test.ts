@@ -20,7 +20,9 @@ import {
 import {
   AUTH_SESSION_STORAGE_KEY,
   clearPersistedSession,
+  loadPersistedSession,
   loadPersistedSessionToken,
+  persistSessionUser,
   persistSessionToken,
 } from '../lib/auth-storage';
 import {
@@ -101,13 +103,28 @@ test('theme mode helpers load and persist saved preference', async () => {
   });
 });
 
-test('auth storage persists only the bearer token', async () => {
+test('auth storage restores legacy tokens and persists the signed-in user snapshot', async () => {
   let writtenValue: { key: string; value: string } | null = null;
   let removedKey: string | null = null;
+  let getItemCalls = 0;
 
   AsyncStorage.getItem = async (key) => {
     assert.equal(key, AUTH_SESSION_STORAGE_KEY);
-    return 'token-123';
+    getItemCalls += 1;
+    return getItemCalls === 1
+      ? 'token-123'
+      : JSON.stringify({
+          token: 'token-456',
+          user: {
+            id: 'user-1',
+            email: 'ada@example.test',
+            username: 'ada',
+            displayName: 'Ada Lovelace',
+            avatarUrl: null,
+            role: 'member',
+            status: 'active',
+          },
+        });
   };
 
   AsyncStorage.setItem = async (key, value) => {
@@ -119,12 +136,44 @@ test('auth storage persists only the bearer token', async () => {
   };
 
   assert.equal(await loadPersistedSessionToken(), 'token-123');
+  assert.deepEqual(await loadPersistedSession(), {
+    token: 'token-456',
+    user: {
+      id: 'user-1',
+      email: 'ada@example.test',
+      username: 'ada',
+      displayName: 'Ada Lovelace',
+      avatarUrl: null,
+      role: 'member',
+      status: 'active',
+    },
+  });
   await persistSessionToken('token-456');
+  await persistSessionUser('token-789', {
+    id: 'user-2',
+    email: 'grace@example.test',
+    username: 'grace',
+    displayName: 'Grace Hopper',
+    avatarUrl: null,
+    role: 'admin',
+    status: 'active',
+  });
   await clearPersistedSession();
 
   assert.deepEqual(writtenValue, {
     key: AUTH_SESSION_STORAGE_KEY,
-    value: 'token-456',
+    value: JSON.stringify({
+      token: 'token-789',
+      user: {
+        id: 'user-2',
+        email: 'grace@example.test',
+        username: 'grace',
+        displayName: 'Grace Hopper',
+        avatarUrl: null,
+        role: 'admin',
+        status: 'active',
+      },
+    }),
   });
   assert.equal(removedKey, AUTH_SESSION_STORAGE_KEY);
 });

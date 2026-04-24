@@ -22,7 +22,7 @@ import {
   type ProfileDetail,
   type SessionUser,
 } from '@/lib/auth';
-import { clearPersistedSession, loadPersistedSessionToken, persistSessionToken } from '@/lib/auth-storage';
+import { clearPersistedSession, loadPersistedSession, persistSessionUser } from '@/lib/auth-storage';
 import {
   bootstrapDevelopmentSession,
   shouldEnableDevelopmentSessionBootstrap,
@@ -72,13 +72,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let isMounted = true;
 
     async function restoreToken() {
-      const token = await loadPersistedSessionToken();
+      const persistedSession = await loadPersistedSession();
 
       if (!isMounted) {
         return;
       }
 
-      setSessionToken(token);
+      if (persistedSession?.user) {
+        queryClient.setQueryData(['session', persistedSession.token], {
+          user: persistedSession.user,
+        });
+      }
+
+      setSessionToken(persistedSession?.token ?? null);
       setIsStorageReady(true);
     }
 
@@ -87,7 +93,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [queryClient]);
 
   async function clearLocalSession() {
     setSessionToken(null);
@@ -127,6 +133,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const currentUser = sessionQuery.data?.user ?? null;
 
   useEffect(() => {
+    if (!sessionToken || !currentUser) {
+      return;
+    }
+
+    void persistSessionUser(sessionToken, currentUser);
+  }, [currentUser, sessionToken]);
+
+  useEffect(() => {
     if (!isStorageReady || sessionToken || hasAttemptedDevelopmentBootstrapRef.current) {
       return;
     }
@@ -150,10 +164,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         setSessionToken(response.token);
-        await persistSessionToken(response.token);
         queryClient.setQueryData(['session', response.token], {
           user: response.user,
         });
+        await persistSessionUser(response.token, response.user);
       } catch (error) {
         console.warn('Failed to bootstrap a development session.', error);
       } finally {
@@ -184,10 +198,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       async signIn(input) {
         const response = await signInRequest(input);
         setSessionToken(response.token);
-        await persistSessionToken(response.token);
         queryClient.setQueryData(['session', response.token], {
           user: response.user,
         });
+        await persistSessionUser(response.token, response.user);
         return response.user;
       },
       async signOut() {
@@ -206,6 +220,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           queryClient.setQueryData(['session', sessionToken], {
             user: response.user,
           });
+          await persistSessionUser(sessionToken, response.user);
         }
 
         queryClient.setQueryData(['profile', response.profile.username], {
@@ -220,6 +235,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           queryClient.setQueryData(['session', sessionToken], {
             user: response.user,
           });
+          await persistSessionUser(sessionToken, response.user);
         }
 
         queryClient.setQueryData(['profile', response.profile.username], {

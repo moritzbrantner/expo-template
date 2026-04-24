@@ -37,7 +37,7 @@ export function AuthShell({
         style={[
           styles.hero,
           {
-            backgroundColor: activeTheme === 'dark' ? '#10212A' : '#EAF6FB',
+            backgroundColor: palette.accentSurface,
             borderColor: palette.border,
           },
         ]}>

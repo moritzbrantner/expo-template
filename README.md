@@ -31,7 +31,17 @@ Run the app only:
 bun start
 ```
 
-Run the app against the local auth stack:
+Run the local dev flow with the in-app mock auth service and automatic sign-in:
+
+```bash
+bun dev
+```
+
+`bun dev` launches Expo on port `4002` with `EXPO_PUBLIC_AUTH_MODE=mock`. The app uses a local
+mock auth service, seeds a few profiles, and auto-signs in `admin@example.test` with password
+`password123` unless you override the `EXPO_PUBLIC_DEV_AUTH_*` variables.
+
+Run the app against the local auth stack manually:
 
 ```bash
 bun test:e2e:services:up

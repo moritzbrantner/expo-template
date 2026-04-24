@@ -1,3 +1,21 @@
+import {
+  mockFetchActivity,
+  mockFetchAdminUsers,
+  mockFetchFollowers,
+  mockFetchFollowing,
+  mockFetchProfile,
+  mockFetchSession,
+  mockFollowProfile,
+  MockAuthError,
+  mockSearchProfiles,
+  mockSignIn,
+  mockSignOut,
+  mockSignUp,
+  mockUnfollowProfile,
+  mockUpdateMyAvatar,
+  mockUpdateMyProfile,
+  mockUpdateUserRole,
+} from '@/lib/mock-auth-service';
 import type {
   ActivityItem,
   FollowRelationship,
@@ -48,6 +66,10 @@ type ApiRequestOptions = {
 
 let authTokenGetter: (() => string | null) | null = null;
 let unauthorizedHandler: (() => void | Promise<void>) | null = null;
+
+function shouldUseMockAuthService() {
+  return process.env.EXPO_PUBLIC_AUTH_MODE === 'mock';
+}
 
 export function configureApiClient({
   getToken,
@@ -105,12 +127,34 @@ async function request<T>(
   return parseResponse<T>(response);
 }
 
+async function handleMockAuthError(error: unknown, options: ApiRequestOptions = {}): Promise<never> {
+  if (!(error instanceof MockAuthError)) {
+    throw error;
+  }
+
+  const apiError = new ApiRequestError(error.message, error.status);
+
+  if (error.status === 401 && options.handleUnauthorized !== false) {
+    await unauthorizedHandler?.();
+  }
+
+  throw apiError;
+}
+
 export async function signUpRequest(input: {
   displayName: string;
   username: string;
   email: string;
   password: string;
 }) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockSignUp(input);
+    } catch (error) {
+      return handleMockAuthError(error, { auth: false, handleUnauthorized: false });
+    }
+  }
+
   return request<{
     message: string;
     user: SessionUser;
@@ -125,6 +169,14 @@ export async function signUpRequest(input: {
 }
 
 export async function signInRequest(input: { email: string; password: string }) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockSignIn(input);
+    } catch (error) {
+      return handleMockAuthError(error, { auth: false, handleUnauthorized: false });
+    }
+  }
+
   return request<{
     token: string;
     user: SessionUser;
@@ -139,6 +191,14 @@ export async function signInRequest(input: { email: string; password: string }) 
 }
 
 export async function signOutRequest() {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockSignOut(authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error, { handleUnauthorized: false });
+    }
+  }
+
   return request<void>(
     '/auth/signout',
     {
@@ -149,12 +209,31 @@ export async function signOutRequest() {
 }
 
 export async function fetchSessionRequest() {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockFetchSession(authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   return request<{
     user: SessionUser;
   }>('/auth/session');
 }
 
 export async function searchProfilesRequest(params: { query?: string; cursor?: string | null }) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockSearchProfiles({
+        query: params.query,
+        token: authTokenGetter?.(),
+      });
+    } catch (error) {
+      return handleMockAuthError(error, { auth: true, handleUnauthorized: false });
+    }
+  }
+
   const searchParams = new URLSearchParams();
 
   if (params.query) {
@@ -173,6 +252,14 @@ export async function searchProfilesRequest(params: { query?: string; cursor?: s
 }
 
 export async function fetchProfileRequest(username: string) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockFetchProfile(username, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error, { auth: true, handleUnauthorized: false });
+    }
+  }
+
   return request<{
     profile: ProfileDetail;
   }>(`/profiles/${encodeURIComponent(username)}`, undefined, {
@@ -186,6 +273,14 @@ export async function updateMyProfileRequest(input: {
   username: string;
   bio: string;
 }) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockUpdateMyProfile(input, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   return request<{
     user: SessionUser;
     profile: ProfileDetail;
@@ -196,6 +291,14 @@ export async function updateMyProfileRequest(input: {
 }
 
 export async function updateMyAvatarRequest(avatarDataUrl: string | null) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockUpdateMyAvatar(avatarDataUrl, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   return request<{
     user: SessionUser;
     profile: ProfileDetail;
@@ -208,6 +311,14 @@ export async function updateMyAvatarRequest(avatarDataUrl: string | null) {
 }
 
 export async function followProfileRequest(username: string) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockFollowProfile(username, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   return request<{
     profile: ProfileDetail;
   }>(`/profiles/${encodeURIComponent(username)}/follow`, {
@@ -216,12 +327,28 @@ export async function followProfileRequest(username: string) {
 }
 
 export async function unfollowProfileRequest(username: string) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockUnfollowProfile(username, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   await request<void>(`/profiles/${encodeURIComponent(username)}/follow`, {
     method: 'DELETE',
   });
 }
 
 export async function fetchFollowersRequest(username: string) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockFetchFollowers(username, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error, { auth: true, handleUnauthorized: false });
+    }
+  }
+
   return request<{
     profiles: PublicProfile[];
   }>(`/profiles/${encodeURIComponent(username)}/followers`, undefined, {
@@ -231,6 +358,14 @@ export async function fetchFollowersRequest(username: string) {
 }
 
 export async function fetchFollowingRequest(username: string) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockFetchFollowing(username, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error, { auth: true, handleUnauthorized: false });
+    }
+  }
+
   return request<{
     profiles: PublicProfile[];
   }>(`/profiles/${encodeURIComponent(username)}/following`, undefined, {
@@ -240,18 +375,42 @@ export async function fetchFollowingRequest(username: string) {
 }
 
 export async function fetchActivityRequest() {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockFetchActivity(authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   return request<{
     activity: ActivityItem[];
   }>('/me/activity');
 }
 
 export async function fetchAdminUsersRequest() {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockFetchAdminUsers(authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   return request<{
     users: AdminUser[];
   }>('/admin/users');
 }
 
 export async function updateUserRoleRequest(userId: string, role: Role) {
+  if (shouldUseMockAuthService()) {
+    try {
+      return await mockUpdateUserRole(userId, role, authTokenGetter?.());
+    } catch (error) {
+      return handleMockAuthError(error);
+    }
+  }
+
   return request<{
     user: AdminUser;
   }>(`/admin/users/${encodeURIComponent(userId)}/role`, {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import test, { afterEach } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -12,6 +13,8 @@ import {
   fetchProfileRequest,
   fetchSessionRequest,
   searchProfilesRequest,
+  signInRequest,
+  signOutRequest,
   updateMyAvatarRequest,
 } from '../lib/auth';
 import {
@@ -20,6 +23,10 @@ import {
   loadPersistedSessionToken,
   persistSessionToken,
 } from '../lib/auth-storage';
+import {
+  getDevelopmentSessionCredentials,
+  shouldEnableDevelopmentSessionBootstrap,
+} from '../lib/dev-auth';
 import {
   THEME_MODE_STORAGE_KEY,
   loadPersistedThemeMode,
@@ -31,12 +38,18 @@ const originalFetch = global.fetch;
 const originalGetItem = AsyncStorage.getItem;
 const originalSetItem = AsyncStorage.setItem;
 const originalRemoveItem = AsyncStorage.removeItem;
+const originalAuthMode = process.env.EXPO_PUBLIC_AUTH_MODE;
 
 afterEach(() => {
   global.fetch = originalFetch;
   AsyncStorage.getItem = originalGetItem;
   AsyncStorage.setItem = originalSetItem;
   AsyncStorage.removeItem = originalRemoveItem;
+  if (originalAuthMode === undefined) {
+    delete process.env.EXPO_PUBLIC_AUTH_MODE;
+  } else {
+    process.env.EXPO_PUBLIC_AUTH_MODE = originalAuthMode;
+  }
   configureApiClient({
     getToken: () => null,
     onUnauthorized: () => undefined,
@@ -51,7 +64,7 @@ test('app manifest exposes the full scaffold-v2 contract keys for the standalone
 });
 
 test('smoke e2e suite is explicitly named and the old example suite is removed', () => {
-  const repoRoot = path.resolve(import.meta.dir, '..');
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const smokeSuitePath = path.join(repoRoot, 'e2e', 'smoke-auth-contract.spec.ts');
 
   assert.equal(existsSync(smokeSuitePath), true);
@@ -114,6 +127,81 @@ test('auth storage persists only the bearer token', async () => {
     value: 'token-456',
   });
   assert.equal(removedKey, AUTH_SESSION_STORAGE_KEY);
+});
+
+test('development session bootstrap helpers respect overrides', () => {
+  assert.equal(
+    shouldEnableDevelopmentSessionBootstrap({
+      ...process.env,
+      EXPO_PUBLIC_DEV_AUTH_AUTO_SIGN_IN: 'false',
+    }),
+    false,
+  );
+  assert.equal(
+    shouldEnableDevelopmentSessionBootstrap({
+      ...process.env,
+      EXPO_PUBLIC_DEV_AUTH_AUTO_SIGN_IN: 'true',
+    }),
+    true,
+  );
+
+  assert.deepEqual(
+    getDevelopmentSessionCredentials({
+      ...process.env,
+      EXPO_PUBLIC_DEV_AUTH_DISPLAY_NAME: 'Local Admin',
+      EXPO_PUBLIC_DEV_AUTH_USERNAME: 'local_admin',
+      EXPO_PUBLIC_DEV_AUTH_EMAIL: 'LOCAL.ADMIN@EXAMPLE.TEST',
+      EXPO_PUBLIC_DEV_AUTH_PASSWORD: 'secret-123',
+    }),
+    {
+      displayName: 'Local Admin',
+      username: 'local_admin',
+      email: 'local.admin@example.test',
+      password: 'secret-123',
+    },
+  );
+});
+
+test('mock auth service signs in and serves scaffold data without network requests', async () => {
+  const storage = new Map<string, string>();
+  let token: string | null = null;
+
+  process.env.EXPO_PUBLIC_AUTH_MODE = 'mock';
+  AsyncStorage.getItem = async (key) => storage.get(key) ?? null;
+  AsyncStorage.setItem = async (key, value) => {
+    storage.set(key, value);
+  };
+  AsyncStorage.removeItem = async (key) => {
+    storage.delete(key);
+  };
+
+  configureApiClient({
+    getToken: () => token,
+    onUnauthorized: () => undefined,
+  });
+
+  const signIn = await signInRequest({
+    email: 'admin@example.test',
+    password: 'password123',
+  });
+  token = signIn.token;
+
+  const session = await fetchSessionRequest();
+  assert.equal(session.user.email, 'admin@example.test');
+
+  const profiles = await searchProfilesRequest({ query: 'alex' });
+  assert.equal(profiles.profiles.some((profile) => profile.username === 'alex'), true);
+
+  await signOutRequest();
+
+  await assert.rejects(
+    () => fetchSessionRequest(),
+    (error: unknown) => {
+      assert.ok(error instanceof ApiRequestError);
+      assert.equal(error.status, 401);
+      return true;
+    },
+  );
 });
 
 test('searchProfilesRequest injects the bearer token', async () => {

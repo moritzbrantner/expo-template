@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { publicStackDescriptors } from '@/lib/navigation';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function PublicLayout() {
@@ -25,9 +26,20 @@ export default function PublicLayout() {
 
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="auth" options={{ headerShown: false }} />
-      <Stack.Screen name="u/[username]" options={{ title: 'Profile' }} />
+      {publicStackDescriptors.map((descriptor) => (
+        <Stack.Screen
+          key={descriptor.name}
+          name={descriptor.name}
+          options={
+            descriptor.name === 'index' || descriptor.name === 'auth'
+              ? { headerShown: false }
+              : {
+                  title: descriptor.title,
+                  presentation: descriptor.presentation,
+                }
+          }
+        />
+      ))}
     </Stack>
   );
 }

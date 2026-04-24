@@ -13,7 +13,7 @@
     "ios": "expo start --ios --port 4002",
     "web": "expo start --web --port 4002",
     "lint": "expo lint",
-    "dev": "expo start --port 4002",
+    "dev": "EXPO_PUBLIC_AUTH_MODE=mock expo start --port 4002",
     "dev:api:up": "docker compose up -d dev-api",
     "dev:api:down": "docker compose stop dev-api",
     "build": "expo export --platform web",
@@ -27,6 +27,8 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
+    "@moritzbrantner/frontend-ui": "0.1.0",
+    "@moritzbrantner/ui": "0.3.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.9.10",
@@ -69,6 +71,7 @@
   },
   "private": true,
   "trustedDependencies": [
+    "msw",
     "unrs-resolver"
   ]
 }

@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { protectedStackDescriptors } from '@/lib/navigation';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function ProtectedLayout() {
@@ -24,10 +25,20 @@ export default function ProtectedLayout() {
 
   return (
     <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
-      <Stack.Screen name="settings/account" options={{ title: 'Account' }} />
-      <Stack.Screen name="settings/admin" options={{ title: 'Admin' }} />
+      {protectedStackDescriptors.map((descriptor) => (
+        <Stack.Screen
+          key={descriptor.name}
+          name={descriptor.name}
+          options={
+            descriptor.name === '(tabs)'
+              ? { headerShown: false }
+              : {
+                  title: descriptor.title,
+                  presentation: descriptor.presentation,
+                }
+          }
+        />
+      ))}
     </Stack>
   );
 }

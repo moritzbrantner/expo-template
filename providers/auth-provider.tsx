@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -22,6 +23,10 @@ import {
   type SessionUser,
 } from '@/lib/auth';
 import { clearPersistedSession, loadPersistedSessionToken, persistSessionToken } from '@/lib/auth-storage';
+import {
+  bootstrapDevelopmentSession,
+  shouldEnableDevelopmentSessionBootstrap,
+} from '@/lib/dev-auth';
 import { hasPermission as checkPermission } from '@/shared/social';
 
 type SignUpInput = {
@@ -60,6 +65,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isStorageReady, setIsStorageReady] = useState(false);
+  const [isBootstrappingDevelopmentSession, setIsBootstrappingDevelopmentSession] = useState(false);
+  const hasAttemptedDevelopmentBootstrapRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -118,7 +125,53 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [sessionQuery.error]);
 
   const currentUser = sessionQuery.data?.user ?? null;
-  const isHydrating = !isStorageReady || (!!sessionToken && sessionQuery.isPending);
+
+  useEffect(() => {
+    if (!isStorageReady || sessionToken || hasAttemptedDevelopmentBootstrapRef.current) {
+      return;
+    }
+
+    if (!shouldEnableDevelopmentSessionBootstrap()) {
+      hasAttemptedDevelopmentBootstrapRef.current = true;
+      return;
+    }
+
+    hasAttemptedDevelopmentBootstrapRef.current = true;
+    let isMounted = true;
+
+    async function restoreDevelopmentSession() {
+      setIsBootstrappingDevelopmentSession(true);
+
+      try {
+        const response = await bootstrapDevelopmentSession();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setSessionToken(response.token);
+        await persistSessionToken(response.token);
+        queryClient.setQueryData(['session', response.token], {
+          user: response.user,
+        });
+      } catch (error) {
+        console.warn('Failed to bootstrap a development session.', error);
+      } finally {
+        if (isMounted) {
+          setIsBootstrappingDevelopmentSession(false);
+        }
+      }
+    }
+
+    void restoreDevelopmentSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isStorageReady, queryClient, sessionToken]);
+
+  const isHydrating =
+    !isStorageReady || isBootstrappingDevelopmentSession || (!!sessionToken && sessionQuery.isPending);
 
   const value = useMemo<AuthContextValue>(
     () => ({

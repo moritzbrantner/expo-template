@@ -56,7 +56,9 @@ export class ApiRequestError extends Error {
 }
 
 type ApiErrorPayload = {
+  code?: string;
   error?: string;
+  message?: string;
 };
 
 type ApiRequestOptions = {
@@ -87,7 +89,9 @@ async function parseResponse<T>(response: Response) {
   const errorMessage =
     payload && typeof payload === 'object' && 'error' in payload
       ? (payload.error as string | undefined)
-      : undefined;
+      : payload && typeof payload === 'object' && 'message' in payload
+        ? (payload.message as string | undefined)
+        : undefined;
 
   if (!response.ok) {
     throw new ApiRequestError(errorMessage ?? 'The request could not be completed.', response.status);

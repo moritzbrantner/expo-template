@@ -171,8 +171,12 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
             username: 'ada',
             displayName: 'Ada Lovelace',
             avatarUrl: null,
+            coverUrl: null,
             role: 'member',
             status: 'active',
+            discoverable: true,
+            onboardingCompleted: false,
+            emailVerifiedAt: '2026-04-16T10:00:00.000Z',
           },
         });
   };
@@ -194,8 +198,12 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
       username: 'ada',
       displayName: 'Ada Lovelace',
       avatarUrl: null,
+      coverUrl: null,
       role: 'member',
       status: 'active',
+      discoverable: true,
+      onboardingCompleted: false,
+      emailVerifiedAt: '2026-04-16T10:00:00.000Z',
     },
   });
   await persistSessionToken('token-456');
@@ -205,8 +213,12 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
     username: 'grace',
     displayName: 'Grace Hopper',
     avatarUrl: null,
+    coverUrl: null,
     role: 'admin',
     status: 'active',
+    discoverable: true,
+    onboardingCompleted: false,
+    emailVerifiedAt: '2026-04-16T10:00:00.000Z',
   });
   await clearPersistedSession();
 
@@ -214,16 +226,20 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
     key: AUTH_SESSION_STORAGE_KEY,
     value: JSON.stringify({
       token: 'token-789',
-      user: {
-        id: 'user-2',
-        email: 'grace@example.test',
-        username: 'grace',
-        displayName: 'Grace Hopper',
-        avatarUrl: null,
-        role: 'admin',
-        status: 'active',
-      },
-    }),
+        user: {
+          id: 'user-2',
+          email: 'grace@example.test',
+          username: 'grace',
+          displayName: 'Grace Hopper',
+          avatarUrl: null,
+          coverUrl: null,
+          role: 'admin',
+          status: 'active',
+          discoverable: true,
+          onboardingCompleted: false,
+          emailVerifiedAt: '2026-04-16T10:00:00.000Z',
+        },
+      }),
   });
   assert.equal(removedKey, AUTH_SESSION_STORAGE_KEY);
 });

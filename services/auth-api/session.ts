@@ -1,8 +1,8 @@
 import type { IncomingMessage } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { getBearerToken } from './http';
-import type { Store, StoredSession, StoredUser } from './store';
+import { canAuthenticateUser, isExpired, type Store, type StoredSession, type StoredUser } from './store';
 
 const SESSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -15,15 +15,12 @@ function createSessionTimestamps() {
   };
 }
 
-function isExpired(session: StoredSession): boolean {
-  return new Date(session.expiresAt).getTime() <= Date.now();
-}
-
 export async function createSession(store: Store, userId: string): Promise<StoredSession> {
   return store.mutate((document) => {
-    document.sessions = document.sessions.filter((session) => !isExpired(session));
+    document.sessions = document.sessions.filter((session) => !isExpired(session.expiresAt));
     const timestamps = createSessionTimestamps();
     const session: StoredSession = {
+      id: randomUUID(),
       token: randomBytes(24).toString('hex'),
       userId,
       ...timestamps,
@@ -44,14 +41,27 @@ export async function revokeSession(store: Store, token: string | null): Promise
   });
 }
 
+export async function revokeSessionById(store: Store, userId: string, sessionId: string): Promise<void> {
+  await store.mutate((document) => {
+    document.sessions = document.sessions.filter(
+      (session) => !(session.userId === userId && session.id === sessionId),
+    );
+  });
+}
+
+export async function revokeAllSessionsForUser(store: Store, userId: string): Promise<void> {
+  await store.mutate((document) => {
+    document.sessions = document.sessions.filter((session) => session.userId !== userId);
+  });
+}
+
 export async function resolveSession(store: Store, token: string | null): Promise<StoredUser | null> {
   if (!token) {
     return null;
   }
 
   return store.mutate((document) => {
-    document.sessions = document.sessions.filter((session) => !isExpired(session));
-
+    document.sessions = document.sessions.filter((session) => !isExpired(session.expiresAt));
     const session = document.sessions.find((entry) => entry.token === token);
 
     if (!session) {
@@ -60,7 +70,7 @@ export async function resolveSession(store: Store, token: string | null): Promis
 
     const user = document.users.find((entry) => entry.id === session.userId) ?? null;
 
-    if (!user) {
+    if (!user || !canAuthenticateUser(user)) {
       document.sessions = document.sessions.filter((entry) => entry.token !== token);
       return null;
     }

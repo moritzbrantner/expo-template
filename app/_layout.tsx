@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { ThemeModeProvider, useThemeMode } from '@/hooks/theme-mode';
 import { AuthProvider } from '@/providers/auth-provider';
+import { UserPreferencesProvider } from '@/providers/user-preferences-provider';
 
 function AppNavigator() {
   const { activeTheme } = useThemeMode();
@@ -39,8 +40,10 @@ function AppNavigator() {
 
 export default function RootLayout() {
   return (
-    <ThemeModeProvider>
-      <AppNavigator />
-    </ThemeModeProvider>
+    <UserPreferencesProvider>
+      <ThemeModeProvider>
+        <AppNavigator />
+      </ThemeModeProvider>
+    </UserPreferencesProvider>
   );
 }

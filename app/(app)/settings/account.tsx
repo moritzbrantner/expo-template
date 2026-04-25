@@ -9,6 +9,7 @@ import {
   type EditableAvatarAsset,
 } from '@/components/avatar-editor-modal';
 import { ProfileAvatar } from '@/components/profile-avatar';
+import { UserPreferencesCard } from '@/components/settings/user-preferences-card';
 import { ActionButton, InlineMessage, ScreenScroll, SectionCard } from '@/components/social/ui';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
@@ -16,6 +17,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { useThemeMode } from '@/hooks/theme-mode';
 import { useProfileQuery } from '@/lib/social-hooks';
 import { useAuth } from '@/providers/auth-provider';
+import { useUserPreferences } from '@/providers/user-preferences-provider';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 const AVATAR_SIZE = 92;
@@ -26,6 +28,7 @@ export default function AccountSettingsScreen() {
   const mutedTextColor = useThemeColor({}, 'mutedText');
   const palette = Colors[useThemeMode().activeTheme];
   const { currentUser, updateProfile, updateProfilePicture } = useAuth();
+  const preferences = useUserPreferences();
   const profileQuery = useProfileQuery(currentUser?.username);
   const profile = profileQuery.data?.profile;
   const [displayName, setDisplayName] = useState('');
@@ -193,6 +196,8 @@ export default function AccountSettingsScreen() {
         <InlineMessage tone="muted" message="Your account profile is not available." />
       ) : (
         <>
+          <UserPreferencesCard preferences={preferences} />
+
           <SectionCard>
             <ThemedText type="subtitle">Profile picture</ThemedText>
             <View style={styles.profileRow}>

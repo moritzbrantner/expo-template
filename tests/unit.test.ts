@@ -35,6 +35,11 @@ import {
   normalizeThemeMode,
   persistThemeMode,
 } from '../lib/theme-storage';
+import {
+  normalizeLanguageTag,
+  readPreferredLanguageFromInput,
+  resolveColorBlindModePreference,
+} from '../lib/user-preferences-helpers';
 
 const originalFetch = global.fetch;
 const originalGetItem = AsyncStorage.getItem;
@@ -101,6 +106,51 @@ test('theme mode helpers load and persist saved preference', async () => {
     key: THEME_MODE_STORAGE_KEY,
     value: 'light',
   });
+});
+
+test('user preference helpers normalize language tags and infer color-blind mode', () => {
+  assert.equal(normalizeLanguageTag('en_US'), 'en-US');
+  assert.equal(normalizeLanguageTag(' de-DE '), 'de-DE');
+  assert.equal(normalizeLanguageTag(''), null);
+  assert.equal(
+    resolveColorBlindModePreference({
+      grayscaleEnabled: false,
+      invertColorsEnabled: false,
+      highTextContrastEnabled: false,
+      darkerSystemColorsEnabled: false,
+    }),
+    false,
+  );
+  assert.equal(
+    resolveColorBlindModePreference({
+      grayscaleEnabled: false,
+      invertColorsEnabled: true,
+      highTextContrastEnabled: false,
+      darkerSystemColorsEnabled: false,
+    }),
+    true,
+  );
+});
+
+test('preferred language input prefers browser languages before locale fallbacks', () => {
+  assert.equal(
+    readPreferredLanguageFromInput({
+      browserLanguages: ['fr_FR', 'en-GB'],
+      browserLanguage: 'en-US',
+      localeIdentifier: 'de_DE',
+      intlLanguage: 'it-IT',
+    }),
+    'fr-FR',
+  );
+  assert.equal(
+    readPreferredLanguageFromInput({
+      browserLanguages: [],
+      browserLanguage: null,
+      localeIdentifier: 'de_DE',
+      intlLanguage: 'it-IT',
+    }),
+    'de-DE',
+  );
 });
 
 test('auth storage restores legacy tokens and persists the signed-in user snapshot', async () => {

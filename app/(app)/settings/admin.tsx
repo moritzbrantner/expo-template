@@ -1,15 +1,18 @@
 import { Redirect } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { UserPreferencesCard } from '@/components/settings/user-preferences-card';
 import { ActionButton, InlineMessage, ScreenScroll, SectionCard, StatPill } from '@/components/social/ui';
 import { ThemedText } from '@/components/themed-text';
 import { useAdminUsersQuery, useRoleMutation } from '@/lib/social-hooks';
 import { useAuth } from '@/providers/auth-provider';
+import { useUserPreferences } from '@/providers/user-preferences-provider';
 
 const ROLE_OPTIONS = ['member', 'moderator', 'admin'] as const;
 
 export default function AdminSettingsScreen() {
   const { hasPermission, currentUser } = useAuth();
+  const preferences = useUserPreferences();
   const canManageRoles = hasPermission('role.manage:any');
   const usersQuery = useAdminUsersQuery(canManageRoles);
   const roleMutation = useRoleMutation();
@@ -22,6 +25,8 @@ export default function AdminSettingsScreen() {
     <ScreenScroll
       title="Admin"
       description="Admin-only role management backed by shared RBAC contracts and the local auth API.">
+      <UserPreferencesCard preferences={preferences} />
+
       {usersQuery.isPending ? (
         <InlineMessage tone="muted" message="Loading users..." />
       ) : usersQuery.isError ? (

@@ -1,247 +1,52 @@
-import { requirePermission } from '../authz';
-import { getPaginationCursor, json, paginate, parseBody, sendError } from '../http';
-import { readSessionToken, resolveSession } from '../session';
+import { randomUUID } from 'node:crypto';
+
+import { requireAuthenticatedUser, resolveViewer } from '../authz';
+import { getPaginationCursor, getStringParam, json, parseBody, paginate, sendError } from '../http';
 import {
-  createUploadIntentRecord,
   findUserByUsername,
-  isUserAccessible,
-  isValidAssetUrl,
-  isValidAvatarDataUrl,
-  isValidUsername,
+  isUserVisible,
   normalizeUsername,
   toProfileDetail,
-  toPublicProfile,
   toSessionUser,
   toUploadIntent,
+  type StoredUploadIntent,
 } from '../store';
 import type { RouteHandlerContext } from './types';
 
-const PAGE_SIZE = 12;
-
-function sortProfiles<T extends { displayName: string; username: string }>(profiles: T[]): T[] {
-  return [...profiles].sort(
-    (left, right) =>
-      left.displayName.localeCompare(right.displayName) ||
-      left.username.localeCompare(right.username),
-  );
-}
-
-function isSupportedContentType(value: string): boolean {
-  return value === 'image/jpeg' || value === 'image/jpg' || value === 'image/png' || value === 'image/webp';
-}
+const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
+const PAGE_SIZE = 20;
+const UPLOAD_INTENT_TTL_MS = 1000 * 60 * 15;
 
 export async function handleProfileRoutes(context: RouteHandlerContext): Promise<boolean> {
   const { corsOrigin, request, requestId, requestUrl, response, store } = context;
-  const viewer = await resolveSession(store, readSessionToken(request));
-  const viewerSession = viewer ? toSessionUser(viewer) : null;
+  const viewer = await resolveViewer(context);
 
   if (request.method === 'GET' && requestUrl.pathname === '/profiles') {
-    const query = String(requestUrl.searchParams.get('query') ?? '').trim().toLowerCase();
+    const query = getStringParam(requestUrl.searchParams.get('query') ?? undefined)?.toLowerCase() ?? '';
     const cursor = getPaginationCursor(requestUrl);
     const document = await store.read();
-    const searchableProfiles = sortProfiles(
-      document.users
-        .filter((user) => user.id !== viewer?.id)
-        .filter((user) => isUserAccessible(document, user, viewer?.id ?? null))
-        .filter((user) => {
-          if (!query) {
-            return true;
-          }
+    const visibleProfiles = document.users
+      .filter((user) => isUserVisible(user))
+      .filter((user) => {
+        if (!query) {
+          return true;
+        }
 
-          const haystack = `${user.displayName} ${user.username} ${user.bio}`.toLowerCase();
-          return haystack.includes(query);
-        })
-        .map((user) => toPublicProfile(user, document, viewerSession)),
-    );
-    const page = paginate(searchableProfiles, cursor, PAGE_SIZE);
+        return (
+          user.username.includes(query) ||
+          user.displayName.toLowerCase().includes(query) ||
+          user.bio.toLowerCase().includes(query)
+        );
+      })
+      .sort((left, right) => left.username.localeCompare(right.username));
 
-    json(response, 200, { profiles: page.items, nextCursor: page.nextCursor }, corsOrigin);
-    return true;
-  }
-
-  if (request.method === 'GET' && requestUrl.pathname.startsWith('/usernames/')) {
-    const segments = requestUrl.pathname.split('/').filter(Boolean);
-
-    if (segments.length === 3 && segments[2] === 'availability') {
-      const username = normalizeUsername(segments[1] ?? '');
-
-      if (!isValidUsername(username)) {
-        sendError(response, {
-          code: 'INVALID_USERNAME',
-          corsOrigin,
-          message: 'Username must be 3-24 characters using lowercase letters, numbers, or underscores.',
-          requestId,
-          statusCode: 400,
-        });
-        return true;
-      }
-
-      const document = await store.read();
-      const currentUsername = viewer?.username ?? null;
-      const taken = document.users.some(
-        (user) => user.username === username && user.username !== currentUsername,
-      );
-
-      json(
-        response,
-        200,
-        {
-          available: !taken,
-          reason: taken ? 'taken' : 'available',
-        },
-        corsOrigin,
-      );
-      return true;
-    }
-  }
-
-  if (request.method === 'GET' && requestUrl.pathname === '/me/profile') {
-    if (!requirePermission(response, { corsOrigin, permission: 'profile.read', requestId, user: viewerSession })) {
-      return true;
-    }
-
-    const document = await store.read();
-    const user = document.users.find((entry) => entry.id === viewer!.id);
-
-    if (!user) {
-      sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
-        corsOrigin,
-        message: 'Profile not found.',
-        requestId,
-        statusCode: 404,
-      });
-      return true;
-    }
-
-    json(response, 200, { profile: toProfileDetail(user, document, viewerSession) }, corsOrigin);
-    return true;
-  }
-
-  if (request.method === 'GET' && requestUrl.pathname.startsWith('/profiles/')) {
-    const segments = requestUrl.pathname.split('/').filter(Boolean);
-
-    if (segments.length === 2) {
-      const username = normalizeUsername(segments[1] ?? '');
-      const document = await store.read();
-      const user = findUserByUsername(document, username);
-
-      if (!user || !isUserAccessible(document, user, viewer?.id ?? null, { allowUndiscoverable: true })) {
-        sendError(response, {
-          code: 'PROFILE_NOT_FOUND',
-          corsOrigin,
-          message: 'Profile not found.',
-          requestId,
-          statusCode: 404,
-        });
-        return true;
-      }
-
-      json(response, 200, { profile: toProfileDetail(user, document, viewerSession) }, corsOrigin);
-      return true;
-    }
-  }
-
-  if (request.method === 'PATCH' && requestUrl.pathname === '/me/profile') {
-    if (!requirePermission(response, { corsOrigin, permission: 'profile.edit:self', requestId, user: viewerSession })) {
-      return true;
-    }
-
-    const body = await parseBody(request);
-    const displayName = String(body.displayName ?? '').trim();
-    const bio = String(body.bio ?? '').trim();
-    const requestedUsername = normalizeUsername(String(body.username ?? viewer!.username));
-    const discoverable =
-      typeof body.discoverable === 'boolean' ? body.discoverable : viewer!.discoverable;
-
-    if (!displayName) {
-      sendError(response, {
-        code: 'DISPLAY_NAME_REQUIRED',
-        corsOrigin,
-        message: 'Display name is required.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    if (!isValidUsername(requestedUsername)) {
-      sendError(response, {
-        code: 'INVALID_USERNAME',
-        corsOrigin,
-        message: 'Username must be 3-24 characters using lowercase letters, numbers, or underscores.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    if (bio.length > 280) {
-      sendError(response, {
-        code: 'BIO_TOO_LONG',
-        corsOrigin,
-        message: 'Bio must be 280 characters or fewer.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    const result = await store.mutate((document) => {
-      if (
-        document.users.some(
-          (entry) => entry.id !== viewer!.id && entry.username === requestedUsername,
-        )
-      ) {
-        return { duplicate: true as const };
-      }
-
-      const user = document.users.find((entry) => entry.id === viewer!.id);
-
-      if (!user) {
-        return { missing: true as const };
-      }
-
-      user.displayName = displayName;
-      user.username = requestedUsername;
-      user.bio = bio;
-      user.discoverable = discoverable;
-      user.updatedAt = new Date().toISOString();
-
-      return {
-        user,
-        profile: toProfileDetail(user, document, toSessionUser(user)),
-      };
-    });
-
-    if ('duplicate' in result) {
-      sendError(response, {
-        code: 'USERNAME_TAKEN',
-        corsOrigin,
-        message: 'That username is already taken.',
-        requestId,
-        statusCode: 409,
-      });
-      return true;
-    }
-
-    if ('missing' in result) {
-      sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
-        corsOrigin,
-        message: 'Profile not found.',
-        requestId,
-        statusCode: 404,
-      });
-      return true;
-    }
-
+    const page = paginate(visibleProfiles, cursor, PAGE_SIZE);
     json(
       response,
       200,
       {
-        user: toSessionUser(result.user),
-        profile: result.profile,
+        profiles: page.items.map((user) => toProfileDetail(user, document, viewer)),
+        nextCursor: page.nextCursor,
       },
       corsOrigin,
     );
@@ -249,112 +54,261 @@ export async function handleProfileRoutes(context: RouteHandlerContext): Promise
   }
 
   if (
-    request.method === 'POST' &&
-    (requestUrl.pathname === '/me/avatar/upload-intent' || requestUrl.pathname === '/me/cover/upload-intent')
+    request.method === 'GET' &&
+    requestUrl.pathname.startsWith('/usernames/') &&
+    requestUrl.pathname.endsWith('/availability')
   ) {
-    if (!requirePermission(response, { corsOrigin, permission: 'profile.edit:self', requestId, user: viewerSession })) {
+    const segments = requestUrl.pathname.split('/');
+    const username = normalizeUsername(segments[2] ?? '');
+    const document = await store.read();
+    const user = findUserByUsername(document, username);
+
+    json(
+      response,
+      200,
+      {
+        username,
+        available: Boolean(username) && !user,
+      },
+      corsOrigin,
+    );
+    return true;
+  }
+
+  if (request.method === 'GET' && requestUrl.pathname === '/me/profile') {
+    const authenticated = await requireAuthenticatedUser(context);
+
+    if (!authenticated) {
+      return true;
+    }
+
+    const document = await store.read();
+    const freshUser = document.users.find((user) => user.id === authenticated.user.id) ?? authenticated.user;
+    json(
+      response,
+      200,
+      { profile: toProfileDetail(freshUser, document, authenticated.user) },
+      corsOrigin,
+    );
+    return true;
+  }
+
+  if (request.method === 'PATCH' && requestUrl.pathname === '/me/profile') {
+    const authenticated = await requireAuthenticatedUser(context);
+
+    if (!authenticated) {
       return true;
     }
 
     const body = await parseBody(request);
-    const contentType = String(body.contentType ?? 'image/jpeg').trim().toLowerCase();
+    const displayName = String(body.displayName ?? '').trim();
+    const username = normalizeUsername(String(body.username ?? ''));
+    const bio = String(body.bio ?? '').trim();
+    const fieldErrors: Record<string, string> = {};
 
-    if (!isSupportedContentType(contentType)) {
+    if (!displayName) {
+      fieldErrors.displayName = 'Display name is required.';
+    }
+
+    if (!USERNAME_PATTERN.test(username)) {
+      fieldErrors.username = 'Username must be 3-24 characters using lowercase letters, numbers, or underscores.';
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
       sendError(response, {
-        code: 'INVALID_CONTENT_TYPE',
+        code: 'VALIDATION_ERROR',
         corsOrigin,
-        message: 'A supported image content type is required.',
+        fieldErrors,
+        message: 'Profile details are invalid.',
         requestId,
         statusCode: 400,
       });
       return true;
     }
 
-    const intent = createUploadIntentRecord(
-      viewer!.id,
-      requestUrl.pathname.includes('/cover/') ? 'cover' : 'avatar',
-      contentType,
+    const result = await store.mutate((document) => {
+      const user = document.users.find((entry) => entry.id === authenticated.user.id);
+
+      if (!user) {
+        return { code: 'NOT_FOUND' as const };
+      }
+
+      if (document.users.some((entry) => entry.id !== user.id && entry.username === username)) {
+        return { code: 'USERNAME_TAKEN' as const };
+      }
+
+      user.displayName = displayName;
+      user.username = username;
+      user.bio = bio;
+      user.updatedAt = new Date().toISOString();
+
+      return {
+        code: 'UPDATED' as const,
+        profile: toProfileDetail(user, document, user),
+        user,
+      };
+    });
+
+    if (result.code === 'NOT_FOUND') {
+      sendError(response, {
+        code: 'NOT_FOUND',
+        corsOrigin,
+        message: 'Profile not found.',
+        requestId,
+        statusCode: 404,
+      });
+      return true;
+    }
+
+    if (result.code === 'USERNAME_TAKEN') {
+      sendError(response, {
+        code: 'USERNAME_TAKEN',
+        corsOrigin,
+        fieldErrors: { username: 'That username is already in use.' },
+        message: 'That username is already in use.',
+        requestId,
+        statusCode: 409,
+      });
+      return true;
+    }
+
+    json(
+      response,
+      200,
+      { user: toSessionUser(result.user), profile: result.profile },
+      corsOrigin,
     );
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/me/avatar/upload-intent') {
+    const authenticated = await requireAuthenticatedUser(context);
+
+    if (!authenticated) {
+      return true;
+    }
+
+    const body = await parseBody(request);
+    const contentType = String(body.contentType ?? 'image/jpeg').trim() || 'image/jpeg';
+    const now = new Date();
+    const uploadToken = randomUUID();
+    const assetUrl = `https://assets.example.test/avatar/${authenticated.user.id}/${uploadToken}`;
+    const intent: StoredUploadIntent = {
+      uploadToken,
+      userId: authenticated.user.id,
+      kind: 'avatar',
+      contentType,
+      uploadUrl: `https://uploads.example.test/mock/${uploadToken}`,
+      assetUrl,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + UPLOAD_INTENT_TTL_MS).toISOString(),
+      completedAt: null,
+    };
 
     await store.mutate((document) => {
+      document.uploadIntents = document.uploadIntents.filter(
+        (entry) => !(entry.userId === authenticated.user.id && entry.kind === 'avatar'),
+      );
       document.uploadIntents.push(intent);
     });
 
-    json(response, 201, { upload: toUploadIntent(intent) }, corsOrigin);
+    json(response, 200, { uploadIntent: toUploadIntent(intent) }, corsOrigin);
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/me/avatar/complete') {
+    const authenticated = await requireAuthenticatedUser(context);
+
+    if (!authenticated) {
+      return true;
+    }
+
+    const body = await parseBody(request);
+    const clear = body.clear === true;
+    const uploadToken = String(body.uploadToken ?? '').trim();
+
+    if (!clear && !uploadToken) {
+      sendError(response, {
+        code: 'VALIDATION_ERROR',
+        corsOrigin,
+        fieldErrors: { uploadToken: 'An upload token is required.' },
+        message: 'An upload token is required.',
+        requestId,
+        statusCode: 400,
+      });
+      return true;
+    }
+
+    const result = await store.mutate((document) => {
+      const user = document.users.find((entry) => entry.id === authenticated.user.id) ?? null;
+
+      if (!user) {
+        return { code: 'INVALID_INTENT' as const };
+      }
+
+      if (clear) {
+        user.avatarUrl = null;
+        user.updatedAt = new Date().toISOString();
+        return {
+          code: 'UPDATED' as const,
+          profile: toProfileDetail(user, document, user),
+          user,
+        };
+      }
+
+      const intent = document.uploadIntents.find((entry) => entry.uploadToken === uploadToken) ?? null;
+
+      if (!intent || intent.userId !== authenticated.user.id || intent.kind !== 'avatar') {
+        return { code: 'INVALID_INTENT' as const };
+      }
+
+      if (intent.completedAt !== null || new Date(intent.expiresAt).getTime() <= Date.now()) {
+        return { code: 'INVALID_INTENT' as const };
+      }
+
+      intent.completedAt = new Date().toISOString();
+      user.avatarUrl = intent.assetUrl;
+      user.updatedAt = new Date().toISOString();
+
+      return {
+        code: 'UPDATED' as const,
+        profile: toProfileDetail(user, document, user),
+        user,
+      };
+    });
+
+    if (result.code === 'INVALID_INTENT') {
+      sendError(response, {
+        code: 'INVALID_UPLOAD_INTENT',
+        corsOrigin,
+        message: 'That upload intent is invalid or expired.',
+        requestId,
+        statusCode: 400,
+      });
+      return true;
+    }
+
+    json(
+      response,
+      200,
+      { user: toSessionUser(result.user), profile: result.profile },
+      corsOrigin,
+    );
     return true;
   }
 
   if (
-    request.method === 'POST' &&
-    (requestUrl.pathname === '/me/avatar/complete' || requestUrl.pathname === '/me/cover/complete')
+    request.method === 'GET' &&
+    requestUrl.pathname.startsWith('/profiles/') &&
+    requestUrl.pathname.split('/').length === 3
   ) {
-    if (!requirePermission(response, { corsOrigin, permission: 'profile.edit:self', requestId, user: viewerSession })) {
-      return true;
-    }
+    const username = requestUrl.pathname.split('/')[2] ?? '';
+    const document = await store.read();
+    const user = findUserByUsername(document, username);
 
-    const body = await parseBody(request);
-    const uploadToken = String(body.uploadToken ?? '').trim();
-    const assetUrl = String(body.assetUrl ?? '').trim();
-    const kind = requestUrl.pathname.includes('/cover/') ? 'cover' : 'avatar';
-
-    if (!uploadToken || !assetUrl || !isValidAssetUrl(assetUrl)) {
+    if (!user || !isUserVisible(user)) {
       sendError(response, {
-        code: 'INVALID_UPLOAD_COMPLETION',
-        corsOrigin,
-        message: 'A valid upload token and asset URL are required.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    const result = await store.mutate((document) => {
-      const intent = document.uploadIntents.find(
-        (entry) =>
-          entry.uploadToken === uploadToken &&
-          entry.userId === viewer!.id &&
-          entry.kind === kind &&
-          !entry.completedAt,
-      );
-
-      if (!intent || Date.parse(intent.expiresAt) <= Date.now()) {
-        return { invalid: true as const };
-      }
-
-      const user = document.users.find((entry) => entry.id === viewer!.id);
-
-      if (!user) {
-        return { missing: true as const };
-      }
-
-      intent.completedAt = new Date().toISOString();
-      if (kind === 'avatar') {
-        user.avatarUrl = assetUrl;
-      } else {
-        user.coverUrl = assetUrl;
-      }
-      user.updatedAt = new Date().toISOString();
-
-      return {
-        user,
-        profile: toProfileDetail(user, document, toSessionUser(user)),
-      };
-    });
-
-    if ('invalid' in result) {
-      sendError(response, {
-        code: 'INVALID_UPLOAD_TOKEN',
-        corsOrigin,
-        message: 'The upload token is invalid or expired.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    if ('missing' in result) {
-      sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
+        code: 'NOT_FOUND',
         corsOrigin,
         message: 'Profile not found.',
         requestId,
@@ -363,59 +317,7 @@ export async function handleProfileRoutes(context: RouteHandlerContext): Promise
       return true;
     }
 
-    json(response, 200, { user: toSessionUser(result.user), profile: result.profile }, corsOrigin);
-    return true;
-  }
-
-  if (request.method === 'POST' && requestUrl.pathname === '/me/avatar') {
-    if (!requirePermission(response, { corsOrigin, permission: 'profile.edit:self', requestId, user: viewerSession })) {
-      return true;
-    }
-
-    const body = await parseBody(request);
-    const avatarInput = body.avatarDataUrl;
-    const avatarDataUrl =
-      avatarInput === null || avatarInput === undefined ? null : String(avatarInput).trim();
-
-    if (avatarDataUrl && (!isValidAvatarDataUrl(avatarDataUrl) || avatarDataUrl.length > 2_000_000)) {
-      sendError(response, {
-        code: 'INVALID_AVATAR',
-        corsOrigin,
-        message: 'Avatar image must be a valid base64-encoded image.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    const result = await store.mutate((document) => {
-      const user = document.users.find((entry) => entry.id === viewer!.id);
-
-      if (!user) {
-        return { missing: true as const };
-      }
-
-      user.avatarUrl = avatarDataUrl;
-      user.updatedAt = new Date().toISOString();
-
-      return {
-        user,
-        profile: toProfileDetail(user, document, toSessionUser(user)),
-      };
-    });
-
-    if ('missing' in result) {
-      sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
-        corsOrigin,
-        message: 'Profile not found.',
-        requestId,
-        statusCode: 404,
-      });
-      return true;
-    }
-
-    json(response, 200, { user: toSessionUser(result.user), profile: result.profile }, corsOrigin);
+    json(response, 200, { profile: toProfileDetail(user, document, viewer) }, corsOrigin);
     return true;
   }
 

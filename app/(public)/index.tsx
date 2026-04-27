@@ -10,7 +10,7 @@ export default function PublicIndexScreen() {
   return (
     <ScreenScroll
       title="Social app-shell baseline"
-      description="A reusable Expo scaffold surface with public profiles, protected app tabs, follow activity, and local RBAC-backed admin tooling.">
+      description="A reusable Expo scaffold surface with public profiles, protected app tabs, follow activity, and a real auth lifecycle.">
       <SectionCard>
         <ThemedText type="subtitle">Scaffold contract</ThemedText>
         <ThemedText>
@@ -32,7 +32,7 @@ export default function PublicIndexScreen() {
         <View style={styles.statRow}>
           <StatPill label="Profiles" value="username routes" />
           <StatPill label="Social" value="follow graph" />
-          <StatPill label="Authz" value="RBAC" />
+          <StatPill label="Lifecycle" value="verify and reset" />
         </View>
       </SectionCard>
     </ScreenScroll>

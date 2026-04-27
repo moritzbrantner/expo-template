@@ -18,7 +18,6 @@ import {
   signUpRequest,
   updateMyAvatarRequest,
   updateMyProfileRequest,
-  type Permission,
   type ProfileDetail,
   type SessionUser,
 } from '@/lib/auth';
@@ -27,7 +26,6 @@ import {
   bootstrapDevelopmentSession,
   shouldEnableDevelopmentSessionBootstrap,
 } from '@/lib/dev-auth';
-import { hasPermission as checkPermission } from '@/shared/social';
 
 type SignUpInput = {
   displayName: string;
@@ -56,7 +54,6 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   updateProfile: (input: UpdateProfileInput) => Promise<ProfileDetail>;
   updateProfilePicture: (avatarDataUrl: string | null) => Promise<ProfileDetail>;
-  hasPermission: (permission: Permission) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -101,7 +98,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     queryClient.removeQueries({
       predicate: (query) => {
         const key = query.queryKey[0];
-        return key === 'activity' || key === 'profiles' || key === 'profile' || key === 'admin' || key === 'session';
+        return key === 'activity' || key === 'profiles' || key === 'profile' || key === 'session';
       },
     });
   }
@@ -242,9 +239,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           profile: response.profile,
         });
         return response.profile;
-      },
-      hasPermission(permission) {
-        return checkPermission(currentUser, permission);
       },
     }),
     [currentUser, isHydrating, queryClient, sessionToken],

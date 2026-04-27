@@ -2,10 +2,6 @@ import { createAuthApiServer } from './app';
 
 const PORT = Number(process.env.PORT ?? 4001);
 const server = createAuthApiServer({
-  adminEmails: String(process.env.AUTH_API_ADMIN_EMAILS ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean),
   corsOrigin: process.env.CORS_ORIGIN,
   dataFile: process.env.DATA_FILE,
   enableTestEndpoints: process.env.AUTH_API_ENABLE_TEST_ENDPOINTS === 'true',

@@ -20,9 +20,7 @@ function isPersistedSessionUser(value: unknown): value is SessionUser {
     typeof candidate.email === 'string' &&
     typeof candidate.username === 'string' &&
     typeof candidate.displayName === 'string' &&
-    (candidate.avatarUrl === null || typeof candidate.avatarUrl === 'string') &&
-    (candidate.role === 'member' || candidate.role === 'moderator' || candidate.role === 'admin') &&
-    candidate.status === 'active'
+    (candidate.avatarUrl === null || typeof candidate.avatarUrl === 'string')
   );
 }
 

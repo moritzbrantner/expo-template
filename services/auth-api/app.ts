@@ -2,17 +2,12 @@ import { createServer, type Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
 
 import { json, noContent, sendError, getRequestIp } from './http';
-import { handleAdminRoutes } from './routes/admin';
 import { handleAuthRoutes } from './routes/auth';
-import { handleContentRoutes } from './routes/content';
 import { handleFollowRoutes } from './routes/follows';
-import { handleNotificationRoutes } from './routes/notifications';
 import { handleProfileRoutes } from './routes/profiles';
-import { handleReportRoutes } from './routes/reports';
-import { createStore, type StoredUser } from './store';
+import { createStore } from './store';
 
 export interface AuthApiConfig {
-  adminEmails?: string[];
   corsOrigin?: string;
   dataFile?: string;
   enableTestEndpoints?: boolean;
@@ -35,19 +30,6 @@ function getRateLimitRule(method: string, pathname: string): RateLimitRule | nul
   ) {
     return {
       limit: 8,
-      windowMs: 60_000,
-    };
-  }
-
-  if (
-    ['POST', 'PATCH', 'DELETE'].includes(method) &&
-    (pathname.startsWith('/posts') ||
-      pathname.startsWith('/comments') ||
-      pathname.startsWith('/reports') ||
-      pathname.includes('/reactions'))
-  ) {
-    return {
-      limit: 60,
       windowMs: 60_000,
     };
   }
@@ -80,7 +62,6 @@ export function createAuthApiServer(config: AuthApiConfig = {}): Server {
   const corsOrigin = config.corsOrigin ?? '*';
   const store = createStore({
     dataFile: config.dataFile ?? '/data/users.json',
-    adminEmails: config.adminEmails,
   });
   const enableTestEndpoints = config.enableTestEndpoints ?? false;
   const smtpFrom = config.smtpFrom ?? 'noreply@example.test';
@@ -113,7 +94,7 @@ export function createAuthApiServer(config: AuthApiConfig = {}): Server {
       });
     } catch (error) {
       mailTransportDisabled = true;
-      throw error;
+      console.warn('Auth email delivery disabled after transport failure.', error);
     }
   }
 
@@ -204,11 +185,7 @@ export function createAuthApiServer(config: AuthApiConfig = {}): Server {
       if (
         (await handleAuthRoutes(context)) ||
         (await handleProfileRoutes(context)) ||
-        (await handleFollowRoutes(context)) ||
-        (await handleContentRoutes(context)) ||
-        (await handleNotificationRoutes(context)) ||
-        (await handleReportRoutes(context)) ||
-        (await handleAdminRoutes(context))
+        (await handleFollowRoutes(context))
       ) {
         return;
       }

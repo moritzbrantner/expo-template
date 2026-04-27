@@ -7,7 +7,7 @@ export const appManifest = {
   entryWorkspace: '.',
   releaseCadence: 'independent',
   sharedPackages: [],
-  featureFlags: ['navigation', 'tabs', 'auth', 'authz', 'social', 'profiles', 'theme'],
+  featureFlags: ['navigation', 'tabs', 'auth', 'social', 'profiles', 'theme'],
   deployment: {
     runtime: 'expo',
     scheme: 'mobile',

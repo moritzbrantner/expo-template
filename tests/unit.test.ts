@@ -63,9 +63,10 @@ afterEach(() => {
   });
 });
 
-test('app manifest exposes the full scaffold-v2 contract keys for the standalone repo', () => {
+test('app manifest exposes the standalone social template contract', () => {
   assert.equal(appManifest.entryWorkspace, '.');
   assert.deepEqual(appManifest.sharedPackages, []);
+  assert.deepEqual(appManifest.featureFlags, ['navigation', 'tabs', 'auth', 'social', 'profiles', 'theme']);
   assert.equal(appManifest.releaseCadence, 'independent');
   assert.equal(appManifest.deployment.runtime, 'expo');
 });
@@ -171,12 +172,6 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
             username: 'ada',
             displayName: 'Ada Lovelace',
             avatarUrl: null,
-            coverUrl: null,
-            role: 'member',
-            status: 'active',
-            discoverable: true,
-            onboardingCompleted: false,
-            emailVerifiedAt: '2026-04-16T10:00:00.000Z',
           },
         });
   };
@@ -198,14 +193,9 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
       username: 'ada',
       displayName: 'Ada Lovelace',
       avatarUrl: null,
-      coverUrl: null,
-      role: 'member',
-      status: 'active',
-      discoverable: true,
-      onboardingCompleted: false,
-      emailVerifiedAt: '2026-04-16T10:00:00.000Z',
     },
   });
+
   await persistSessionToken('token-456');
   await persistSessionUser('token-789', {
     id: 'user-2',
@@ -213,12 +203,6 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
     username: 'grace',
     displayName: 'Grace Hopper',
     avatarUrl: null,
-    coverUrl: null,
-    role: 'admin',
-    status: 'active',
-    discoverable: true,
-    onboardingCompleted: false,
-    emailVerifiedAt: '2026-04-16T10:00:00.000Z',
   });
   await clearPersistedSession();
 
@@ -226,20 +210,14 @@ test('auth storage restores legacy tokens and persists the signed-in user snapsh
     key: AUTH_SESSION_STORAGE_KEY,
     value: JSON.stringify({
       token: 'token-789',
-        user: {
-          id: 'user-2',
-          email: 'grace@example.test',
-          username: 'grace',
-          displayName: 'Grace Hopper',
-          avatarUrl: null,
-          coverUrl: null,
-          role: 'admin',
-          status: 'active',
-          discoverable: true,
-          onboardingCompleted: false,
-          emailVerifiedAt: '2026-04-16T10:00:00.000Z',
-        },
-      }),
+      user: {
+        id: 'user-2',
+        email: 'grace@example.test',
+        username: 'grace',
+        displayName: 'Grace Hopper',
+        avatarUrl: null,
+      },
+    }),
   });
   assert.equal(removedKey, AUTH_SESSION_STORAGE_KEY);
 });
@@ -263,15 +241,15 @@ test('development session bootstrap helpers respect overrides', () => {
   assert.deepEqual(
     getDevelopmentSessionCredentials({
       ...process.env,
-      EXPO_PUBLIC_DEV_AUTH_DISPLAY_NAME: 'Local Admin',
-      EXPO_PUBLIC_DEV_AUTH_USERNAME: 'local_admin',
-      EXPO_PUBLIC_DEV_AUTH_EMAIL: 'LOCAL.ADMIN@EXAMPLE.TEST',
+      EXPO_PUBLIC_DEV_AUTH_DISPLAY_NAME: 'Local Member',
+      EXPO_PUBLIC_DEV_AUTH_USERNAME: 'local_member',
+      EXPO_PUBLIC_DEV_AUTH_EMAIL: 'LOCAL.MEMBER@EXAMPLE.TEST',
       EXPO_PUBLIC_DEV_AUTH_PASSWORD: 'secret-123',
     }),
     {
-      displayName: 'Local Admin',
-      username: 'local_admin',
-      email: 'local.admin@example.test',
+      displayName: 'Local Member',
+      username: 'local_member',
+      email: 'local.member@example.test',
       password: 'secret-123',
     },
   );
@@ -296,16 +274,16 @@ test('mock auth service signs in and serves scaffold data without network reques
   });
 
   const signIn = await signInRequest({
-    email: 'admin@example.test',
+    email: 'alex@example.test',
     password: 'password123',
   });
   token = signIn.token;
 
   const session = await fetchSessionRequest();
-  assert.equal(session.user.email, 'admin@example.test');
+  assert.equal(session.user.email, 'alex@example.test');
 
-  const profiles = await searchProfilesRequest({ query: 'alex' });
-  assert.equal(profiles.profiles.some((profile) => profile.username === 'alex'), true);
+  const profiles = await searchProfilesRequest({ query: 'sam' });
+  assert.equal(profiles.profiles.some((profile) => profile.username === 'sam'), true);
 
   await signOutRequest();
 
@@ -371,20 +349,36 @@ test('fetchProfileRequest surfaces auth-api errors with status information', asy
   );
 });
 
-test('updateMyAvatarRequest posts the cropped avatar payload to /me/avatar', async () => {
+test('updateMyAvatarRequest uses upload intent and completion endpoints', async () => {
   configureApiClient({
     getToken: () => 'session-token',
     onUnauthorized: () => undefined,
   });
 
+  const calls: Array<{ body: string | null; method: string | undefined; url: string }> = [];
+
   global.fetch = async (input, init) => {
-    assert.equal(String(input), 'http://localhost:4401/me/avatar');
-    assert.equal(init?.method, 'POST');
-    assert.equal((init?.headers as Headers).get('Authorization'), 'Bearer session-token');
-    assert.equal(
-      init?.body,
-      JSON.stringify({ avatarDataUrl: 'data:image/jpeg;base64,avatar' }),
-    );
+    calls.push({
+      url: String(input),
+      method: init?.method,
+      body: typeof init?.body === 'string' ? init.body : null,
+    });
+
+    if (calls.length === 1) {
+      return new Response(
+        JSON.stringify({
+          uploadIntent: {
+            uploadToken: 'upload-token-1',
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+    }
 
     return new Response(
       JSON.stringify({
@@ -393,18 +387,14 @@ test('updateMyAvatarRequest posts the cropped avatar payload to /me/avatar', asy
           email: 'ada@example.test',
           username: 'ada',
           displayName: 'Ada Lovelace',
-          avatarUrl: 'data:image/jpeg;base64,avatar',
-          role: 'member',
-          status: 'active',
+          avatarUrl: 'https://assets.example.test/avatar/user-1/upload-token-1',
         },
         profile: {
           id: 'user-1',
           username: 'ada',
           displayName: 'Ada Lovelace',
           bio: '',
-          avatarUrl: 'data:image/jpeg;base64,avatar',
-          role: 'member',
-          status: 'active',
+          avatarUrl: 'https://assets.example.test/avatar/user-1/upload-token-1',
           createdAt: '2026-04-16T10:00:00.000Z',
           updatedAt: '2026-04-16T10:00:00.000Z',
           followerCount: 0,
@@ -424,7 +414,19 @@ test('updateMyAvatarRequest posts the cropped avatar payload to /me/avatar', asy
   };
 
   const payload = await updateMyAvatarRequest('data:image/jpeg;base64,avatar');
-  assert.equal(payload.profile.avatarUrl, 'data:image/jpeg;base64,avatar');
+  assert.equal(payload.profile.avatarUrl, 'https://assets.example.test/avatar/user-1/upload-token-1');
+  assert.deepEqual(calls, [
+    {
+      url: 'http://localhost:4401/me/avatar/upload-intent',
+      method: 'POST',
+      body: JSON.stringify({ contentType: 'image/jpeg' }),
+    },
+    {
+      url: 'http://localhost:4401/me/avatar/complete',
+      method: 'POST',
+      body: JSON.stringify({ uploadToken: 'upload-token-1' }),
+    },
+  ]);
 });
 
 test('fetchSessionRequest triggers the unauthorized handler on 401', async () => {

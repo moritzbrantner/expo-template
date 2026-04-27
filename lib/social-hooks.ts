@@ -2,16 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   fetchActivityRequest,
-  fetchAdminUsersRequest,
   fetchProfileRequest,
   followProfileRequest,
   searchProfilesRequest,
   unfollowProfileRequest,
-  updateUserRoleRequest,
-  type AdminUser,
   type ProfileDetail,
   type PublicProfile,
-  type Role,
 } from '@/lib/auth';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -92,14 +88,6 @@ export function useActivityQuery() {
   });
 }
 
-export function useAdminUsersQuery(enabled: boolean) {
-  return useQuery({
-    queryKey: ['admin', 'users'],
-    enabled,
-    queryFn: fetchAdminUsersRequest,
-  });
-}
-
 export function useFollowMutation(username: string) {
   const queryClient = useQueryClient();
   const { currentUser } = useAuth();
@@ -175,25 +163,6 @@ export function useFollowMutation(username: string) {
         queryClient.invalidateQueries({ queryKey: ['profiles'] }),
         queryClient.invalidateQueries({ queryKey: ['activity'] }),
       ]);
-    },
-  });
-}
-
-export function useRoleMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: Role }) => updateUserRoleRequest(userId, role),
-    onSuccess: (result) => {
-      queryClient.setQueryData<{ users: AdminUser[] }>(['admin', 'users'], (current) => {
-        if (!current) {
-          return current;
-        }
-
-        return {
-          users: current.users.map((user) => (user.id === result.user.id ? result.user : user)),
-        };
-      });
     },
   });
 }

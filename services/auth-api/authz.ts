@@ -1,46 +1,28 @@
-import type { ServerResponse } from 'node:http';
-
-import type { Permission, SessionUser } from '../../shared/social';
-import { hasPermission } from '../../shared/social';
 import { sendError } from './http';
+import { readSessionToken, resolveSession } from './session';
+import type { StoredUser } from './store';
+import type { RouteHandlerContext } from './routes/types';
 
-export { hasPermission } from '../../shared/social';
+export async function resolveViewer(context: RouteHandlerContext): Promise<StoredUser | null> {
+  return resolveSession(context.store, readSessionToken(context.request));
+}
 
-export function requirePermission(
-  response: ServerResponse,
-  {
-    corsOrigin,
-    permission,
-    requestId,
-    user,
-  }: {
-    corsOrigin: string;
-    permission: Permission;
-    requestId: string;
-    user: SessionUser | null;
-  },
-): boolean {
-  if (!user) {
-    sendError(response, {
-      code: 'AUTH_REQUIRED',
-      corsOrigin,
-      message: 'Authentication is required.',
-      requestId,
+export async function requireAuthenticatedUser(
+  context: RouteHandlerContext,
+): Promise<{ token: string; user: StoredUser } | null> {
+  const token = readSessionToken(context.request);
+  const user = await resolveSession(context.store, token);
+
+  if (!token || !user) {
+    sendError(context.response, {
+      code: 'UNAUTHORIZED',
+      corsOrigin: context.corsOrigin,
+      message: 'Authentication is required for this request.',
+      requestId: context.requestId,
       statusCode: 401,
     });
-    return false;
+    return null;
   }
 
-  if (!hasPermission(user, permission)) {
-    sendError(response, {
-      code: 'FORBIDDEN',
-      corsOrigin,
-      message: 'You do not have permission to perform this action.',
-      requestId,
-      statusCode: 403,
-    });
-    return false;
-  }
-
-  return true;
+  return { token, user };
 }

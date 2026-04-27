@@ -34,7 +34,7 @@ export default function HomeScreen() {
         <ThemedText type="subtitle">Profile completeness</ThemedText>
         <View style={styles.row}>
           <StatPill label="of 3 basics" value={completeness} />
-          <StatPill label="role" value={currentUser?.role ?? 'member'} />
+          <StatPill label="ready" value={completeness === 3 ? 'yes' : 'in progress'} />
         </View>
         <ActionButton label="Edit account" onPress={() => router.push('/settings/account' as Href)} />
       </SectionCard>

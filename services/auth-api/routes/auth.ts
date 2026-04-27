@@ -1,79 +1,75 @@
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
-import { requirePermission } from '../authz';
+import { requireAuthenticatedUser } from '../authz';
 import { json, noContent, parseBody, sendError } from '../http';
-import {
-  createSession,
-  readSessionToken,
-  resolveSession,
-  revokeAllSessionsForUser,
-  revokeSession,
-  revokeSessionById,
-} from '../session';
+import { createSession, revokeAllSessionsForUser, revokeSession, revokeSessionById } from '../session';
 import {
   canAuthenticateUser,
-  createTimedTokenRecord,
-  isValidEmail,
-  isValidUsername,
+  findUserByEmail,
+  hashPassword,
+  normalizeEmail,
   normalizeUsername,
-  type StoredEmailVerificationToken,
-  type StoredPasswordResetToken,
   toSessionInfo,
   toSessionUser,
+  verifyPassword,
   type StoredUser,
 } from '../store';
 import type { RouteHandlerContext } from './types';
 
-function hashPassword(password: string): string {
-  const saltHex = randomBytes(16).toString('hex');
-  const hash = scryptSync(password, saltHex, 64).toString('hex');
-  return `${saltHex}:${hash}`;
+const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
+const PASSWORD_MIN_LENGTH = 8;
+const TOKEN_TTL_MS = 1000 * 60 * 60;
+
+function createToken() {
+  return randomBytes(24).toString('hex');
 }
 
-function verifyPassword(password: string, storedHash: string): boolean {
-  const [salt, expectedHash] = storedHash.split(':');
+function createExpiryDate(durationMs: number) {
+  return new Date(Date.now() + durationMs).toISOString();
+}
 
-  if (!salt || !expectedHash) {
-    return false;
+function validateSignUpInput(body: Record<string, unknown>) {
+  const displayName = String(body.displayName ?? '').trim();
+  const username = normalizeUsername(String(body.username ?? ''));
+  const email = normalizeEmail(String(body.email ?? ''));
+  const password = String(body.password ?? '');
+  const fieldErrors: Record<string, string> = {};
+
+  if (!displayName) {
+    fieldErrors.displayName = 'Display name is required.';
   }
 
-  const actualHash = scryptSync(password, salt, 64);
-  const expected = Buffer.from(expectedHash, 'hex');
-  return actualHash.length === expected.length && timingSafeEqual(actualHash, expected);
+  if (!USERNAME_PATTERN.test(username)) {
+    fieldErrors.username = 'Username must be 3-24 characters using lowercase letters, numbers, or underscores.';
+  }
+
+  if (!email.includes('@')) {
+    fieldErrors.email = 'A valid email address is required.';
+  }
+
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    fieldErrors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+  }
+
+  return { displayName, username, email, password, fieldErrors };
 }
 
 async function sendVerificationEmail(context: RouteHandlerContext, user: StoredUser, token: string) {
-  try {
-    await context.sendAuthEmail({
-      to: user.email,
-      subject: 'Verify your email',
-      text: `Hi ${user.displayName}, verify your account with token ${token}.`,
-      html: `<p>Hi <strong>${user.displayName}</strong>,</p><p>Verify your account with token <code>${token}</code>.</p>`,
-    });
-  } catch (error) {
-    context.log('email.send_failed', {
-      emailType: 'verification',
-      message: error instanceof Error ? error.message : 'Unknown email error.',
-      userId: user.id,
-    });
-  }
+  await context.sendAuthEmail({
+    to: user.email,
+    subject: 'Verify your email',
+    text: `Verify your account with this token: ${token}`,
+    html: `<p>Verify your account with this token:</p><pre>${token}</pre>`,
+  });
 }
 
 async function sendPasswordResetEmail(context: RouteHandlerContext, user: StoredUser, token: string) {
-  try {
-    await context.sendAuthEmail({
-      to: user.email,
-      subject: 'Reset your password',
-      text: `Hi ${user.displayName}, reset your password with token ${token}.`,
-      html: `<p>Hi <strong>${user.displayName}</strong>,</p><p>Reset your password with token <code>${token}</code>.</p>`,
-    });
-  } catch (error) {
-    context.log('email.send_failed', {
-      emailType: 'password_reset',
-      message: error instanceof Error ? error.message : 'Unknown email error.',
-      userId: user.id,
-    });
-  }
+  await context.sendAuthEmail({
+    to: user.email,
+    subject: 'Reset your password',
+    text: `Reset your password with this token: ${token}`,
+    html: `<p>Reset your password with this token:</p><pre>${token}</pre>`,
+  });
 }
 
 export async function handleAuthRoutes(context: RouteHandlerContext): Promise<boolean> {
@@ -81,62 +77,27 @@ export async function handleAuthRoutes(context: RouteHandlerContext): Promise<bo
 
   if (request.method === 'POST' && requestUrl.pathname === '/auth/signup') {
     const body = await parseBody(request);
-    const displayName = String(body.displayName ?? '').trim();
-    const username = normalizeUsername(String(body.username ?? ''));
-    const email = String(body.email ?? '').trim().toLowerCase();
-    const password = String(body.password ?? '');
+    const { displayName, username, email, password, fieldErrors } = validateSignUpInput(body);
 
-    if (!displayName) {
+    if (Object.keys(fieldErrors).length > 0) {
       sendError(response, {
-        code: 'DISPLAY_NAME_REQUIRED',
+        code: 'VALIDATION_ERROR',
         corsOrigin,
-        message: 'Display name is required.',
+        fieldErrors,
+        message: 'Sign-up details are invalid.',
         requestId,
         statusCode: 400,
       });
       return true;
     }
 
-    if (!isValidUsername(username)) {
-      sendError(response, {
-        code: 'INVALID_USERNAME',
-        corsOrigin,
-        message: 'Username must be 3-24 characters using lowercase letters, numbers, or underscores.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    if (!isValidEmail(email)) {
-      sendError(response, {
-        code: 'INVALID_EMAIL',
-        corsOrigin,
-        message: 'A valid email address is required.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    if (password.length < 8) {
-      sendError(response, {
-        code: 'INVALID_PASSWORD',
-        corsOrigin,
-        message: 'Password must be at least 8 characters long.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    const result = await store.mutate((document) => {
-      if (document.users.some((entry) => entry.email === email)) {
-        return { duplicate: 'email' as const };
+    const result = await store.mutate(async (document) => {
+      if (findUserByEmail(document, email)) {
+        return { code: 'EMAIL_TAKEN' as const };
       }
 
-      if (document.users.some((entry) => entry.username === username)) {
-        return { duplicate: 'username' as const };
+      if (document.users.some((user) => user.username === username)) {
+        return { code: 'USERNAME_TAKEN' as const };
       }
 
       const now = new Date().toISOString();
@@ -147,52 +108,59 @@ export async function handleAuthRoutes(context: RouteHandlerContext): Promise<bo
         displayName,
         bio: '',
         avatarUrl: null,
-        coverUrl: null,
-        role: store.adminEmails.has(email) ? 'admin' : 'member',
-        status: 'active',
-        discoverable: true,
-        onboardingCompleted: false,
+        passwordHash: hashPassword(password),
         createdAt: now,
         updatedAt: now,
         emailVerifiedAt: null,
-        suspendedAt: null,
         deactivatedAt: null,
-        passwordHash: hashPassword(password),
       };
-      const verificationToken = createTimedTokenRecord<StoredEmailVerificationToken>(user.id);
+      const verificationToken = createToken();
 
       document.users.push(user);
-      document.emailVerificationTokens = document.emailVerificationTokens.filter((token) => token.userId !== user.id);
+      document.emailVerificationTokens = document.emailVerificationTokens.filter(
+        (token) => token.userId !== user.id,
+      );
       document.emailVerificationTokens.push({
-        ...verificationToken,
+        id: randomUUID(),
+        token: verificationToken,
         userId: user.id,
+        createdAt: now,
+        expiresAt: createExpiryDate(TOKEN_TTL_MS),
       });
 
-      return { user, verificationToken: verificationToken.token };
+      return { code: 'CREATED' as const, token: verificationToken, user };
     });
 
-    if ('duplicate' in result) {
+    if (result.code === 'EMAIL_TAKEN') {
       sendError(response, {
-        code: result.duplicate === 'email' ? 'EMAIL_TAKEN' : 'USERNAME_TAKEN',
+        code: 'EMAIL_TAKEN',
         corsOrigin,
-        message:
-          result.duplicate === 'email'
-            ? 'An account already exists for this email address.'
-            : 'That username is already taken.',
+        fieldErrors: { email: 'That email is already in use.' },
+        message: 'That email is already in use.',
         requestId,
         statusCode: 409,
       });
       return true;
     }
 
-    await sendVerificationEmail(context, result.user, result.verificationToken);
+    if (result.code === 'USERNAME_TAKEN') {
+      sendError(response, {
+        code: 'USERNAME_TAKEN',
+        corsOrigin,
+        fieldErrors: { username: 'That username is already in use.' },
+        message: 'That username is already in use.',
+        requestId,
+        statusCode: 409,
+      });
+      return true;
+    }
 
+    await sendVerificationEmail(context, result.user, result.token);
     json(
       response,
       201,
       {
         message: 'Account created. Verify your email before signing in.',
-        verificationRequired: true,
         user: toSessionUser(result.user),
       },
       corsOrigin,
@@ -200,56 +168,120 @@ export async function handleAuthRoutes(context: RouteHandlerContext): Promise<bo
     return true;
   }
 
-  if (request.method === 'POST' && requestUrl.pathname === '/auth/verify-email/request') {
+  if (request.method === 'POST' && requestUrl.pathname === '/auth/signin') {
     const body = await parseBody(request);
-    const email = String(body.email ?? '').trim().toLowerCase();
+    const email = normalizeEmail(String(body.email ?? ''));
+    const password = String(body.password ?? '');
+    const document = await store.read();
+    const user = findUserByEmail(document, email);
 
-    if (!isValidEmail(email)) {
+    if (!user || !verifyPassword(password, user.passwordHash)) {
       sendError(response, {
-        code: 'INVALID_EMAIL',
+        code: 'INVALID_CREDENTIALS',
         corsOrigin,
-        message: 'A valid email address is required.',
+        message: 'Email or password is incorrect.',
         requestId,
-        statusCode: 400,
+        statusCode: 401,
       });
       return true;
     }
 
-    const result = await store.mutate((document) => {
-      const user = document.users.find((entry) => entry.email === email);
+    if (!user.emailVerifiedAt) {
+      sendError(response, {
+        code: 'EMAIL_NOT_VERIFIED',
+        corsOrigin,
+        message: 'Verify your email before signing in.',
+        requestId,
+        statusCode: 403,
+      });
+      return true;
+    }
 
-      if (!user || user.status !== 'active' || user.emailVerifiedAt) {
-        return null;
+    if (!canAuthenticateUser(user)) {
+      sendError(response, {
+        code: 'ACCOUNT_UNAVAILABLE',
+        corsOrigin,
+        message: 'This account is not available.',
+        requestId,
+        statusCode: 403,
+      });
+      return true;
+    }
+
+    const session = await createSession(store, user.id);
+    json(response, 200, { token: session.token, user: toSessionUser(user) }, corsOrigin);
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/auth/signout') {
+    const authorization = request.headers.authorization;
+    const token = authorization?.replace(/^Bearer\s+/i, '').trim() || null;
+    await revokeSession(store, token);
+    noContent(response, corsOrigin);
+    return true;
+  }
+
+  if (request.method === 'GET' && requestUrl.pathname === '/auth/session') {
+    const authenticated = await requireAuthenticatedUser(context);
+
+    if (!authenticated) {
+      return true;
+    }
+
+    json(response, 200, { user: toSessionUser(authenticated.user) }, corsOrigin);
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/auth/verify-email/request') {
+    const body = await parseBody(request);
+    const email = normalizeEmail(String(body.email ?? ''));
+
+    const result = await store.mutate((document) => {
+      const user = findUserByEmail(document, email);
+
+      if (!user || user.deactivatedAt !== null || user.emailVerifiedAt) {
+        return { user: null, token: null };
       }
 
-      const verificationToken = createTimedTokenRecord<StoredEmailVerificationToken>(user.id);
-      document.emailVerificationTokens = document.emailVerificationTokens.filter((token) => token.userId !== user.id);
+      const token = createToken();
+      const now = new Date().toISOString();
+
+      document.emailVerificationTokens = document.emailVerificationTokens.filter(
+        (entry) => entry.userId !== user.id,
+      );
       document.emailVerificationTokens.push({
-        ...verificationToken,
+        id: randomUUID(),
+        token,
         userId: user.id,
+        createdAt: now,
+        expiresAt: createExpiryDate(TOKEN_TTL_MS),
       });
-      return {
-        token: verificationToken.token,
-        user,
-      };
+
+      return { user, token };
     });
 
-    if (result) {
+    if (result.user && result.token) {
       await sendVerificationEmail(context, result.user, result.token);
     }
 
-    json(response, 202, { message: 'If the account exists, a verification email has been sent.' }, corsOrigin);
+    json(
+      response,
+      200,
+      { message: 'If that account exists, a verification email has been sent.' },
+      corsOrigin,
+    );
     return true;
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/auth/verify-email/confirm') {
     const body = await parseBody(request);
-    const tokenValue = String(body.token ?? '').trim();
+    const token = String(body.token ?? '').trim();
 
-    if (!tokenValue) {
+    if (!token) {
       sendError(response, {
-        code: 'TOKEN_REQUIRED',
+        code: 'VALIDATION_ERROR',
         corsOrigin,
+        fieldErrors: { token: 'A verification token is required.' },
         message: 'A verification token is required.',
         requestId,
         statusCode: 400,
@@ -258,33 +290,35 @@ export async function handleAuthRoutes(context: RouteHandlerContext): Promise<bo
     }
 
     const result = await store.mutate((document) => {
-      const verificationToken = document.emailVerificationTokens.find(
-        (token) => token.token === tokenValue && !token.consumedAt,
+      const tokenEntry = document.emailVerificationTokens.find((entry) => entry.token === token);
+
+      if (!tokenEntry) {
+        return { user: null };
+      }
+
+      const user = document.users.find((entry) => entry.id === tokenEntry.userId) ?? null;
+
+      if (!user || user.deactivatedAt !== null) {
+        document.emailVerificationTokens = document.emailVerificationTokens.filter(
+          (entry) => entry.token !== token,
+        );
+        return { user: null };
+      }
+
+      user.emailVerifiedAt = user.emailVerifiedAt ?? new Date().toISOString();
+      user.updatedAt = new Date().toISOString();
+      document.emailVerificationTokens = document.emailVerificationTokens.filter(
+        (entry) => entry.userId !== user.id,
       );
-
-      if (!verificationToken || Date.parse(verificationToken.expiresAt) <= Date.now()) {
-        return { invalid: true as const };
-      }
-
-      const user = document.users.find((entry) => entry.id === verificationToken.userId);
-
-      if (!user) {
-        return { invalid: true as const };
-      }
-
-      const now = new Date().toISOString();
-      verificationToken.consumedAt = now;
-      user.emailVerifiedAt = now;
-      user.updatedAt = now;
 
       return { user };
     });
 
-    if ('invalid' in result) {
+    if (!result.user) {
       sendError(response, {
         code: 'INVALID_TOKEN',
         corsOrigin,
-        message: 'The verification token is invalid or expired.',
+        message: 'That verification token is invalid or expired.',
         requestId,
         statusCode: 400,
       });
@@ -297,57 +331,59 @@ export async function handleAuthRoutes(context: RouteHandlerContext): Promise<bo
 
   if (request.method === 'POST' && requestUrl.pathname === '/auth/password-reset/request') {
     const body = await parseBody(request);
-    const email = String(body.email ?? '').trim().toLowerCase();
-
-    if (!isValidEmail(email)) {
-      sendError(response, {
-        code: 'INVALID_EMAIL',
-        corsOrigin,
-        message: 'A valid email address is required.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
+    const email = normalizeEmail(String(body.email ?? ''));
 
     const result = await store.mutate((document) => {
-      const user = document.users.find((entry) => entry.email === email);
+      const user = findUserByEmail(document, email);
 
-      if (!user || user.status !== 'active') {
-        return null;
+      if (!user || user.deactivatedAt !== null || !user.emailVerifiedAt) {
+        return { user: null, token: null };
       }
 
-      const resetToken = createTimedTokenRecord<StoredPasswordResetToken>(user.id);
-      document.passwordResetTokens = document.passwordResetTokens.filter((token) => token.userId !== user.id);
+      const token = createToken();
+      const now = new Date().toISOString();
+
+      document.passwordResetTokens = document.passwordResetTokens.filter((entry) => entry.userId !== user.id);
       document.passwordResetTokens.push({
-        ...resetToken,
+        id: randomUUID(),
+        token,
         userId: user.id,
+        createdAt: now,
+        expiresAt: createExpiryDate(TOKEN_TTL_MS),
       });
 
-      return {
-        token: resetToken.token,
-        user,
-      };
+      return { user, token };
     });
 
-    if (result) {
+    if (result.user && result.token) {
       await sendPasswordResetEmail(context, result.user, result.token);
     }
 
-    json(response, 202, { message: 'If the account exists, a password reset email has been sent.' }, corsOrigin);
+    json(
+      response,
+      200,
+      { message: 'If that account exists, a password reset email has been sent.' },
+      corsOrigin,
+    );
     return true;
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/auth/password-reset/confirm') {
     const body = await parseBody(request);
-    const tokenValue = String(body.token ?? '').trim();
+    const token = String(body.token ?? '').trim();
     const password = String(body.password ?? '');
 
-    if (!tokenValue || password.length < 8) {
+    if (!token || password.length < PASSWORD_MIN_LENGTH) {
       sendError(response, {
-        code: 'INVALID_PASSWORD_RESET_REQUEST',
+        code: 'VALIDATION_ERROR',
         corsOrigin,
-        message: 'A valid password reset token and a new password of at least 8 characters are required.',
+        fieldErrors: {
+          ...(token ? {} : { token: 'A password reset token is required.' }),
+          ...(password.length >= PASSWORD_MIN_LENGTH
+            ? {}
+            : { password: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.` }),
+        },
+        message: 'Password reset details are invalid.',
         requestId,
         statusCode: 400,
       });
@@ -355,34 +391,32 @@ export async function handleAuthRoutes(context: RouteHandlerContext): Promise<bo
     }
 
     const result = await store.mutate((document) => {
-      const resetToken = document.passwordResetTokens.find(
-        (token) => token.token === tokenValue && !token.consumedAt,
-      );
+      const tokenEntry = document.passwordResetTokens.find((entry) => entry.token === token) ?? null;
 
-      if (!resetToken || Date.parse(resetToken.expiresAt) <= Date.now()) {
-        return { invalid: true as const };
+      if (!tokenEntry) {
+        return { user: null };
       }
 
-      const user = document.users.find((entry) => entry.id === resetToken.userId);
+      const user = document.users.find((entry) => entry.id === tokenEntry.userId) ?? null;
 
-      if (!user) {
-        return { invalid: true as const };
+      if (!user || user.deactivatedAt !== null) {
+        document.passwordResetTokens = document.passwordResetTokens.filter((entry) => entry.token !== token);
+        return { user: null };
       }
 
-      const now = new Date().toISOString();
-      resetToken.consumedAt = now;
       user.passwordHash = hashPassword(password);
-      user.updatedAt = now;
+      user.updatedAt = new Date().toISOString();
+      document.passwordResetTokens = document.passwordResetTokens.filter((entry) => entry.userId !== user.id);
       document.sessions = document.sessions.filter((session) => session.userId !== user.id);
 
       return { user };
     });
 
-    if ('invalid' in result) {
+    if (!result.user) {
       sendError(response, {
         code: 'INVALID_TOKEN',
         corsOrigin,
-        message: 'The password reset token is invalid or expired.',
+        message: 'That password reset token is invalid or expired.',
         requestId,
         statusCode: 400,
       });
@@ -393,172 +427,69 @@ export async function handleAuthRoutes(context: RouteHandlerContext): Promise<bo
     return true;
   }
 
-  if (request.method === 'POST' && requestUrl.pathname === '/auth/signin') {
-    const body = await parseBody(request);
-    const email = String(body.email ?? '').trim().toLowerCase();
-    const password = String(body.password ?? '');
-    const document = await store.read();
-    const user = document.users.find((entry) => entry.email === email);
-
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      sendError(response, {
-        code: 'INVALID_CREDENTIALS',
-        corsOrigin,
-        message: 'Invalid email or password.',
-        requestId,
-        statusCode: 401,
-      });
-      return true;
-    }
-
-    if (!canAuthenticateUser(user)) {
-      const code =
-        user.status === 'suspended'
-          ? 'ACCOUNT_SUSPENDED'
-          : user.status === 'deactivated'
-            ? 'ACCOUNT_DEACTIVATED'
-            : 'EMAIL_NOT_VERIFIED';
-      const message =
-        user.status === 'suspended'
-          ? 'This account has been suspended.'
-          : user.status === 'deactivated'
-            ? 'This account has been deactivated.'
-            : 'Verify your email before signing in.';
-
-      sendError(response, {
-        code,
-        corsOrigin,
-        message,
-        requestId,
-        statusCode: 403,
-      });
-      return true;
-    }
-
-    const session = await createSession(store, user.id);
-
-    json(
-      response,
-      200,
-      {
-        token: session.token,
-        session: toSessionInfo(session, session.token),
-        user: toSessionUser(user),
-      },
-      corsOrigin,
-    );
-    return true;
-  }
-
-  if (request.method === 'POST' && requestUrl.pathname === '/auth/signout') {
-    await revokeSession(store, readSessionToken(request));
-    noContent(response, corsOrigin);
-    return true;
-  }
-
-  if (request.method === 'GET' && requestUrl.pathname === '/auth/session') {
-    const token = readSessionToken(request);
-    const user = await resolveSession(store, token);
-
-    if (!user) {
-      sendError(response, {
-        code: 'SESSION_NOT_FOUND',
-        corsOrigin,
-        message: 'Session not found.',
-        requestId,
-        statusCode: 401,
-      });
-      return true;
-    }
-
-    const document = await store.read();
-    const session = document.sessions.find((entry) => entry.token === token) ?? null;
-
-    json(
-      response,
-      200,
-      {
-        user: toSessionUser(user),
-        session: session ? toSessionInfo(session, token) : null,
-      },
-      corsOrigin,
-    );
-    return true;
-  }
-
   if (request.method === 'GET' && requestUrl.pathname === '/me/sessions') {
-    const token = readSessionToken(request);
-    const user = await resolveSession(store, token);
-    const sessionUser = user ? toSessionUser(user) : null;
+    const authenticated = await requireAuthenticatedUser(context);
 
-    if (!requirePermission(response, { corsOrigin, permission: 'session.read:self', requestId, user: sessionUser })) {
+    if (!authenticated) {
       return true;
     }
 
     const document = await store.read();
     const sessions = document.sessions
-      .filter((session) => session.userId === user!.id)
-      .sort((left, right) => right.lastUsedAt.localeCompare(left.lastUsedAt))
-      .map((session) => toSessionInfo(session, token));
+      .filter((session) => session.userId === authenticated.user.id)
+      .map((session) => toSessionInfo(session, authenticated.token))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 
     json(response, 200, { sessions }, corsOrigin);
     return true;
   }
 
-  if (request.method === 'DELETE' && requestUrl.pathname.startsWith('/me/sessions/')) {
-    const token = readSessionToken(request);
-    const user = await resolveSession(store, token);
-    const sessionUser = user ? toSessionUser(user) : null;
+  if (
+    request.method === 'DELETE' &&
+    requestUrl.pathname.startsWith('/me/sessions/') &&
+    requestUrl.pathname.split('/').length === 4
+  ) {
+    const authenticated = await requireAuthenticatedUser(context);
 
-    if (!requirePermission(response, { corsOrigin, permission: 'session.delete:self', requestId, user: sessionUser })) {
+    if (!authenticated) {
       return true;
     }
 
-    const sessionId = requestUrl.pathname.split('/').filter(Boolean)[2];
-    await revokeSessionById(store, user!.id, String(sessionId));
-
-    if ((await store.read()).sessions.some((session) => session.id === sessionId && session.token === token)) {
-      await revokeSession(store, token);
-    }
-
+    const sessionId = requestUrl.pathname.split('/')[3] ?? '';
+    await revokeSessionById(store, authenticated.user.id, sessionId);
     noContent(response, corsOrigin);
     return true;
   }
 
   if (request.method === 'DELETE' && requestUrl.pathname === '/me/account') {
-    const token = readSessionToken(request);
-    const user = await resolveSession(store, token);
-    const sessionUser = user ? toSessionUser(user) : null;
+    const authenticated = await requireAuthenticatedUser(context);
 
-    if (!requirePermission(response, { corsOrigin, permission: 'account.delete:self', requestId, user: sessionUser })) {
+    if (!authenticated) {
       return true;
     }
 
     await store.mutate((document) => {
-      const target = document.users.find((entry) => entry.id === user!.id);
+      const user = document.users.find((entry) => entry.id === authenticated.user.id);
 
-      if (!target) {
+      if (!user) {
         return;
       }
 
       const now = new Date().toISOString();
-      target.status = 'deactivated';
-      target.discoverable = false;
-      target.deactivatedAt = now;
-      target.updatedAt = now;
-      document.sessions = document.sessions.filter((session) => session.userId !== target.id);
+      user.deactivatedAt = now;
+      user.updatedAt = now;
+      document.sessions = document.sessions.filter((session) => session.userId !== user.id);
       document.follows = document.follows.filter(
-        (follow) => follow.followerId !== target.id && follow.followeeId !== target.id,
+        (follow) => follow.followerId !== user.id && follow.followeeId !== user.id,
       );
-      document.blocks = document.blocks.filter(
-        (block) => block.blockerId !== target.id && block.blockedId !== target.id,
+      document.emailVerificationTokens = document.emailVerificationTokens.filter(
+        (entry) => entry.userId !== user.id,
       );
-      document.mutes = document.mutes.filter(
-        (mute) => mute.muterId !== target.id && mute.mutedId !== target.id,
-      );
+      document.passwordResetTokens = document.passwordResetTokens.filter((entry) => entry.userId !== user.id);
+      document.uploadIntents = document.uploadIntents.filter((entry) => entry.userId !== user.id);
     });
 
-    await revokeAllSessionsForUser(store, user!.id);
+    await revokeAllSessionsForUser(store, authenticated.user.id);
     noContent(response, corsOrigin);
     return true;
   }

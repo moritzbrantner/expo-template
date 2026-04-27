@@ -13,9 +13,9 @@ type BootstrapDevelopmentSessionResult = {
 };
 
 const DEFAULT_DEVELOPMENT_SESSION_CREDENTIALS: DevelopmentSessionCredentials = {
-  displayName: 'Dev Admin',
-  username: 'dev_admin',
-  email: 'admin@example.test',
+  displayName: 'Alex Mercer',
+  username: 'alex',
+  email: 'alex@example.test',
   password: 'password123',
 };
 

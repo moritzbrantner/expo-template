@@ -13,8 +13,7 @@ export type AppNavigationHref =
   | '/activity'
   | '/me'
   | '/settings'
-  | '/settings/account'
-  | '/settings/admin';
+  | '/settings/account';
 
 type AppTabName = 'index' | 'discover' | 'activity' | 'me';
 type AppTabIconName = ComponentProps<typeof IconSymbol>['name'];
@@ -86,11 +85,6 @@ export const protectedStackDescriptors = createNativeStackDescriptors([
     name: 'settings/account',
     title: 'Account',
     order: 30,
-  },
-  {
-    name: 'settings/admin',
-    title: 'Admin',
-    order: 40,
   },
 ]);
 
@@ -174,12 +168,6 @@ export const webNavigationCategories: ShellNavigationCategory[] = [
         href: '/settings/account',
         label: 'Account',
         order: 20,
-      },
-      {
-        key: 'settings-admin',
-        href: '/settings/admin',
-        label: 'Admin',
-        order: 30,
       },
     ]),
   },

@@ -12,14 +12,14 @@ export default function MeScreen() {
   const router = useRouter();
   const borderColor = useThemeColor({}, 'border');
   const mutedTextColor = useThemeColor({}, 'mutedText');
-  const { currentUser, hasPermission } = useAuth();
+  const { currentUser } = useAuth();
   const profileQuery = useProfileQuery(currentUser?.username);
   const profile = profileQuery.data?.profile;
 
   return (
     <ScreenScroll
       title="Me"
-      description="Your current public profile, counts, and the fastest route into account and admin settings.">
+      description="Your current public profile, counts, and the fastest route into account settings.">
       {profileQuery.isPending ? (
         <InlineMessage tone="muted" message="Loading your profile..." />
       ) : profileQuery.isError ? (
@@ -48,13 +48,9 @@ export default function MeScreen() {
           <View style={styles.statsRow}>
             <StatPill label="followers" value={profile.followerCount} />
             <StatPill label="following" value={profile.followingCount} />
-            <StatPill label="role" value={profile.role} />
           </View>
           <ActionButton label="Edit account" onPress={() => router.push('/settings/account' as Href)} />
           <ActionButton label="Open settings" onPress={() => router.push('/settings')} variant="secondary" />
-          {hasPermission('role.manage:any') ? (
-            <ActionButton label="Open admin" onPress={() => router.push('/settings/admin' as Href)} variant="secondary" />
-          ) : null}
         </SectionCard>
       )}
     </ScreenScroll>

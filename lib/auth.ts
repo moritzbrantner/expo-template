@@ -1,6 +1,5 @@
 import {
   mockFetchActivity,
-  mockFetchAdminUsers,
   mockFetchFollowers,
   mockFetchFollowing,
   mockFetchProfile,
@@ -14,36 +13,18 @@ import {
   mockUnfollowProfile,
   mockUpdateMyAvatar,
   mockUpdateMyProfile,
-  mockUpdateUserRole,
 } from '@/lib/mock-auth-service';
 import type {
   ActivityItem,
   FollowRelationship,
-  Permission,
   ProfileDetail,
   PublicProfile,
-  Role,
   SessionUser,
 } from '@/shared/social';
 
-export type {
-  ActivityItem,
-  FollowRelationship,
-  Permission,
-  ProfileDetail,
-  PublicProfile,
-  Role,
-  SessionUser,
-} from '@/shared/social';
+export type { ActivityItem, FollowRelationship, ProfileDetail, PublicProfile, SessionUser } from '@/shared/social';
 
 export const AUTH_API_URL = process.env.EXPO_PUBLIC_AUTH_API_URL ?? 'http://localhost:4401';
-
-export type AdminUser = SessionUser & {
-  createdAt: string;
-  updatedAt: string;
-  followerCount: number;
-  followingCount: number;
-};
 
 export class ApiRequestError extends Error {
   status: number;
@@ -303,13 +284,36 @@ export async function updateMyAvatarRequest(avatarDataUrl: string | null) {
     }
   }
 
+  if (avatarDataUrl === null) {
+    return request<{
+      user: SessionUser;
+      profile: ProfileDetail;
+    }>('/me/avatar/complete', {
+      method: 'POST',
+      body: JSON.stringify({
+        clear: true,
+      }),
+    });
+  }
+
+  const uploadIntentResponse = await request<{
+    uploadIntent: {
+      uploadToken: string;
+    };
+  }>('/me/avatar/upload-intent', {
+    method: 'POST',
+    body: JSON.stringify({
+      contentType: 'image/jpeg',
+    }),
+  });
+
   return request<{
     user: SessionUser;
     profile: ProfileDetail;
-  }>('/me/avatar', {
+  }>('/me/avatar/complete', {
     method: 'POST',
     body: JSON.stringify({
-      avatarDataUrl,
+      uploadToken: uploadIntentResponse.uploadIntent.uploadToken,
     }),
   });
 }
@@ -390,35 +394,4 @@ export async function fetchActivityRequest() {
   return request<{
     activity: ActivityItem[];
   }>('/me/activity');
-}
-
-export async function fetchAdminUsersRequest() {
-  if (shouldUseMockAuthService()) {
-    try {
-      return await mockFetchAdminUsers(authTokenGetter?.());
-    } catch (error) {
-      return handleMockAuthError(error);
-    }
-  }
-
-  return request<{
-    users: AdminUser[];
-  }>('/admin/users');
-}
-
-export async function updateUserRoleRequest(userId: string, role: Role) {
-  if (shouldUseMockAuthService()) {
-    try {
-      return await mockUpdateUserRole(userId, role, authTokenGetter?.());
-    } catch (error) {
-      return handleMockAuthError(error);
-    }
-  }
-
-  return request<{
-    user: AdminUser;
-  }>(`/admin/users/${encodeURIComponent(userId)}/role`, {
-    method: 'PATCH',
-    body: JSON.stringify({ role }),
-  });
 }

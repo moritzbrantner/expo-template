@@ -1,107 +1,120 @@
-import { requirePermission } from '../authz';
+import { requireAuthenticatedUser, resolveViewer } from '../authz';
 import { getPaginationCursor, json, noContent, paginate, sendError } from '../http';
-import { readSessionToken, resolveSession } from '../session';
 import {
-  appendNotification,
-  buildActivityFeed,
   findUserByUsername,
-  isUserAccessible,
-  normalizeUsername,
-  toPublicProfile,
-  toSessionUser,
+  isUserVisible,
+  toProfileDetail,
+  type StoredFollow,
 } from '../store';
+import type { ActivityItem, PublicProfile } from '../../../shared/social';
 import type { RouteHandlerContext } from './types';
 
-function sortProfiles<T extends { displayName: string; username: string }>(profiles: T[]): T[] {
-  return [...profiles].sort(
-    (left, right) =>
-      left.displayName.localeCompare(right.displayName) ||
-      left.username.localeCompare(right.username),
-  );
+const PAGE_SIZE = 20;
+
+function buildVisibleProfiles(
+  userIds: string[],
+  context: {
+    document: Awaited<ReturnType<RouteHandlerContext['store']['read']>>;
+    viewer: Awaited<ReturnType<typeof resolveViewer>>;
+  },
+): PublicProfile[] {
+  return userIds
+    .map((userId) => context.document.users.find((user) => user.id === userId) ?? null)
+    .filter((user): user is NonNullable<typeof user> => Boolean(user && isUserVisible(user)))
+    .map((user) => toProfileDetail(user, context.document, context.viewer));
 }
 
 export async function handleFollowRoutes(context: RouteHandlerContext): Promise<boolean> {
   const { corsOrigin, request, requestId, requestUrl, response, store } = context;
-  const viewer = await resolveSession(store, readSessionToken(request));
-  const viewerSession = viewer ? toSessionUser(viewer) : null;
 
   if (request.method === 'GET' && requestUrl.pathname === '/me/activity') {
-    if (!requirePermission(response, { corsOrigin, permission: 'activity.read:self', requestId, user: viewerSession })) {
+    const authenticated = await requireAuthenticatedUser(context);
+
+    if (!authenticated) {
       return true;
     }
 
     const document = await store.read();
-    json(
-      response,
-      200,
-      {
-        activity: buildActivityFeed(document, viewer!.id),
-      },
-      corsOrigin,
-    );
+    const activity: ActivityItem[] = [];
+
+    for (const follow of document.follows) {
+      if (follow.followeeId === authenticated.user.id) {
+        const actor = document.users.find((user) => user.id === follow.followerId) ?? null;
+
+        if (actor && isUserVisible(actor)) {
+          activity.push({
+            type: 'followed_you',
+            createdAt: follow.createdAt,
+            profile: toProfileDetail(actor, document, authenticated.user),
+          });
+        }
+      }
+
+      if (follow.followerId === authenticated.user.id) {
+        const subject = document.users.find((user) => user.id === follow.followeeId) ?? null;
+
+        if (subject && isUserVisible(subject)) {
+          activity.push({
+            type: 'you_followed',
+            createdAt: follow.createdAt,
+            profile: toProfileDetail(subject, document, authenticated.user),
+          });
+        }
+      }
+    }
+
+    activity.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    json(response, 200, { activity }, corsOrigin);
     return true;
   }
 
-  if (!requestUrl.pathname.startsWith('/profiles/')) {
-    return false;
-  }
+  if (
+    request.method === 'POST' &&
+    requestUrl.pathname.startsWith('/profiles/') &&
+    requestUrl.pathname.endsWith('/follow')
+  ) {
+    const authenticated = await requireAuthenticatedUser(context);
 
-  const segments = requestUrl.pathname.split('/').filter(Boolean);
-  const username = normalizeUsername(segments[1] ?? '');
-
-  if (segments.length === 3 && segments[2] === 'follow' && request.method === 'POST') {
-    if (!requirePermission(response, { corsOrigin, permission: 'follow.create:self', requestId, user: viewerSession })) {
+    if (!authenticated) {
       return true;
     }
+
+    const username = requestUrl.pathname.split('/')[2] ?? '';
 
     const result = await store.mutate((document) => {
       const targetUser = findUserByUsername(document, username);
 
-      if (!targetUser || !isUserAccessible(document, targetUser, viewer!.id, { allowUndiscoverable: true })) {
-        return { missing: true as const };
+      if (!targetUser || !isUserVisible(targetUser)) {
+        return { code: 'NOT_FOUND' as const };
       }
 
-      if (targetUser.id === viewer!.id) {
-        return { self: true as const };
+      if (targetUser.id === authenticated.user.id) {
+        return { code: 'SELF' as const };
       }
 
-      if (
-        document.blocks.some(
-          (block) =>
-            (block.blockerId === viewer!.id && block.blockedId === targetUser.id) ||
-            (block.blockerId === targetUser.id && block.blockedId === viewer!.id),
-        )
-      ) {
-        return { blocked: true as const };
-      }
+      const existingFollow = document.follows.find(
+        (follow) =>
+          follow.followerId === authenticated.user.id && follow.followeeId === targetUser.id,
+      );
 
-      if (
-        document.follows.some(
-          (follow) => follow.followerId === viewer!.id && follow.followeeId === targetUser.id,
-        )
-      ) {
-        return { duplicate: true as const };
+      if (!existingFollow) {
+        const follow: StoredFollow = {
+          followerId: authenticated.user.id,
+          followeeId: targetUser.id,
+          createdAt: new Date().toISOString(),
+        };
+        document.follows.push(follow);
       }
-
-      document.follows.push({
-        followerId: viewer!.id,
-        followeeId: targetUser.id,
-        createdAt: new Date().toISOString(),
-      });
-      appendNotification(document, {
-        actorUserId: viewer!.id,
-        type: 'follow',
-        userId: targetUser.id,
-      });
 
       return {
-        profile: toPublicProfile(targetUser, document, viewerSession),
+        code: 'FOLLOWED' as const,
+        profile: toProfileDetail(targetUser, document, authenticated.user),
       };
     });
 
-    if ('missing' in result) {
+    if (result.code === 'NOT_FOUND') {
       sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
+        code: 'NOT_FOUND',
         corsOrigin,
         message: 'Profile not found.',
         requestId,
@@ -110,9 +123,9 @@ export async function handleFollowRoutes(context: RouteHandlerContext): Promise<
       return true;
     }
 
-    if ('self' in result) {
+    if (result.code === 'SELF') {
       sendError(response, {
-        code: 'CANNOT_FOLLOW_SELF',
+        code: 'INVALID_FOLLOW',
         corsOrigin,
         message: 'You cannot follow yourself.',
         requestId,
@@ -121,36 +134,22 @@ export async function handleFollowRoutes(context: RouteHandlerContext): Promise<
       return true;
     }
 
-    if ('blocked' in result) {
-      sendError(response, {
-        code: 'RELATIONSHIP_BLOCKED',
-        corsOrigin,
-        message: 'You cannot follow this profile because one of you has blocked the other.',
-        requestId,
-        statusCode: 403,
-      });
-      return true;
-    }
-
-    if ('duplicate' in result) {
-      sendError(response, {
-        code: 'ALREADY_FOLLOWING',
-        corsOrigin,
-        message: 'You already follow this profile.',
-        requestId,
-        statusCode: 409,
-      });
-      return true;
-    }
-
-    json(response, 201, result, corsOrigin);
+    json(response, 201, { profile: result.profile }, corsOrigin);
     return true;
   }
 
-  if (segments.length === 3 && segments[2] === 'follow' && request.method === 'DELETE') {
-    if (!requirePermission(response, { corsOrigin, permission: 'follow.delete:self', requestId, user: viewerSession })) {
+  if (
+    request.method === 'DELETE' &&
+    requestUrl.pathname.startsWith('/profiles/') &&
+    requestUrl.pathname.endsWith('/follow')
+  ) {
+    const authenticated = await requireAuthenticatedUser(context);
+
+    if (!authenticated) {
       return true;
     }
+
+    const username = requestUrl.pathname.split('/')[2] ?? '';
 
     await store.mutate((document) => {
       const targetUser = findUserByUsername(document, username);
@@ -159,185 +158,33 @@ export async function handleFollowRoutes(context: RouteHandlerContext): Promise<
         return;
       }
 
-      document.follows = document.follows.filter(
-        (follow) => !(follow.followerId === viewer!.id && follow.followeeId === targetUser.id),
-      );
-    });
-
-    noContent(response, corsOrigin);
-    return true;
-  }
-
-  if (segments.length === 3 && segments[2] === 'block' && request.method === 'POST') {
-    if (!requirePermission(response, { corsOrigin, permission: 'block.create:self', requestId, user: viewerSession })) {
-      return true;
-    }
-
-    const result = await store.mutate((document) => {
-      const targetUser = findUserByUsername(document, username);
-
-      if (!targetUser || targetUser.status !== 'active') {
-        return { missing: true as const };
-      }
-
-      if (targetUser.id === viewer!.id) {
-        return { self: true as const };
-      }
-
-      if (
-        document.blocks.some((block) => block.blockerId === viewer!.id && block.blockedId === targetUser.id)
-      ) {
-        return { duplicate: true as const };
-      }
-
-      document.blocks.push({
-        blockerId: viewer!.id,
-        blockedId: targetUser.id,
-        createdAt: new Date().toISOString(),
-      });
       document.follows = document.follows.filter(
         (follow) =>
           !(
-            (follow.followerId === viewer!.id && follow.followeeId === targetUser.id) ||
-            (follow.followerId === targetUser.id && follow.followeeId === viewer!.id)
+            follow.followerId === authenticated.user.id &&
+            follow.followeeId === targetUser.id
           ),
       );
-
-      return { ok: true as const };
-    });
-
-    if ('missing' in result) {
-      sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
-        corsOrigin,
-        message: 'Profile not found.',
-        requestId,
-        statusCode: 404,
-      });
-      return true;
-    }
-
-    if ('self' in result) {
-      sendError(response, {
-        code: 'CANNOT_BLOCK_SELF',
-        corsOrigin,
-        message: 'You cannot block yourself.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    json(response, 201, { blocked: true }, corsOrigin);
-    return true;
-  }
-
-  if (segments.length === 3 && segments[2] === 'block' && request.method === 'DELETE') {
-    if (!requirePermission(response, { corsOrigin, permission: 'block.delete:self', requestId, user: viewerSession })) {
-      return true;
-    }
-
-    await store.mutate((document) => {
-      const targetUser = findUserByUsername(document, username);
-
-      if (!targetUser) {
-        return;
-      }
-
-      document.blocks = document.blocks.filter(
-        (block) => !(block.blockerId === viewer!.id && block.blockedId === targetUser.id),
-      );
     });
 
     noContent(response, corsOrigin);
     return true;
   }
 
-  if (segments.length === 3 && segments[2] === 'mute' && request.method === 'POST') {
-    if (!requirePermission(response, { corsOrigin, permission: 'mute.create:self', requestId, user: viewerSession })) {
-      return true;
-    }
-
-    const result = await store.mutate((document) => {
-      const targetUser = findUserByUsername(document, username);
-
-      if (!targetUser || targetUser.status !== 'active') {
-        return { missing: true as const };
-      }
-
-      if (targetUser.id === viewer!.id) {
-        return { self: true as const };
-      }
-
-      if (
-        document.mutes.some((mute) => mute.muterId === viewer!.id && mute.mutedId === targetUser.id)
-      ) {
-        return { duplicate: true as const };
-      }
-
-      document.mutes.push({
-        muterId: viewer!.id,
-        mutedId: targetUser.id,
-        createdAt: new Date().toISOString(),
-      });
-      return { ok: true as const };
-    });
-
-    if ('missing' in result) {
-      sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
-        corsOrigin,
-        message: 'Profile not found.',
-        requestId,
-        statusCode: 404,
-      });
-      return true;
-    }
-
-    if ('self' in result) {
-      sendError(response, {
-        code: 'CANNOT_MUTE_SELF',
-        corsOrigin,
-        message: 'You cannot mute yourself.',
-        requestId,
-        statusCode: 400,
-      });
-      return true;
-    }
-
-    json(response, 201, { muted: true }, corsOrigin);
-    return true;
-  }
-
-  if (segments.length === 3 && segments[2] === 'mute' && request.method === 'DELETE') {
-    if (!requirePermission(response, { corsOrigin, permission: 'mute.delete:self', requestId, user: viewerSession })) {
-      return true;
-    }
-
-    await store.mutate((document) => {
-      const targetUser = findUserByUsername(document, username);
-
-      if (!targetUser) {
-        return;
-      }
-
-      document.mutes = document.mutes.filter(
-        (mute) => !(mute.muterId === viewer!.id && mute.mutedId === targetUser.id),
-      );
-    });
-
-    noContent(response, corsOrigin);
-    return true;
-  }
-
-  if (segments.length === 3 && segments[2] === 'followers' && request.method === 'GET') {
+  if (
+    request.method === 'GET' &&
+    requestUrl.pathname.startsWith('/profiles/') &&
+    (requestUrl.pathname.endsWith('/followers') || requestUrl.pathname.endsWith('/following'))
+  ) {
+    const viewer = await resolveViewer(context);
+    const username = requestUrl.pathname.split('/')[2] ?? '';
     const cursor = getPaginationCursor(requestUrl);
     const document = await store.read();
     const targetUser = findUserByUsername(document, username);
 
-    if (!targetUser || !isUserAccessible(document, targetUser, viewer?.id ?? null, { allowUndiscoverable: true })) {
+    if (!targetUser || !isUserVisible(targetUser)) {
       sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
+        code: 'NOT_FOUND',
         corsOrigin,
         message: 'Profile not found.',
         requestId,
@@ -346,55 +193,24 @@ export async function handleFollowRoutes(context: RouteHandlerContext): Promise<
       return true;
     }
 
-    const page = paginate(
-      sortProfiles(
-        document.follows
-          .filter((follow) => follow.followeeId === targetUser.id)
-          .map((follow) => document.users.find((user) => user.id === follow.followerId) ?? null)
-          .filter((user): user is NonNullable<typeof user> =>
-            Boolean(user && isUserAccessible(document, user, viewer?.id ?? null, { allowUndiscoverable: true })),
-          )
-          .map((user) => toPublicProfile(user, document, viewerSession)),
-      ),
-      cursor,
-      12,
+    const isFollowersPath = requestUrl.pathname.endsWith('/followers');
+    const userIds = document.follows
+      .filter((follow) =>
+        isFollowersPath ? follow.followeeId === targetUser.id : follow.followerId === targetUser.id,
+      )
+      .map((follow) => (isFollowersPath ? follow.followerId : follow.followeeId));
+    const profiles = buildVisibleProfiles(userIds, { document, viewer });
+    const page = paginate(profiles, cursor, PAGE_SIZE);
+
+    json(
+      response,
+      200,
+      {
+        profiles: page.items,
+        nextCursor: page.nextCursor,
+      },
+      corsOrigin,
     );
-
-    json(response, 200, { profiles: page.items, nextCursor: page.nextCursor }, corsOrigin);
-    return true;
-  }
-
-  if (segments.length === 3 && segments[2] === 'following' && request.method === 'GET') {
-    const cursor = getPaginationCursor(requestUrl);
-    const document = await store.read();
-    const targetUser = findUserByUsername(document, username);
-
-    if (!targetUser || !isUserAccessible(document, targetUser, viewer?.id ?? null, { allowUndiscoverable: true })) {
-      sendError(response, {
-        code: 'PROFILE_NOT_FOUND',
-        corsOrigin,
-        message: 'Profile not found.',
-        requestId,
-        statusCode: 404,
-      });
-      return true;
-    }
-
-    const page = paginate(
-      sortProfiles(
-        document.follows
-          .filter((follow) => follow.followerId === targetUser.id)
-          .map((follow) => document.users.find((user) => user.id === follow.followeeId) ?? null)
-          .filter((user): user is NonNullable<typeof user> =>
-            Boolean(user && isUserAccessible(document, user, viewer?.id ?? null, { allowUndiscoverable: true })),
-          )
-          .map((user) => toPublicProfile(user, document, viewerSession)),
-      ),
-      cursor,
-      12,
-    );
-
-    json(response, 200, { profiles: page.items, nextCursor: page.nextCursor }, corsOrigin);
     return true;
   }
 

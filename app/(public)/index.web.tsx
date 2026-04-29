@@ -1,6 +1,17 @@
-import '@/styles/frontend-ui-web.css';
+import '@/styles/web-shell.css';
 
-import { GroupedNavigationMenu } from '@moritzbrantner/frontend-ui/web';
+import {
+  Badge,
+  Button,
+  Card,
+  Kbd,
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from '@moritzbrantner/ui';
 import { Link, usePathname, type Href } from 'expo-router';
 import type { CSSProperties, ReactNode } from 'react';
 
@@ -25,6 +36,21 @@ function MenuLink({ href, prefetch, className, children, ...props }: WebLinkProp
   );
 }
 
+function normalizePath(path: string) {
+  if (path.length > 1 && path.endsWith('/')) {
+    return path.slice(0, -1);
+  }
+
+  return path || '/';
+}
+
+function isCurrentPath(currentPath: string, href: string) {
+  const current = normalizePath(currentPath);
+  const target = normalizePath(href);
+
+  return current === target || (target !== '/' && current.startsWith(`${target}/`));
+}
+
 function CtaLink({
   href,
   label,
@@ -35,15 +61,9 @@ function CtaLink({
   variant?: 'primary' | 'secondary';
 }) {
   return (
-    <Link asChild href={href}>
-      <a
-        style={{
-          ...styles.cta,
-          ...(variant === 'primary' ? styles.primaryCta : styles.secondaryCta),
-        }}>
-        {label}
-      </a>
-    </Link>
+    <Button asChild variant={variant === 'primary' ? 'default' : 'outline'} style={styles.ctaButton}>
+      <Link href={href}>{label}</Link>
+    </Button>
   );
 }
 
@@ -57,28 +77,57 @@ export default function PublicIndexWebScreen() {
         <header style={styles.header}>
           <div style={styles.headerCopy}>
             <span style={styles.eyebrow}>Moritz Brantner app shell</span>
-            <h1 style={styles.title}>Shared navigation is now wired through `@moritzbrantner/frontend-ui`.</h1>
+            <h1 style={styles.title}>This repo now owns its screens, routes, and app flows.</h1>
             <p style={styles.description}>
-              The web landing surface now uses the shared grouped navigation menu, while native tabs and
-              stacks are driven from the same descriptor source instead of hardcoded screen registrations.
+              Navigation structure stays local to this Expo app, while reusable primitives still come from
+              `@moritzbrantner/ui` where the sharing boundary actually makes sense.
             </p>
           </div>
           <div style={styles.navCard}>
-            <GroupedNavigationMenu
-              categories={webNavigationCategories}
-              currentPath={pathname}
-              LinkComponent={MenuLink}
-            />
+            <NavigationMenu aria-label="Primary navigation" viewport={false} style={styles.navigationMenu}>
+              <NavigationMenuList style={styles.navigationMenuList}>
+                {webNavigationCategories.map((category) => (
+                  <NavigationMenuItem key={category.key}>
+                    <NavigationMenuTrigger aria-controls={`navigation-submenu-${category.key}`}>
+                      {category.label}
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent
+                      id={`navigation-submenu-${category.key}`}
+                      style={styles.navigationMenuContent}>
+                      {category.items.map((item) => {
+                        const active = isCurrentPath(pathname, item.href);
+
+                        return (
+                          <NavigationMenuLink
+                            key={item.key}
+                            asChild
+                            active={active}
+                            style={active ? styles.activeNavigationLink : undefined}>
+                            <MenuLink
+                              href={item.href}
+                              prefetch={item.prefetch}
+                              aria-current={active ? 'page' : undefined}>
+                              <span>{item.label}</span>
+                              {item.hotkey ? <Kbd>{item.hotkey}</Kbd> : null}
+                            </MenuLink>
+                          </NavigationMenuLink>
+                        );
+                      })}
+                    </NavigationMenuContent>
+                  </NavigationMenuItem>
+                ))}
+              </NavigationMenuList>
+            </NavigationMenu>
           </div>
         </header>
 
         <section style={styles.heroCard}>
           <div style={styles.heroCopy}>
-            <span style={styles.badge}>Integration pass</span>
-            <h2 style={styles.heroTitle}>One route map, shared across web and native.</h2>
+            <Badge style={styles.badge}>Local ownership</Badge>
+            <h2 style={styles.heroTitle}>One route map, authored here and reused across web and native.</h2>
             <p style={styles.heroDescription}>
-              The app keeps Expo Router in charge of navigation, but the ordering, labels, and exposed
-              entrypoints now come from the shared package where it actually has reusable surface area.
+              Expo Router still handles navigation, but the descriptor source now lives in this repository
+              so product-specific flows can evolve without touching a shared shell package.
             </p>
           </div>
           <div style={styles.ctaRow}>
@@ -88,32 +137,32 @@ export default function PublicIndexWebScreen() {
         </section>
 
         <section style={styles.grid}>
-          <article style={styles.panel}>
-            <span style={styles.panelLabel}>Shared sources</span>
-            <h3 style={styles.panelTitle}>Native tab descriptors</h3>
+          <Card style={styles.panel}>
+            <span style={styles.panelLabel}>Route ownership</span>
+            <h3 style={styles.panelTitle}>Local native descriptors</h3>
             <p style={styles.panelText}>
-              `createNativeTabDescriptors` now drives the Expo tabs, including route order, titles, and
-              icon metadata.
+              Tabs and stacks are sorted and registered from local descriptor helpers instead of an external
+              frontend flow package.
             </p>
-          </article>
+          </Card>
 
-          <article style={styles.panel}>
-            <span style={styles.panelLabel}>Shared sources</span>
-            <h3 style={styles.panelTitle}>Stack descriptors</h3>
+          <Card style={styles.panel}>
+            <span style={styles.panelLabel}>Flow boundaries</span>
+            <h3 style={styles.panelTitle}>Repo-owned screens</h3>
             <p style={styles.panelText}>
-              Public and protected stack registration now runs from the same descriptor config instead of
-              separate hardcoded layouts.
+              Public auth, protected tabs, settings, and profile routes stay implemented here, which keeps
+              screen behavior aligned with this app’s own backend contract.
             </p>
-          </article>
+          </Card>
 
-          <article style={styles.panel}>
-            <span style={styles.panelLabel}>Web surface</span>
-            <h3 style={styles.panelTitle}>Grouped navigation menu</h3>
+          <Card style={styles.panel}>
+            <span style={styles.panelLabel}>Shared primitives</span>
+            <h3 style={styles.panelTitle}>UI package stays reusable</h3>
             <p style={styles.panelText}>
-              The landing page bridges Expo Router links into `GroupedNavigationMenu`, so the shared web
-              shell is used where it fits this repo today.
+              This landing page now composes generic `@moritzbrantner/ui` components directly, without
+              outsourcing the application flow layer.
             </p>
-          </article>
+          </Card>
         </section>
       </section>
     </main>
@@ -171,6 +220,23 @@ const styles: Record<string, CSSProperties> = {
     backdropFilter: 'blur(16px)',
     boxShadow: 'var(--glass-shadow)',
   },
+  navigationMenu: {
+    width: '100%',
+    justifyContent: 'flex-start',
+  },
+  navigationMenuList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '12px',
+    justifyContent: 'flex-start',
+  },
+  navigationMenuContent: {
+    minWidth: '15rem',
+  },
+  activeNavigationLink: {
+    background: 'color-mix(in oklch, var(--primary) 100%, transparent)',
+    color: 'var(--primary-foreground)',
+  },
   heroCard: {
     marginTop: '28px',
     padding: '28px',
@@ -188,13 +254,7 @@ const styles: Record<string, CSSProperties> = {
     gap: '12px',
   },
   badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
     width: 'fit-content',
-    padding: '6px 12px',
-    borderRadius: '999px',
-    background: 'var(--accent)',
-    color: 'var(--accent-foreground)',
     fontSize: '0.82rem',
     fontWeight: 700,
     letterSpacing: '0.08em',
@@ -218,26 +278,8 @@ const styles: Record<string, CSSProperties> = {
     gap: '12px',
     justifyContent: 'flex-end',
   },
-  cta: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '48px',
-    padding: '0 18px',
-    borderRadius: '14px',
-    border: '1px solid var(--border)',
-    textDecoration: 'none',
-    fontWeight: 700,
-    boxShadow: 'var(--glass-raised-shadow)',
-    backdropFilter: 'blur(14px)',
-  },
-  primaryCta: {
-    background: 'var(--primary)',
-    color: 'var(--primary-foreground)',
-  },
-  secondaryCta: {
-    background: 'var(--secondary)',
-    color: 'var(--secondary-foreground)',
+  ctaButton: {
+    minWidth: '148px',
   },
   grid: {
     marginTop: '28px',
@@ -251,9 +293,6 @@ const styles: Record<string, CSSProperties> = {
     gap: '10px',
     padding: '22px',
     borderRadius: '24px',
-    background: 'var(--card)',
-    border: '1px solid var(--border)',
-    boxShadow: 'var(--glass-shadow)',
   },
   panelLabel: {
     color: 'var(--primary)',

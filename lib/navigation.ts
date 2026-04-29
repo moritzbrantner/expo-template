@@ -1,9 +1,94 @@
-import { sortNavigationItems, type ShellNavigationCategory } from '@moritzbrantner/frontend-ui';
-import { createNativeStackDescriptors, createNativeTabDescriptors } from '@moritzbrantner/frontend-ui/native';
 import type { Href } from 'expo-router';
 import type { ComponentProps } from 'react';
 
 import type { IconSymbol } from '@/components/ui/icon-symbol';
+
+type ShellNavigationItem = {
+  key: string;
+  href: string;
+  label: string;
+  hotkey?: string;
+  order?: number;
+  prefetch?: boolean;
+  disabled?: boolean;
+};
+
+export type ShellNavigationCategory = {
+  key: string;
+  label: string;
+  items: ShellNavigationItem[];
+};
+
+type NativeTabDescriptorInput<HrefValue = never> = {
+  name: string;
+  title: string;
+  iconName: string;
+  href?: HrefValue | null;
+  hidden?: boolean;
+  order?: number;
+};
+
+type NativeTabDescriptor<HrefValue = never> = NativeTabDescriptorInput<HrefValue> & {
+  groupKey: string;
+  groupLabel: string;
+  href?: HrefValue | null;
+};
+
+type NativeTabDescriptorGroup<HrefValue = never> = {
+  key: string;
+  label: string;
+  items: NativeTabDescriptorInput<HrefValue>[];
+};
+
+type NativeStackPresentation =
+  | 'card'
+  | 'modal'
+  | 'transparentModal'
+  | 'containedModal'
+  | 'containedTransparentModal'
+  | 'fullScreenModal'
+  | 'formSheet';
+
+type NativeStackDescriptorInput = {
+  name: string;
+  title: string;
+  presentation?: NativeStackPresentation;
+  order?: number;
+};
+
+function compareByOrder<T extends { order?: number }>(
+  left: T,
+  right: T,
+  resolveTiebreaker: (entry: T) => string,
+) {
+  const orderDelta = (left.order ?? 0) - (right.order ?? 0);
+  if (orderDelta !== 0) {
+    return orderDelta;
+  }
+
+  return resolveTiebreaker(left).localeCompare(resolveTiebreaker(right));
+}
+
+function sortNavigationItems<T extends { order?: number; label?: string }>(items: readonly T[]) {
+  return [...items].sort((left, right) => compareByOrder(left, right, (entry) => entry.label ?? ''));
+}
+
+function createNativeTabDescriptors<HrefValue = never>(groups: NativeTabDescriptorGroup<HrefValue>[]) {
+  return groups
+    .flatMap((group) =>
+      group.items.map((item) => ({
+        ...item,
+        groupKey: group.key,
+        groupLabel: group.label,
+        href: item.hidden ? null : item.href,
+      })),
+    )
+    .sort((left, right) => compareByOrder(left, right, (entry) => entry.name));
+}
+
+function createNativeStackDescriptors(descriptors: NativeStackDescriptorInput[]) {
+  return [...descriptors].sort((left, right) => compareByOrder(left, right, (entry) => entry.name));
+}
 
 export type AppNavigationHref =
   | '/'

@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
-    "@moritzbrantner/frontend-ui": "0.1.0",
     "@moritzbrantner/ui": "0.3.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.0",

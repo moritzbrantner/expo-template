@@ -8,6 +8,6 @@
     "start": "bun server.ts"
   },
   "dependencies": {
-    "nodemailer": "^7.0.7"
+    "nodemailer": "^8.0.7"
   }
 }

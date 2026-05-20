@@ -1,3 +1,5 @@
+name: expo-template
+
 services:
   auth-api:
     build:
@@ -25,3 +27,9 @@ services:
 
 volumes:
   auth-api-data:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 10.90.3.0/24

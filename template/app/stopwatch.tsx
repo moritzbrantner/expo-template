@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   createStopwatch,
@@ -8,7 +8,9 @@ import {
   formatElapsed,
   pauseStopwatch,
   resetStopwatch,
+  resumeStopwatchAfterSuspension,
   startStopwatch,
+  suspendStopwatch,
 } from '../core/time/stopwatch';
 
 function monotonicNow() {
@@ -18,6 +20,22 @@ function monotonicNow() {
 export default function StopwatchScreen() {
   const [stopwatch, setStopwatch] = useState(createStopwatch);
   const [now, setNow] = useState(monotonicNow);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const monotonicTimestamp = monotonicNow();
+      const wallTimestamp = Date.now();
+
+      setNow(monotonicTimestamp);
+      setStopwatch((current) =>
+        nextState === 'active'
+          ? resumeStopwatchAfterSuspension(current, monotonicTimestamp, wallTimestamp)
+          : suspendStopwatch(current, monotonicTimestamp, wallTimestamp),
+      );
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (stopwatch.status !== 'running') return;

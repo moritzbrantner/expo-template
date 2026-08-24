@@ -20,7 +20,8 @@ const config: ExpoConfig = {
   },
   android: {
     package: '{{ bundle_prefix }}.{{ app_slug | replace("-", "") }}',
-  },
+{% if profile == 'scheduled' %}    permissions: ['SCHEDULE_EXACT_ALARM'],
+{% endif %}  },
   web: {
     bundler: 'metro',
   },

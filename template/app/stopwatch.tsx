@@ -11,13 +11,17 @@ import {
   startStopwatch,
 } from '../core/time/stopwatch';
 
+function monotonicNow() {
+  return performance.now();
+}
+
 export default function StopwatchScreen() {
   const [stopwatch, setStopwatch] = useState(createStopwatch);
-  const [now, setNow] = useState(0);
+  const [now, setNow] = useState(monotonicNow);
 
   useEffect(() => {
     if (stopwatch.status !== 'running') return;
-    const timer = setInterval(() => setNow(Date.now()), 30);
+    const timer = setInterval(() => setNow(monotonicNow()), 30);
     return () => clearInterval(timer);
   }, [stopwatch.status]);
 
@@ -34,7 +38,7 @@ export default function StopwatchScreen() {
           <Action
             label="Pause"
             onPress={() => {
-              const timestamp = Date.now();
+              const timestamp = monotonicNow();
               setNow(timestamp);
               setStopwatch((current) => pauseStopwatch(current, timestamp));
             }}
@@ -43,7 +47,7 @@ export default function StopwatchScreen() {
           <Action
             label={stopwatch.status === 'paused' ? 'Resume' : 'Start'}
             onPress={() => {
-              const timestamp = Date.now();
+              const timestamp = monotonicNow();
               setNow(timestamp);
               setStopwatch((current) => startStopwatch(current, timestamp));
             }}
@@ -53,7 +57,7 @@ export default function StopwatchScreen() {
           label="Reset"
           secondary
           onPress={() => {
-            setNow(Date.now());
+            setNow(monotonicNow());
             setStopwatch(resetStopwatch());
           }}
         />

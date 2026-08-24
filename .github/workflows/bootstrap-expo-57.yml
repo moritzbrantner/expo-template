@@ -1,4 +1,4 @@
-name: Bootstrap Expo 57 lockfile
+name: Bootstrap Expo 57 migration
 
 on:
   push:
@@ -19,14 +19,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.12
-      - name: Upgrade Expo and align managed dependencies
+      - name: Finish the Expo Router migration
         run: |
-          bun add expo@^57.0.0
+          bun remove @react-navigation/bottom-tabs @react-navigation/elements @react-navigation/native
+          bunx expo-codemod sdk-56-expo-router-react-navigation-replace app components
           bunx expo install --fix
-      - name: Commit generated dependency state
+      - name: Commit generated migration state
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add package.json bun.lock
-          git diff --cached --quiet || git commit -m "chore: upgrade to Expo SDK 57"
+          git add package.json bun.lock app components
+          git diff --cached --quiet || git commit -m "refactor: use Expo Router navigation entry points"
           git push

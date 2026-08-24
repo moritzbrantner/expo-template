@@ -6,7 +6,14 @@ import { useColorScheme } from 'react-native';
 import { AppProviders } from '../core/app-providers';
 import { usePreferences } from '../core/preferences/preferences-provider';
 
-export default function RootLayout() {
+const homeOptions = { title: 'Home', headerShown: false } as const;
+{% if navigation == 'tabs' %}const tabHomeOptions = { title: 'Home', headerShown: false } as const;
+const settingsOptions = { title: 'Settings' } as const;
+const stopwatchOptions = { title: 'Stopwatch' } as const;
+{% if profile == 'scheduled' %}const reminderOptions = { title: 'Reminder' } as const;
+{% endif %}{% if profile == 'account-backed' %}const hiddenRouteOptions = { href: null } as const;
+{% endif %}
+{% endif %}export default function RootLayout() {
   return (
     <AppProviders>
       <RootNavigator />
@@ -22,14 +29,14 @@ function RootNavigator() {
   return (
     <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
 {% if navigation == 'tabs' %}      <Tabs>
-        <Tabs.Screen name="index" options={{ title: 'Home', headerShown: false }} />
-        <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
-        <Tabs.Screen name="stopwatch" options={{ title: 'Stopwatch' }} />
-{% if profile == 'scheduled' %}        <Tabs.Screen name="reminder" options={{ title: 'Reminder' }} />
-{% endif %}{% if profile == 'account-backed' %}        <Tabs.Screen name="sign-in" options={{ href: null }} />
+        <Tabs.Screen name="index" options={tabHomeOptions} />
+        <Tabs.Screen name="settings" options={settingsOptions} />
+        <Tabs.Screen name="stopwatch" options={stopwatchOptions} />
+{% if profile == 'scheduled' %}        <Tabs.Screen name="reminder" options={reminderOptions} />
+{% endif %}{% if profile == 'account-backed' %}        <Tabs.Screen name="sign-in" options={hiddenRouteOptions} />
 {% endif %}      </Tabs>
 {% else %}      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={homeOptions} />
       </Stack>
 {% endif %}      <StatusBar style="auto" />
     </ThemeProvider>

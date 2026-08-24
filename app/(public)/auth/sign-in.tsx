@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AuthShell } from '@/components/auth/auth-shell';
@@ -36,11 +36,6 @@ export default function SignInScreen() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (typeof params.email === 'string') {
-      setEmail(params.email);
-    }
-  }, [params.email]);
 
   async function handleSubmit() {
     const validationError = validateSignIn(email, password);

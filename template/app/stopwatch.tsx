@@ -13,7 +13,7 @@ import {
 
 export default function StopwatchScreen() {
   const [stopwatch, setStopwatch] = useState(createStopwatch);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     if (stopwatch.status !== 'running') return;

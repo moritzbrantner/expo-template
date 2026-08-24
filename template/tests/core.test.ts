@@ -7,7 +7,9 @@ import {
   elapsedAt,
   formatElapsed,
   pauseStopwatch,
+  resumeStopwatchAfterSuspension,
   startStopwatch,
+  suspendStopwatch,
 } from '../core/time/stopwatch';
 import { createSettingsRegistry } from '../features/settings/settings-registry';
 
@@ -32,4 +34,13 @@ test('stopwatch derives elapsed time from monotonic transitions', () => {
   const resumed = startStopwatch(paused, 10_000);
   expect(elapsedAt(resumed, 10_750)).toBe(2_000);
   expect(formatElapsed(62_340)).toBe('01:02:34');
+});
+
+test('stopwatch includes time spent suspended', () => {
+  const started = startStopwatch(createStopwatch(), 1_000);
+  const suspended = suspendStopwatch(started, 2_250, 5_000);
+  expect(elapsedAt(suspended, 9_000)).toBe(1_250);
+
+  const resumed = resumeStopwatchAfterSuspension(suspended, 2_300, 15_000);
+  expect(elapsedAt(resumed, 2_800)).toBe(11_750);
 });

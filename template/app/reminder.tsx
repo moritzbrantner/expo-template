@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { scheduleReminder } from '../core/notifications/local-reminders';
+import { reminderDateFromNow, scheduleReminder } from '../core/notifications/local-reminders';
 
 const choices = [1, 5, 15] as const;
 
@@ -14,7 +14,7 @@ export default function ReminderScreen() {
       await scheduleReminder({
         title: 'Reminder',
         body: 'Your timer is complete.',
-        date: new Date(Date.now() + minutes * 60_000),
+        date: reminderDateFromNow(minutes),
       });
       setMessage(`Reminder scheduled for ${minutes} minute${minutes === 1 ? '' : 's'} from now.`);
     } catch (cause) {

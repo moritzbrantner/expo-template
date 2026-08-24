@@ -1,0 +1,10 @@
+appId: {{ bundle_prefix }}.{{ app_slug | replace("-", "") }}
+---
+- launchApp
+- tapOn: "Stopwatch"
+- assertVisible: "00:00:00"
+- tapOn: "Start"
+- assertVisible: "Pause"
+- tapOn: "Pause"
+- tapOn: "Reset"
+- assertVisible: "00:00:00"

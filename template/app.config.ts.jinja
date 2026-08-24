@@ -1,0 +1,33 @@
+import type { ExpoConfig } from 'expo/config';
+
+const plugins: NonNullable<ExpoConfig['plugins']> = [
+  'expo-router',
+  'expo-localization',
+{% if profile == 'account-backed' %}  'expo-secure-store',
+{% endif %}{% if profile == 'scheduled' %}  'expo-notifications',
+{% endif %}];
+
+const config: ExpoConfig = {
+  name: '{{ app_name }}',
+  slug: '{{ app_slug }}',
+  version: '0.1.0',
+  orientation: 'portrait',
+  scheme: '{{ url_scheme }}',
+  userInterfaceStyle: 'automatic',
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: '{{ bundle_prefix }}.{{ app_slug | replace("-", "") }}',
+  },
+  android: {
+    package: '{{ bundle_prefix }}.{{ app_slug | replace("-", "") }}',
+  },
+  web: {
+    bundler: 'metro',
+  },
+  plugins,
+  experiments: {
+    typedRoutes: true,
+  },
+};
+
+export default config;

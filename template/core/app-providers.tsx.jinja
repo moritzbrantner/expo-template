@@ -1,0 +1,33 @@
+{% if profile == 'account-backed' %}import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+{% endif %}import { type PropsWithChildren{% if profile == 'account-backed' %}, useEffect, useState{% endif %} } from 'react';
+{% if profile == 'account-backed' %}import { AppState } from 'react-native';
+
+{% endif %}import { PreferencesProvider } from './preferences/preferences-provider';
+
+export function AppProviders({ children }: PropsWithChildren) {
+{% if profile == 'account-backed' %}  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 1,
+            staleTime: 30_000,
+          },
+        },
+      }),
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      focusManager.setFocused(state === 'active');
+    });
+    return () => subscription.remove();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <PreferencesProvider>{children}</PreferencesProvider>
+    </QueryClientProvider>
+  );
+{% else %}  return <PreferencesProvider>{children}</PreferencesProvider>;
+{% endif %}}

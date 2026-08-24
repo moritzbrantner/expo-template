@@ -1,16 +1,31 @@
+import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { appFeatures } from '../app.features';
+import { usePreferences } from '../core/preferences/preferences-provider';
 
 export default function HomeScreen() {
+  const { t } = usePreferences();
+
   return (
     <View style={styles.container}>
       <Text style={styles.eyebrow}>{{ profile | replace('-', ' ') | title }}</Text>
       <Text style={styles.title}>{{ app_name }}</Text>
-      <Text style={styles.body}>
-        Your shared shell is ready. Build the app-specific workflow in this screen.
-      </Text>
+      <Text style={styles.body}>{t('appReady')}</Text>
+      <Text style={styles.body}>{t('buildWorkflow')}</Text>
+      <View style={styles.actions}>
+        <Link href="/settings" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>{t('settings')}</Text>
+          </Pressable>
+        </Link>
+{% if profile == 'account-backed' %}        <Link href="/sign-in" asChild>
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>{t('signIn')}</Text>
+          </Pressable>
+        </Link>
+{% endif %}      </View>
       <Text style={styles.meta}>
         EN · DE · ES · {appFeatures.navigation}
       </Text>
@@ -41,11 +56,32 @@ const styles = StyleSheet.create({
   },
   body: {
     maxWidth: 520,
-    marginTop: 16,
+    marginTop: 10,
     color: '#41504b',
     fontSize: 18,
     lineHeight: 27,
   },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 24,
+  },
+  button: {
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: '#24765e',
+  },
+  buttonText: { color: '#fff', fontWeight: '700' },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#24765e',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  secondaryButtonText: { color: '#24765e', fontWeight: '700' },
   meta: {
     marginTop: 24,
     color: '#6a7772',

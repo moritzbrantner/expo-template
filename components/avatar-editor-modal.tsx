@@ -130,6 +130,8 @@ export function AvatarEditorModal({
 
   useEffect(() => {
     if (!visible || !asset) {
+      // Closing or replacing the asset intentionally resets the crop draft.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setZoom(1);
       setOffset({ x: 0, y: 0 });
     }
@@ -138,9 +140,12 @@ export function AvatarEditorModal({
   const metrics = useMemo(() => getEditorMetrics(asset, zoom), [asset, zoom]);
 
   useEffect(() => {
+    // A zoom or asset change intentionally clamps the persisted drag draft.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset((currentOffset) => clampOffset(currentOffset, metrics));
   }, [metrics]);
 
+  /* eslint-disable react-hooks/refs -- refs are read by gesture callbacks, never during render. */
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -163,6 +168,8 @@ export function AvatarEditorModal({
       }),
     [asset, metrics],
   );
+
+  /* eslint-enable react-hooks/refs */
 
   function adjustZoom(delta: number) {
     setZoom((currentZoom) => clamp(Number((currentZoom + delta).toFixed(2)), MIN_ZOOM, MAX_ZOOM));

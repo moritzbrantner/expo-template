@@ -1,0 +1,32 @@
+name: Bootstrap Expo 57 lockfile
+
+on:
+  push:
+    branches:
+      - chore/expo-57-baseline
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: chore/expo-57-baseline
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+      - name: Upgrade Expo and align managed dependencies
+        run: |
+          bun add expo@^57.0.0
+          bunx expo install --fix
+      - name: Commit generated dependency state
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package.json bun.lock
+          git diff --cached --quiet || git commit -m "chore: upgrade to Expo SDK 57"
+          git push

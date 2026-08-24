@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test, { afterEach } from 'node:test';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,7 +52,7 @@ test('app manifest exposes the full scaffold-v2 contract keys for the standalone
 });
 
 test('smoke e2e suite is explicitly named and the old example suite is removed', () => {
-  const repoRoot = path.resolve(import.meta.dir, '..');
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const smokeSuitePath = path.join(repoRoot, 'e2e', 'smoke-auth-contract.spec.ts');
 
   assert.equal(existsSync(smokeSuitePath), true);

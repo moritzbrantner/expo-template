@@ -5,7 +5,8 @@ import { useColorScheme } from 'react-native';
 
 import { AppProviders } from '../core/app-providers';
 import { usePreferences } from '../core/preferences/preferences-provider';
-
+{% if profile == 'scheduled' %}import '../core/notifications/local-reminders';
+{% endif %}
 const homeOptions = { title: 'Home', headerShown: false } as const;
 {% if navigation == 'tabs' %}const settingsOptions = { title: 'Settings' } as const;
 const stopwatchOptions = { title: 'Stopwatch' } as const;

@@ -1,16 +1,20 @@
 export type StopwatchState = {
-  status: 'idle' | 'running' | 'paused';
+  status: 'idle' | 'running' | 'paused' | 'suspended';
   elapsedMs: number;
   startedAt: number | null;
+  suspendedAt: {
+    monotonicMs: number;
+    wallMs: number;
+  } | null;
 };
 
 export function createStopwatch(): StopwatchState {
-  return { status: 'idle', elapsedMs: 0, startedAt: null };
+  return { status: 'idle', elapsedMs: 0, startedAt: null, suspendedAt: null };
 }
 
 export function startStopwatch(state: StopwatchState, now: number): StopwatchState {
-  if (state.status === 'running') return state;
-  return { ...state, status: 'running', startedAt: now };
+  if (state.status === 'running' || state.status === 'suspended') return state;
+  return { ...state, status: 'running', startedAt: now, suspendedAt: null };
 }
 
 export function pauseStopwatch(state: StopwatchState, now: number): StopwatchState {
@@ -19,6 +23,39 @@ export function pauseStopwatch(state: StopwatchState, now: number): StopwatchSta
     status: 'paused',
     elapsedMs: state.elapsedMs + Math.max(0, now - state.startedAt),
     startedAt: null,
+    suspendedAt: null,
+  };
+}
+
+export function suspendStopwatch(
+  state: StopwatchState,
+  monotonicNow: number,
+  wallNow: number,
+): StopwatchState {
+  if (state.status !== 'running' || state.startedAt === null) return state;
+  return {
+    status: 'suspended',
+    elapsedMs: state.elapsedMs + Math.max(0, monotonicNow - state.startedAt),
+    startedAt: null,
+    suspendedAt: { monotonicMs: monotonicNow, wallMs: wallNow },
+  };
+}
+
+export function resumeStopwatchAfterSuspension(
+  state: StopwatchState,
+  monotonicNow: number,
+  wallNow: number,
+): StopwatchState {
+  if (state.status !== 'suspended' || state.suspendedAt === null) return state;
+
+  const monotonicDelta = Math.max(0, monotonicNow - state.suspendedAt.monotonicMs);
+  const wallDelta = Math.max(0, wallNow - state.suspendedAt.wallMs);
+
+  return {
+    status: 'running',
+    elapsedMs: state.elapsedMs + Math.max(monotonicDelta, wallDelta),
+    startedAt: monotonicNow,
+    suspendedAt: null,
   };
 }
 

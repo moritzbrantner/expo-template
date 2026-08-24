@@ -43,6 +43,8 @@ export default function AccountSettingsScreen() {
       return;
     }
 
+    // The query result intentionally initializes this local editable draft.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDisplayName(profile.displayName);
     setUsername(profile.username);
     setBio(profile.bio);

@@ -2,6 +2,13 @@ import { expect, test } from 'bun:test';
 
 import { appFeatures } from '../app.features';
 import { translate } from '../core/i18n/messages';
+import {
+  createStopwatch,
+  elapsedAt,
+  formatElapsed,
+  pauseStopwatch,
+  startStopwatch,
+} from '../core/time/stopwatch';
 import { createSettingsRegistry } from '../features/settings/settings-registry';
 
 test('ships complete translations for the supported settings surface', () => {
@@ -13,4 +20,16 @@ test('ships complete translations for the supported settings surface', () => {
 test('only exposes account settings when authentication is enabled', () => {
   const entries = createSettingsRegistry(appFeatures);
   expect(entries.some((entry) => entry.id === 'account')).toBe(appFeatures.authentication);
+});
+
+test('stopwatch derives elapsed time from monotonic transitions', () => {
+  const started = startStopwatch(createStopwatch(), 1_000);
+  expect(elapsedAt(started, 2_250)).toBe(1_250);
+
+  const paused = pauseStopwatch(started, 2_250);
+  expect(elapsedAt(paused, 9_000)).toBe(1_250);
+
+  const resumed = startStopwatch(paused, 10_000);
+  expect(elapsedAt(resumed, 10_750)).toBe(2_000);
+  expect(formatElapsed(62_340)).toBe('01:02:34');
 });

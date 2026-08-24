@@ -4,6 +4,9 @@ _answers_file: .copier-answers.yml
 _exclude:
   - "{% if profile != 'account-backed' %}core/auth{% else %}__never__{% endif %}"
   - "{% if profile != 'account-backed' %}app/sign-in.tsx{% else %}__never__{% endif %}"
+  - "{% if profile not in ['local-first', 'scheduled'] %}core/database{% else %}__never__{% endif %}"
+  - "{% if profile != 'scheduled' %}core/notifications{% else %}__never__{% endif %}"
+  - "{% if profile != 'scheduled' %}app/reminder.tsx{% else %}__never__{% endif %}"
 _message_after_copy: |
   {{ app_name }} is ready. Run "bun install", then "bun start".
 

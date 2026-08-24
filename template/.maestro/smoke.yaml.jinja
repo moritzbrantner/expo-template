@@ -1,0 +1,6 @@
+appId: {{ bundle_prefix }}.{{ app_slug | replace("-", "") }}
+---
+- launchApp
+- assertVisible: "{{ app_name }}"
+- tapOn: "Settings"
+- assertVisible: "Settings"

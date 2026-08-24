@@ -20,9 +20,19 @@ export default function HomeScreen() {
             <Text style={styles.buttonText}>{t('settings')}</Text>
           </Pressable>
         </Link>
+        <Link href="/stopwatch" asChild>
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Stopwatch</Text>
+          </Pressable>
+        </Link>
 {% if profile == 'account-backed' %}        <Link href="/sign-in" asChild>
           <Pressable style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>{t('signIn')}</Text>
+          </Pressable>
+        </Link>
+{% endif %}{% if profile == 'scheduled' %}        <Link href="/reminder" asChild>
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Reminder</Text>
           </Pressable>
         </Link>
 {% endif %}      </View>

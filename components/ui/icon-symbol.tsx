@@ -23,6 +23,9 @@ const MAPPING = {
   'gearshape.fill': 'settings',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  magnifyingglass: 'search',
+  'bell.fill': 'notifications',
+  'person.crop.circle.fill': 'account-circle',
 } satisfies IconMapping;
 
 type IconSymbolName = keyof typeof MAPPING;

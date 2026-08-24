@@ -7,8 +7,7 @@ import { AppProviders } from '../core/app-providers';
 import { usePreferences } from '../core/preferences/preferences-provider';
 
 const homeOptions = { title: 'Home', headerShown: false } as const;
-{% if navigation == 'tabs' %}const tabHomeOptions = { title: 'Home', headerShown: false } as const;
-const settingsOptions = { title: 'Settings' } as const;
+{% if navigation == 'tabs' %}const settingsOptions = { title: 'Settings' } as const;
 const stopwatchOptions = { title: 'Stopwatch' } as const;
 {% if profile == 'scheduled' %}const reminderOptions = { title: 'Reminder' } as const;
 {% endif %}{% if profile == 'account-backed' %}const hiddenRouteOptions = { href: null } as const;
@@ -29,7 +28,7 @@ function RootNavigator() {
   return (
     <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
 {% if navigation == 'tabs' %}      <Tabs>
-        <Tabs.Screen name="index" options={tabHomeOptions} />
+        <Tabs.Screen name="index" options={homeOptions} />
         <Tabs.Screen name="settings" options={settingsOptions} />
         <Tabs.Screen name="stopwatch" options={stopwatchOptions} />
 {% if profile == 'scheduled' %}        <Tabs.Screen name="reminder" options={reminderOptions} />

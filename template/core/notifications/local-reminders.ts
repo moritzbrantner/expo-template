@@ -17,6 +17,10 @@ export async function requestReminderPermission() {
   return requested.granted;
 }
 
+export function reminderDateFromNow(minutes: number, now = Date.now()) {
+  return new Date(now + minutes * 60_000);
+}
+
 export async function scheduleReminder({
   title,
   body,

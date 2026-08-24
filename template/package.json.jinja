@@ -1,0 +1,42 @@
+{
+  "name": "{{ app_slug }}",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "packageManager": "bun@1.3.12",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "doctor": "expo-doctor"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+{% if profile == 'account-backed' %}    "@tanstack/react-query": "^5.99.2",
+{% endif %}    "expo": "^57.0.0",
+    "expo-constants": "~57.0.14",
+    "expo-localization": "~57.0.1",
+    "expo-linking": "~57.0.7",
+{% if profile == 'account-backed' %}    "expo-network": "~57.0.1",
+    "expo-secure-store": "~57.0.1",
+{% endif %}{% if profile == 'scheduled' %}    "expo-notifications": "~57.0.10",
+{% endif %}{% if profile in ['local-first', 'scheduled'] %}    "expo-sqlite": "~57.0.1",
+{% endif %}    "expo-router": "~57.0.16",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.14",
+    "eslint": "^9.39.4",
+    "eslint-config-expo": "~57.0.1",
+    "typescript": "~6.0.3"
+  }
+}

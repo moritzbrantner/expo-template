@@ -1,0 +1,55 @@
+import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { appFeatures } from '../app.features';
+
+export default function HomeScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.eyebrow}>{{ profile | replace('-', ' ') | title }}</Text>
+      <Text style={styles.title}>{{ app_name }}</Text>
+      <Text style={styles.body}>
+        Your shared shell is ready. Build the app-specific workflow in this screen.
+      </Text>
+      <Text style={styles.meta}>
+        EN · DE · ES · {appFeatures.navigation}
+      </Text>
+      <StatusBar style="auto" />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 28,
+    backgroundColor: '#f7f7f2',
+  },
+  eyebrow: {
+    marginBottom: 8,
+    color: '#356859',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  title: {
+    color: '#14231f',
+    fontSize: 40,
+    fontWeight: '800',
+  },
+  body: {
+    maxWidth: 520,
+    marginTop: 16,
+    color: '#41504b',
+    fontSize: 18,
+    lineHeight: 27,
+  },
+  meta: {
+    marginTop: 24,
+    color: '#6a7772',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+});

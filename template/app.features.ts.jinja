@@ -1,0 +1,19 @@
+export type CapabilityProfile =
+  | 'minimal'
+  | 'local-first'
+  | 'account-backed'
+  | 'scheduled';
+
+export const appFeatures = Object.freeze({
+  profile: '{{ profile }}' as CapabilityProfile,
+  navigation: '{{ navigation }}' as const,
+  locales: ['en', 'de', 'es'] as const,
+  primaryLocale: '{{ primary_locale }}' as const,
+  preferences: true,
+  localDatabase: {{ 'true' if profile in ['local-first', 'scheduled'] else 'false' }},
+  authentication: {{ 'true' if profile == 'account-backed' else 'false' }},
+  serverState: {{ 'true' if profile == 'account-backed' else 'false' }},
+  notifications: {{ 'true' if profile == 'scheduled' else 'false' }},
+});
+
+export type AppFeatures = typeof appFeatures;

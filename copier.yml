@@ -1,0 +1,52 @@
+_min_copier_version: "9.10.0"
+_subdirectory: template
+_answers_file: .copier-answers.yml
+_message_after_copy: |
+  {{ app_name }} is ready. Run "bun install", then "bun start".
+
+app_name:
+  type: str
+  help: The human-readable app name.
+  default: My App
+
+app_slug:
+  type: str
+  help: Lowercase project slug used by Expo and package.json.
+  default: "{{ app_name | lower | replace(' ', '-') | replace('_', '-') }}"
+
+bundle_prefix:
+  type: str
+  help: Reverse-DNS prefix for native application identifiers.
+  default: com.example
+
+url_scheme:
+  type: str
+  help: Deep-link URL scheme.
+  default: "{{ app_slug | replace('-', '') }}"
+
+profile:
+  type: str
+  help: Select the smallest capability set your app needs.
+  default: local-first
+  choices:
+    Minimal (preferences and localization): minimal
+    Local-first (SQLite persistence): local-first
+    Account-backed (secure auth and server state): account-backed
+    Scheduled (SQLite and local notifications): scheduled
+
+navigation:
+  type: str
+  help: Initial navigation shape. Screens remain editable after generation.
+  default: stack
+  choices:
+    Stack: stack
+    Tabs: tabs
+
+primary_locale:
+  type: str
+  help: Initial locale. English, German, and Spanish are always generated.
+  default: en
+  choices:
+    English: en
+    German: de
+    Spanish: es

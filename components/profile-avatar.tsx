@@ -40,7 +40,7 @@ export function ProfileAvatar({
         },
       ]}>
       {uri ? (
-        <Image source={{ uri }} contentFit="cover" style={StyleSheet.absoluteFillObject} />
+        <Image source={{ uri }} contentFit="cover" style={styles.image} />
       ) : (
         <ThemedText
           type="defaultSemiBold"
@@ -58,6 +58,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+  },
+  image: {
+    position: 'absolute',
+    inset: 0,
   },
   initials: {
     lineHeight: 24,

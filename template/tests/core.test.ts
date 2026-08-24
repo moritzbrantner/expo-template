@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 
 import { appFeatures } from '../app.features';
-import { translate } from '../core/i18n';
+import { translate } from '../core/i18n/messages';
 import { createSettingsRegistry } from '../features/settings/settings-registry';
 
 test('ships complete translations for the supported settings surface', () => {

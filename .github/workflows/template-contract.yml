@@ -61,11 +61,13 @@ jobs:
           const fs = require('node:fs');
           const packageJson = JSON.parse(fs.readFileSync('generated/package.json', 'utf8'));
           const features = fs.readFileSync('generated/app.features.ts', 'utf8');
+          const layout = fs.readFileSync('generated/app/_layout.tsx', 'utf8');
           const expected = process.env.EXPECTED_PROFILE;
           const expectedNavigation = process.env.EXPECTED_NAVIGATION;
           const hasAuth = fs.existsSync('generated/core/auth') && fs.existsSync('generated/app/sign-in.tsx');
           const hasDatabase = fs.existsSync('generated/core/database/app-database.ts');
           const hasNotifications = fs.existsSync('generated/core/notifications/local-reminders.ts') && fs.existsSync('generated/app/reminder.tsx');
+          const initializesNotifications = layout.includes("import '../core/notifications/local-reminders';");
 
           if (packageJson.name !== `fixture-${expected}`) throw new Error('wrong generated slug');
           if (!features.includes(`profile: '${expected}'`)) throw new Error('wrong feature profile');
@@ -74,6 +76,7 @@ jobs:
           if (hasAuth !== (expected === 'account-backed')) throw new Error('auth boundary mismatch');
           if (hasDatabase !== ['local-first', 'scheduled'].includes(expected)) throw new Error('database boundary mismatch');
           if (hasNotifications !== (expected === 'scheduled')) throw new Error('notification boundary mismatch');
+          if (initializesNotifications !== (expected === 'scheduled')) throw new Error('notification initialization boundary mismatch');
           if (!fs.existsSync('generated/.maestro/stopwatch.yaml')) throw new Error('missing native stopwatch flow');
           NODE
 

@@ -114,3 +114,5 @@ bun run test:e2e
 ```
 
 See [SCAFFOLD_ALIGNMENT.md](./SCAFFOLD_ALIGNMENT.md) for the repo's scaffold-family role and anti-drift contract.
+
+See [MOBILE_APP_LANDSCAPE.md](./MOBILE_APP_LANDSCAPE.md) for the exploratory direction toward a shared monorepo of independently shippable mobile apps.

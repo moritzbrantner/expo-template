@@ -13,6 +13,7 @@
     "ios": "expo start --ios --port 4002",
     "web": "expo start --web --port 4002",
     "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
     "dev": "expo start --port 4002",
     "dev:api:up": "docker compose up -d dev-api",
     "dev:api:down": "docker compose stop dev-api",

@@ -7,6 +7,8 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
 {% endif %}{% if profile == 'scheduled' %}  'expo-notifications',
 {% endif %}];
 
+const githubPagesBaseUrl = process.env.EXPO_PUBLIC_GITHUB_PAGES_BASE_URL;
+
 const config: ExpoConfig = {
   name: '{{ app_name }}',
   slug: '{{ app_slug }}',
@@ -28,6 +30,7 @@ const config: ExpoConfig = {
   plugins,
   experiments: {
     typedRoutes: true,
+    ...(githubPagesBaseUrl ? { baseUrl: githubPagesBaseUrl } : {}),
   },
 };
 

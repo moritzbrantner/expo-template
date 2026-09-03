@@ -23,10 +23,12 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Align Expo SDK dependencies
         run: bunx expo install --fix
+      - name: Reinstall refreshed dependency graph cleanly
+        run: |
+          rm -rf node_modules
+          bun install --frozen-lockfile
       - name: Verify Expo dependency health
         run: bunx expo-doctor
-      - name: Verify refreshed lockfile
-        run: bun install --frozen-lockfile
       - name: Commit deterministic dependency refresh
         run: |
           git config user.name 'github-actions[bot]'

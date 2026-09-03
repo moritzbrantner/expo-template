@@ -3,11 +3,11 @@ import test from 'node:test';
 
 import { parseDictationInput } from './dictation';
 
-test('splits dictated tasks on the standalone next command', () => {
+test('splits dictated tasks on the standalone next command in prepend order', () => {
   assert.deepEqual(
     parseDictationInput('Buy milk next Call dentist next Book train'),
     {
-      completedEntries: ['Buy milk', 'Call dentist'],
+      completedEntries: ['Call dentist', 'Buy milk'],
       remainder: 'Book train',
     },
   );
@@ -15,7 +15,7 @@ test('splits dictated tasks on the standalone next command', () => {
 
 test('accepts next case-insensitively with surrounding punctuation', () => {
   assert.deepEqual(parseDictationInput('Buy milk NEXT, call dentist Next!'), {
-    completedEntries: ['Buy milk', 'call dentist'],
+    completedEntries: ['call dentist', 'Buy milk'],
     remainder: '',
   });
 });

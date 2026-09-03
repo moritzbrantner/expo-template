@@ -1,0 +1,91 @@
+name: GitHub Pages
+
+on:
+  pull_request:
+    paths:
+      - app/**
+      - assets/**
+      - components/**
+      - constants/**
+      - hooks/**
+      - lib/**
+      - packages/**
+      - apps/**
+      - portfolio/**
+      - scripts/build-pages.mjs
+      - app.config.ts
+      - app.json
+      - package.json
+      - bun.lock
+      - tsconfig.json
+      - .github/workflows/pages.yml
+  push:
+    branches:
+      - main
+    paths:
+      - app/**
+      - assets/**
+      - components/**
+      - constants/**
+      - hooks/**
+      - lib/**
+      - packages/**
+      - apps/**
+      - portfolio/**
+      - scripts/build-pages.mjs
+      - app.config.ts
+      - app.json
+      - package.json
+      - bun.lock
+      - tsconfig.json
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build portfolio and Expo web apps
+        run: node scripts/build-pages.mjs
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

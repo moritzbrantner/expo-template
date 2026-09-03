@@ -1,0 +1,105 @@
+{
+  "title": "Mobile App Portfolio",
+  "description": "A calm collection of small, useful mobile apps built from the shared Expo foundation.",
+  "apps": [
+    {
+      "slug": "scaffold",
+      "name": "Expo App-Shell Scaffold",
+      "description": "The current reusable Expo auth, social, profile, settings, and app-shell baseline.",
+      "category": "Foundation",
+      "status": "preview",
+      "source": "."
+    },
+    {
+      "slug": "calendar",
+      "name": "Calendar",
+      "description": "A focused calendar for personal schedules and useful shared calendars.",
+      "category": "Everyday",
+      "status": "planned"
+    },
+    {
+      "slug": "tasks",
+      "name": "Tasks",
+      "description": "A simple to-do list that helps finish work without turning attention into a feed.",
+      "category": "Everyday",
+      "status": "planned"
+    },
+    {
+      "slug": "converter",
+      "name": "Unit Converter",
+      "description": "Fast everyday unit conversion with a small, offline-friendly surface.",
+      "category": "Utility",
+      "status": "planned"
+    },
+    {
+      "slug": "flashlight",
+      "name": "Flashlight",
+      "description": "A deliberately tiny flashlight utility with no unnecessary account or tracking.",
+      "category": "Utility",
+      "status": "planned"
+    },
+    {
+      "slug": "timer",
+      "name": "Timer & Stopwatch",
+      "description": "Timers and stopwatch tools designed for quick use and immediate exit.",
+      "category": "Utility",
+      "status": "planned"
+    },
+    {
+      "slug": "shopping-list",
+      "name": "Shopping List",
+      "description": "A quick local-first list for ordinary shopping and household errands.",
+      "category": "Everyday",
+      "status": "planned"
+    },
+    {
+      "slug": "notes",
+      "name": "Notes",
+      "description": "Plain notes with user control, portability, and a calm editing experience.",
+      "category": "Everyday",
+      "status": "planned"
+    },
+    {
+      "slug": "calculator",
+      "name": "Calculator",
+      "description": "A straightforward calculator for common arithmetic without distractions.",
+      "category": "Utility",
+      "status": "planned"
+    },
+    {
+      "slug": "gratitude",
+      "name": "Gratitude Journal",
+      "description": "A private journal for deliberate reflection rather than engagement streaks.",
+      "category": "Reflection",
+      "status": "planned"
+    },
+    {
+      "slug": "keep-in-touch",
+      "name": "Keep in Touch",
+      "description": "Gentle reminders to maintain real relationships without building a social feed.",
+      "category": "Relationships",
+      "status": "planned"
+    },
+    {
+      "slug": "borrow-lend",
+      "name": "Borrow & Lend",
+      "description": "Track borrowed and lent items so ordinary commitments are easy to remember.",
+      "category": "Household",
+      "status": "planned"
+    },
+    {
+      "slug": "repair-log",
+      "name": "Repair Log",
+      "description": "Keep a practical history of repairs, maintenance, and stewardship of possessions.",
+      "category": "Household",
+      "status": "planned"
+    },
+    {
+      "slug": "nearby-history",
+      "name": "Nearby History",
+      "description": "Surface local stories about buildings, streets, churches, monasteries, rulers, and traditions.",
+      "category": "History",
+      "status": "planned"
+    }
+  ]
+}

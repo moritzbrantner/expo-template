@@ -100,6 +100,28 @@ source of truth for scaffold users or auth state.
 - `GET /profiles/alex` returns a seeded example profile by `username`
 - `GET /healthz` is exposed for local health checks
 
+## GitHub Pages app portfolio
+
+`portfolio/apps.json` is the publishing registry for the mobile-app gallery. Every entry owns a
+stable slug such as `calendar`, `timer`, or `nearby-history`.
+
+The Pages build generates the root dashboard and one route per manifest entry. Entries without a
+`source` directory receive a reserved planning page. Once an Expo app exists, add its repository-
+relative directory as `source`; `scripts/build-pages.mjs` exports that app for web directly into its
+stable route.
+
+The current scaffold is registered as a working preview at `/scaffold/`. GitHub Pages production
+builds inject `EXPO_PUBLIC_GITHUB_PAGES_BASE_URL` so Expo Router and bundled assets remain correct
+when hosted below `/expo-template/<app>/`.
+
+Build the complete Pages artifact locally with:
+
+```bash
+node scripts/build-pages.mjs
+```
+
+The generated site is written to `_site/` and is intentionally not committed.
+
 ## Validation
 
 ```bash

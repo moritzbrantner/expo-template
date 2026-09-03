@@ -103,7 +103,8 @@ source of truth for scaffold users or auth state.
 ## GitHub Pages app portfolio
 
 `portfolio/apps.json` is the publishing registry for the mobile-app gallery. Every entry owns a
-stable slug such as `calendar`, `timer`, or `nearby-history`.
+stable slug such as `calendar`, `timer`, or `nearby-history`. Treat a slug as a public URL contract
+once published; evolve the app behind that route rather than renaming it casually.
 
 The Pages build generates the root dashboard and one route per manifest entry. Entries without a
 `source` directory receive a reserved planning page. Once an Expo app exists, add its repository-

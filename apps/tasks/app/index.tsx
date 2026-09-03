@@ -213,12 +213,6 @@ export default function TasksApp() {
     updateDraft('');
   };
 
-  const consumeDictationInput = (value: string) => {
-    const { completedEntries, remainder } = parseDictationInput(value);
-    addTaskTitles(completedEntries);
-    updateDraft(remainder);
-  };
-
   const finishDictation = () => {
     const recognition = recognitionRef.current;
     if (recognition) {
@@ -236,12 +230,26 @@ export default function TasksApp() {
     setDictationStatus(null);
   };
 
+  const consumeDictationInput = (value: string) => {
+    const { completedEntries, remainder, finishRequested } = parseDictationInput(value);
+    addTaskTitles(completedEntries);
+    updateDraft(remainder);
+
+    if (finishRequested) {
+      finishDictation();
+    }
+
+    return finishRequested;
+  };
+
   const startDictation = () => {
     setDictationMode(true);
 
     const Recognition = getBrowserSpeechRecognitionConstructor();
     if (!Recognition) {
-      setDictationStatus('Dictation mode is on. Use the keyboard microphone and say “next” for a new task.');
+      setDictationStatus(
+        'Dictation mode is on. Use the keyboard microphone: say “next” for a new task and “done” to finish.',
+      );
       setTimeout(() => inputRef.current?.focus(), 0);
       return;
     }
@@ -263,7 +271,12 @@ export default function TasksApp() {
           continue;
         }
 
-        consumeDictationInput([draftRef.current, transcript].filter(Boolean).join(' '));
+        const finishRequested = consumeDictationInput(
+          [draftRef.current, transcript].filter(Boolean).join(' '),
+        );
+        if (finishRequested) {
+          break;
+        }
       }
     };
     recognition.onerror = () => {
@@ -290,7 +303,7 @@ export default function TasksApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setIsListening(true);
-      setDictationStatus('Listening… Say “next” to start another task.');
+      setDictationStatus('Listening… “Next” starts another task. “Done” finishes dictation.');
     } catch {
       recognitionRef.current = null;
       setIsListening(false);
@@ -333,7 +346,7 @@ export default function TasksApp() {
                 dictationMode ? consumeDictationInput(value) : updateDraft(value)
               }
               onSubmitEditing={addTask}
-              placeholder={dictationMode ? 'Say a task, then “next”…' : 'What needs doing?'}
+              placeholder={dictationMode ? 'Say a task, “next”, or “done”…' : 'What needs doing?'}
               placeholderTextColor="#7b827c"
               returnKeyType="done"
               style={[styles.input, dictationMode && styles.inputDictating]}
@@ -372,7 +385,8 @@ export default function TasksApp() {
               </Text>
             </Pressable>
             <Text style={styles.dictationHelp} accessibilityLiveRegion="polite">
-              {dictationStatus ?? 'Dictate several tasks hands-free. “Next” starts a new entry.'}
+              {dictationStatus ??
+                'Dictate several tasks hands-free. “Next” starts a new entry; “Done” finishes.'}
             </Text>
           </View>
 

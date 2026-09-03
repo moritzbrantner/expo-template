@@ -34,6 +34,30 @@
       "source": "apps/converter"
     },
     {
+      "slug": "habits",
+      "name": "Habits",
+      "description": "A calm local-first habit tracker with simple daily check-ins and weekly targets.",
+      "category": "Everyday",
+      "status": "preview",
+      "source": "apps/habits"
+    },
+    {
+      "slug": "money",
+      "name": "Money",
+      "description": "A private local ledger for recording income and expenses without connecting a bank account.",
+      "category": "Finance",
+      "status": "preview",
+      "source": "apps/money"
+    },
+    {
+      "slug": "contractions",
+      "name": "Contraction Timer",
+      "description": "A timing log for contraction starts, durations, intervals, and recent averages without medical diagnosis.",
+      "category": "Family",
+      "status": "preview",
+      "source": "apps/contractions"
+    },
+    {
       "slug": "flashlight",
       "name": "Flashlight",
       "description": "A deliberately tiny flashlight utility with no unnecessary account or tracking.",

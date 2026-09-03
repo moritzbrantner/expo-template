@@ -4,21 +4,27 @@ export type DictationParseResult = {
   /** Completed entries in newest-first order, ready for the task list's prepend semantics. */
   completedEntries: string[];
   remainder: string;
+  finishRequested: boolean;
 };
 
-function isNextCommand(token: string) {
-  const bareToken = token.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
-  return bareToken === 'next';
+function normalizeCommandToken(token: string) {
+  return token.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+}
+
+function isCommand(token: string, command: 'next' | 'done') {
+  return normalizeCommandToken(token) === command;
 }
 
 export function parseDictationInput(value: string): DictationParseResult {
   const tokens = value.trim().split(/\s+/).filter(Boolean);
+  const finishRequested = tokens.length > 0 && isCommand(tokens.at(-1) ?? '', 'done');
+  const contentTokens = finishRequested ? tokens.slice(0, -1) : tokens;
   const entries: string[][] = [[]];
-  let foundCommand = false;
+  let foundNextCommand = false;
 
-  for (const token of tokens) {
-    if (isNextCommand(token)) {
-      foundCommand = true;
+  for (const token of contentTokens) {
+    if (isCommand(token, 'next')) {
+      foundNextCommand = true;
       entries.push([]);
       continue;
     }
@@ -26,10 +32,24 @@ export function parseDictationInput(value: string): DictationParseResult {
     entries[entries.length - 1]?.push(token);
   }
 
-  if (!foundCommand) {
+  if (finishRequested) {
+    const completedEntries = entries
+      .map((entry) => normalizeTaskTitle(entry.join(' ')))
+      .filter(Boolean)
+      .reverse();
+
+    return {
+      completedEntries,
+      remainder: '',
+      finishRequested: true,
+    };
+  }
+
+  if (!foundNextCommand) {
     return {
       completedEntries: [],
       remainder: normalizeTaskTitle(value),
+      finishRequested: false,
     };
   }
 
@@ -40,5 +60,5 @@ export function parseDictationInput(value: string): DictationParseResult {
     .filter(Boolean)
     .reverse();
 
-  return { completedEntries, remainder };
+  return { completedEntries, remainder, finishRequested: false };
 }

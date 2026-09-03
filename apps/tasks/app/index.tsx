@@ -288,15 +288,19 @@ export default function TasksApp() {
       recognitionRef.current = null;
       setIsListening(false);
 
+      if (failed) {
+        setDictationStatus('Speech recognition stopped. Use the keyboard microphone to keep dictating.');
+        setTimeout(() => inputRef.current?.focus(), 0);
+        return;
+      }
+
       const remainingTitle = draftRef.current.trim();
       if (remainingTitle) {
         addTaskTitles([remainingTitle]);
       }
       updateDraft('');
       setDictationMode(false);
-      setDictationStatus(
-        failed ? 'Speech recognition stopped. Use the keyboard microphone to keep dictating.' : null,
-      );
+      setDictationStatus(null);
     };
 
     try {

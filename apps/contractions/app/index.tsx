@@ -62,12 +62,14 @@ export default function ContractionsApp() {
   }, [hydrated, session]);
 
   useEffect(() => {
-    if (session.activeStartedAt === null) return;
-    const timer = setInterval(() => setNow(Date.now()), 500);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [session.activeStartedAt]);
+  }, []);
 
-  const recent = useMemo(() => summarizeRecent(session.contractions, Date.now() - 60 * 60 * 1000), [session.contractions]);
+  const recent = useMemo(
+    () => summarizeRecent(session.contractions, now - 60 * 60 * 1000),
+    [now, session.contractions],
+  );
   const reversed = useMemo(() => [...session.contractions].reverse(), [session.contractions]);
   const activeElapsed = session.activeStartedAt === null ? null : now - session.activeStartedAt;
 

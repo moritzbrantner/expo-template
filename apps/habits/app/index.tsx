@@ -58,7 +58,7 @@ function HabitRow({
         <View style={styles.habitCopy}>
           <Text style={styles.habitName}>{habit.name}</Text>
           <Text style={styles.habitMeta}>
-            {weekCount} of {habit.targetPerWeek} target days this week
+            {weekCount} of {habit.targetPerWeek} target days in the last 7 days
           </Text>
         </View>
         <Pressable

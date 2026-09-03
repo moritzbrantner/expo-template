@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { parseDictationInput } from '../lib/dictation';
 import {
   clearCompleted,
   createTask,
@@ -29,6 +30,47 @@ const FILTERS: { value: TaskFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'done', label: 'Done' },
 ];
+
+type BrowserSpeechAlternative = {
+  transcript: string;
+};
+
+type BrowserSpeechResult = {
+  isFinal: boolean;
+  length: number;
+  [index: number]: BrowserSpeechAlternative;
+};
+
+type BrowserSpeechEvent = {
+  resultIndex: number;
+  results: ArrayLike<BrowserSpeechResult>;
+};
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: BrowserSpeechEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+function getBrowserSpeechRecognitionConstructor() {
+  if (Platform.OS !== 'web') {
+    return null;
+  }
+
+  const speechGlobal = globalThis as typeof globalThis & {
+    SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  };
+
+  return speechGlobal.SpeechRecognition ?? speechGlobal.webkitSpeechRecognition ?? null;
+}
 
 function taskId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -81,6 +123,12 @@ export default function TasksApp() {
   const [draft, setDraft] = useState('');
   const [filter, setFilter] = useState<TaskFilter>('open');
   const [hydrated, setHydrated] = useState(false);
+  const [dictationMode, setDictationMode] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [dictationStatus, setDictationStatus] = useState<string | null>(null);
+  const draftRef = useRef('');
+  const inputRef = useRef<TextInput>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -117,19 +165,155 @@ export default function TasksApp() {
     return () => clearTimeout(timer);
   }, [hydrated, tasks]);
 
+  useEffect(
+    () => () => {
+      const recognition = recognitionRef.current;
+      if (!recognition) {
+        return;
+      }
+
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.abort();
+      recognitionRef.current = null;
+    },
+    [],
+  );
+
   const visibleTasks = useMemo(() => filterTasks(tasks, filter), [filter, tasks]);
   const openCount = tasks.filter((task) => !task.completed).length;
   const doneCount = tasks.length - openCount;
 
+  const updateDraft = (value: string) => {
+    draftRef.current = value;
+    setDraft(value);
+  };
+
+  const addTaskTitles = (titles: readonly string[]) => {
+    const normalizedTitles = titles.map((title) => title.trim()).filter(Boolean);
+    if (normalizedTitles.length === 0) {
+      return;
+    }
+
+    setTasks((current) => [
+      ...normalizedTitles.map((title) => createTask(title, taskId())),
+      ...current,
+    ]);
+    setFilter('open');
+  };
+
   const addTask = () => {
-    const title = draft.trim();
+    const title = draftRef.current.trim();
     if (!title) {
       return;
     }
 
-    setTasks((current) => [createTask(title, taskId()), ...current]);
-    setDraft('');
-    setFilter('open');
+    addTaskTitles([title]);
+    updateDraft('');
+  };
+
+  const finishDictation = () => {
+    const recognition = recognitionRef.current;
+    if (recognition) {
+      setDictationStatus('Finishing dictation…');
+      recognition.stop();
+      return;
+    }
+
+    const remainingTitle = draftRef.current.trim();
+    if (remainingTitle) {
+      addTaskTitles([remainingTitle]);
+    }
+    updateDraft('');
+    setDictationMode(false);
+    setDictationStatus(null);
+  };
+
+  const consumeDictationInput = (value: string) => {
+    const { completedEntries, remainder, finishRequested } = parseDictationInput(value);
+    addTaskTitles(completedEntries);
+    updateDraft(remainder);
+
+    if (finishRequested) {
+      finishDictation();
+    }
+
+    return finishRequested;
+  };
+
+  const startDictation = () => {
+    setDictationMode(true);
+
+    const Recognition = getBrowserSpeechRecognitionConstructor();
+    if (!Recognition) {
+      setDictationStatus(
+        'Dictation mode is on. Use the keyboard microphone: say “next” for a new task and “done” to finish.',
+      );
+      setTimeout(() => inputRef.current?.focus(), 0);
+      return;
+    }
+
+    const recognition = new Recognition();
+    let failed = false;
+
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        if (!result?.isFinal) {
+          continue;
+        }
+
+        const transcript = result[0]?.transcript?.trim();
+        if (!transcript) {
+          continue;
+        }
+
+        const finishRequested = consumeDictationInput(
+          [draftRef.current, transcript].filter(Boolean).join(' '),
+        );
+        if (finishRequested) {
+          break;
+        }
+      }
+    };
+    recognition.onerror = () => {
+      failed = true;
+      setIsListening(false);
+      setDictationStatus('Speech recognition stopped. You can continue with the keyboard microphone.');
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+
+      if (failed) {
+        setDictationStatus('Speech recognition stopped. Use the keyboard microphone to keep dictating.');
+        setTimeout(() => inputRef.current?.focus(), 0);
+        return;
+      }
+
+      const remainingTitle = draftRef.current.trim();
+      if (remainingTitle) {
+        addTaskTitles([remainingTitle]);
+      }
+      updateDraft('');
+      setDictationMode(false);
+      setDictationStatus(null);
+    };
+
+    try {
+      recognitionRef.current = recognition;
+      recognition.start();
+      setIsListening(true);
+      setDictationStatus('Listening… “Next” starts another task. “Done” finishes dictation.');
+    } catch {
+      recognitionRef.current = null;
+      setIsListening(false);
+      setDictationStatus('Speech recognition is unavailable here. Use the keyboard microphone instead.');
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
   };
 
   const emptyMessage =
@@ -158,15 +342,18 @@ export default function TasksApp() {
 
           <View style={styles.composer}>
             <TextInput
-              accessibilityLabel="New task"
+              ref={inputRef}
+              accessibilityLabel={dictationMode ? 'Dictated task' : 'New task'}
               autoCapitalize="sentences"
               blurOnSubmit={false}
-              onChangeText={setDraft}
+              onChangeText={(value) =>
+                dictationMode ? consumeDictationInput(value) : updateDraft(value)
+              }
               onSubmitEditing={addTask}
-              placeholder="What needs doing?"
+              placeholder={dictationMode ? 'Say a task, “next”, or “done”…' : 'What needs doing?'}
               placeholderTextColor="#7b827c"
               returnKeyType="done"
-              style={styles.input}
+              style={[styles.input, dictationMode && styles.inputDictating]}
               value={draft}
             />
             <Pressable
@@ -180,6 +367,31 @@ export default function TasksApp() {
               ]}>
               <Text style={styles.addButtonText}>Add</Text>
             </Pressable>
+          </View>
+
+          <View style={styles.dictationRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: dictationMode }}
+              accessibilityLabel={dictationMode ? 'Finish dictation' : 'Start dictation'}
+              onPress={dictationMode ? finishDictation : startDictation}
+              style={({ pressed }) => [
+                styles.dictationButton,
+                dictationMode && styles.dictationButtonActive,
+                pressed && styles.pressed,
+              ]}>
+              <Text
+                style={[
+                  styles.dictationButtonText,
+                  dictationMode && styles.dictationButtonTextActive,
+                ]}>
+                {isListening ? 'Stop dictation' : dictationMode ? 'Finish dictation' : 'Dictate'}
+              </Text>
+            </Pressable>
+            <Text style={styles.dictationHelp} accessibilityLiveRegion="polite">
+              {dictationStatus ??
+                'Dictate several tasks hands-free. “Next” starts a new entry; “Done” finishes.'}
+            </Text>
           </View>
 
           <View style={styles.filterRow} accessibilityRole="tablist">
@@ -245,7 +457,7 @@ export default function TasksApp() {
           ) : null}
 
           <Text style={styles.footer}>
-            Stored on this device. No account, feed, streak, or tracking required.
+            Tasks stay stored on this device. Speech recognition is handled by your browser or keyboard provider.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -303,6 +515,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
   },
+  inputDictating: {
+    borderColor: '#7d9f83',
+    borderWidth: 2,
+  },
   addButton: {
     minWidth: 72,
     minHeight: 50,
@@ -314,6 +530,37 @@ const styles = StyleSheet.create({
   },
   addButtonDisabled: { opacity: 0.38 },
   addButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  dictationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 10,
+  },
+  dictationButton: {
+    minHeight: 38,
+    justifyContent: 'center',
+    borderColor: '#b8c0b8',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  dictationButtonActive: {
+    backgroundColor: '#31513a',
+    borderColor: '#31513a',
+  },
+  dictationButtonText: {
+    color: '#405247',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dictationButtonTextActive: { color: '#ffffff' },
+  dictationHelp: {
+    flex: 1,
+    color: '#747b75',
+    fontSize: 12,
+    lineHeight: 17,
+  },
   filterRow: {
     flexDirection: 'row',
     gap: 8,

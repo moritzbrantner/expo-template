@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - copier.yml
+      - conventions.json
+      - .coding-tooling.json
+      - .editorconfig
       - template/**
       - .github/workflows/template-contract.yml
   push:
@@ -11,6 +14,9 @@ on:
       - main
     paths:
       - copier.yml
+      - conventions.json
+      - .coding-tooling.json
+      - .editorconfig
       - template/**
       - .github/workflows/template-contract.yml
 
@@ -32,11 +38,11 @@ jobs:
             navigation: tabs
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.12
 
@@ -60,6 +66,8 @@ jobs:
           node - <<'NODE'
           const fs = require('node:fs');
           const packageJson = JSON.parse(fs.readFileSync('generated/package.json', 'utf8'));
+          const conventions = JSON.parse(fs.readFileSync('generated/conventions.json', 'utf8'));
+          const tooling = JSON.parse(fs.readFileSync('generated/.coding-tooling.json', 'utf8'));
           const features = fs.readFileSync('generated/app.features.ts', 'utf8');
           const layout = fs.readFileSync('generated/app/_layout.tsx', 'utf8');
           const expected = process.env.EXPECTED_PROFILE;
@@ -70,6 +78,11 @@ jobs:
           const initializesNotifications = layout.includes("import '../core/notifications/local-reminders';");
 
           if (packageJson.name !== `fixture-${expected}`) throw new Error('wrong generated slug');
+          if (packageJson.packageManager !== 'bun@1.3.12') throw new Error('generated Bun version must be exact');
+          if (conventions.registry !== 'coding-agent-conventions') throw new Error('missing generated convention registry');
+          if (tooling.profile !== 'repository-foundation-v1') throw new Error('missing generated tooling profile');
+          if (!tooling.tiers?.fast?.includes('typecheck')) throw new Error('generated fast tier must typecheck');
+          if (!fs.existsSync('generated/.editorconfig')) throw new Error('missing generated editor defaults');
           if (!features.includes(`profile: '${expected}'`)) throw new Error('wrong feature profile');
           if (!features.includes(`navigation: '${expectedNavigation}'`)) throw new Error('wrong navigation shape');
           if (!fs.existsSync('generated/.copier-answers.yml')) throw new Error('missing Copier answers');
@@ -83,6 +96,10 @@ jobs:
       - name: Install generated dependencies
         working-directory: generated
         run: bun install
+
+      - name: Verify frozen generated install
+        working-directory: generated
+        run: bun install --frozen-lockfile
 
       - name: Lint generated app
         working-directory: generated

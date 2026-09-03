@@ -20,16 +20,18 @@
     {
       "slug": "tasks",
       "name": "Tasks",
-      "description": "A simple to-do list that helps finish work without turning attention into a feed.",
+      "description": "A simple local-first to-do list that helps finish work without turning attention into a feed.",
       "category": "Everyday",
-      "status": "planned"
+      "status": "preview",
+      "source": "apps/tasks"
     },
     {
       "slug": "converter",
       "name": "Unit Converter",
-      "description": "Fast everyday unit conversion with a small, offline-friendly surface.",
+      "description": "Fast offline conversion for common length, mass, temperature, volume, and speed units.",
       "category": "Utility",
-      "status": "planned"
+      "status": "preview",
+      "source": "apps/converter"
     },
     {
       "slug": "flashlight",

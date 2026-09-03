@@ -1,6 +1,7 @@
 import { normalizeTaskTitle } from './tasks';
 
 export type DictationParseResult = {
+  /** Completed entries in newest-first order, ready for the task list's prepend semantics. */
   completedEntries: string[];
   remainder: string;
 };
@@ -36,7 +37,8 @@ export function parseDictationInput(value: string): DictationParseResult {
   const completedEntries = entries
     .slice(0, -1)
     .map((entry) => normalizeTaskTitle(entry.join(' ')))
-    .filter(Boolean);
+    .filter(Boolean)
+    .reverse();
 
   return { completedEntries, remainder };
 }

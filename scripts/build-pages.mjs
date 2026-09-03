@@ -71,18 +71,28 @@ function pageShell({ title, description, body }) {
     .lede { max-width: 720px; margin: 24px 0 0; font-size: clamp(1rem, 2.5vw, 1.25rem); line-height: 1.65; opacity: 0.72; }
     .summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 0; }
     .pill { border: 1px solid color-mix(in srgb, CanvasText 16%, transparent); border-radius: 999px; padding: 8px 12px; font-size: 0.82rem; opacity: 0.78; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 44px; }
-    .card { min-height: 230px; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; border: 1px solid color-mix(in srgb, CanvasText 14%, transparent); border-radius: 24px; padding: 24px; color: inherit; text-decoration: none; background: color-mix(in srgb, Canvas 96%, CanvasText 4%); transition: transform 150ms ease, border-color 150ms ease; }
+    .section-title { margin: 42px 0 0; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.58; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 14px; }
+    .card { min-height: 220px; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; border: 1px solid color-mix(in srgb, CanvasText 14%, transparent); border-radius: 24px; padding: 24px; color: inherit; text-decoration: none; background: color-mix(in srgb, Canvas 96%, CanvasText 4%); transition: transform 150ms ease, border-color 150ms ease; }
     .card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, CanvasText 32%, transparent); }
     .card h2 { margin: 8px 0 8px; font-size: 1.35rem; letter-spacing: -0.025em; }
     .card p { margin: 0; line-height: 1.55; opacity: 0.68; }
     .meta { display: flex; justify-content: space-between; gap: 12px; align-items: center; font-size: 0.78rem; }
     .status { text-transform: capitalize; opacity: 0.62; }
     .cta { font-weight: 700; }
+    .roadmap { margin-top: 44px; padding-top: 26px; border-top: 1px solid color-mix(in srgb, CanvasText 14%, transparent); }
+    .roadmap-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
+    .roadmap-header h2 { margin: 0; font-size: 1.2rem; letter-spacing: -0.02em; }
+    .roadmap-header p { margin: 0; max-width: 620px; opacity: 0.62; line-height: 1.5; }
+    .roadmap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 24px; margin-top: 14px; }
+    .roadmap-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent); color: inherit; text-decoration: none; }
+    .roadmap-item strong { font-size: 0.94rem; }
+    .roadmap-item small { display: block; margin-top: 3px; opacity: 0.52; }
+    .roadmap-item span:last-child { white-space: nowrap; font-size: 0.76rem; opacity: 0.54; }
     .placeholder { max-width: 720px; margin-top: 48px; padding: 28px; border: 1px solid color-mix(in srgb, CanvasText 14%, transparent); border-radius: 24px; background: color-mix(in srgb, Canvas 96%, CanvasText 4%); }
     .placeholder h2 { margin-top: 0; }
     .back { display: inline-block; margin-top: 24px; color: inherit; font-weight: 700; }
-    @media (max-width: 560px) { main { padding-top: 40px; } .card { min-height: 210px; } }
+    @media (max-width: 560px) { main { padding-top: 40px; } .card { min-height: 200px; } }
   </style>
 </head>
 <body>
@@ -92,20 +102,27 @@ function pageShell({ title, description, body }) {
 }
 
 function renderDashboard() {
-  const published = manifest.apps.filter((app) => Boolean(app.source)).length;
-  const planned = manifest.apps.length - published;
-  const cards = manifest.apps
-    .map((app) => {
-      const action = app.source ? 'Open web app' : 'View app route';
-      return `<a class="card" href="${escapeHtml(appUrl(app.slug))}">
+  const availableApps = manifest.apps.filter((app) => Boolean(app.source));
+  const plannedApps = manifest.apps.filter((app) => !app.source);
+  const cards = availableApps
+    .map(
+      (app) => `<a class="card" href="${escapeHtml(appUrl(app.slug))}">
         <div>
           <div class="eyebrow">${escapeHtml(app.category)}</div>
           <h2>${escapeHtml(app.name)}</h2>
           <p>${escapeHtml(app.description)}</p>
         </div>
-        <div class="meta"><span class="status">${escapeHtml(app.status)}</span><span class="cta">${action} →</span></div>
-      </a>`;
-    })
+        <div class="meta"><span class="status">${escapeHtml(app.status)}</span><span class="cta">Open web app →</span></div>
+      </a>`,
+    )
+    .join('\n');
+  const roadmap = plannedApps
+    .map(
+      (app) => `<a class="roadmap-item" href="${escapeHtml(appUrl(app.slug))}">
+        <span><strong>${escapeHtml(app.name)}</strong><small>${escapeHtml(app.category)}</small></span>
+        <span>planned →</span>
+      </a>`,
+    )
     .join('\n');
 
   return pageShell({
@@ -114,8 +131,20 @@ function renderDashboard() {
     body: `<p class="eyebrow">Expo mobile apps</p>
       <h1>${escapeHtml(manifest.title)}</h1>
       <p class="lede">${escapeHtml(manifest.description)}</p>
-      <div class="summary"><span class="pill">${published} web preview${published === 1 ? '' : 's'}</span><span class="pill">${planned} planned</span><span class="pill">one shared foundation</span></div>
-      <section class="grid" aria-label="Mobile applications">${cards}</section>`,
+      <div class="summary"><span class="pill">${availableApps.length} web preview${availableApps.length === 1 ? '' : 's'}</span><span class="pill">${plannedApps.length} planned</span><span class="pill">one shared foundation</span></div>
+      <p class="section-title">Available now</p>
+      <section class="grid" aria-label="Available mobile applications">${cards}</section>
+      ${
+        plannedApps.length
+          ? `<section class="roadmap" aria-label="Planned mobile applications">
+              <div class="roadmap-header">
+                <h2>Roadmap</h2>
+                <p>Stable routes remain reserved, but planned apps stay compact until there is a real build to open.</p>
+              </div>
+              <div class="roadmap-grid">${roadmap}</div>
+            </section>`
+          : ''
+      }`,
   });
 }
 

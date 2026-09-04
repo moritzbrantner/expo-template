@@ -7,12 +7,13 @@ import {
   filterWardrobeItems,
   normalizeTags,
   normalizeWardrobeText,
+  parseList,
   parseTags,
   updateWardrobeItem,
   type WardrobeItem,
 } from './wardrobe';
 
-test('normalizes item text and tags', () => {
+test('normalizes item text and list-style attributes', () => {
   assert.equal(normalizeWardrobeText('  Navy\t linen   shirt '), 'Navy linen shirt');
   assert.deepEqual(normalizeTags([' Summer ', 'LINEN', 'summer', '', ' smart casual ']), [
     'summer',
@@ -24,14 +25,20 @@ test('normalizes item text and tags', () => {
     'linen',
     'smart casual',
   ]);
+  assert.deepEqual(parseList('Cotton, linen, cotton'), ['cotton', 'linen']);
 });
 
-test('creates deterministic normalized wardrobe items', () => {
+test('creates deterministic normalized wardrobe items with structured attributes', () => {
   const item = createWardrobeItem(
     {
       name: '  Navy   Linen Shirt ',
       category: 'tops',
       color: ' Navy ',
+      materials: [' Linen ', 'COTTON', 'linen'],
+      seasons: ['summer', 'spring', 'summer'],
+      occasions: ['work', 'everyday', 'work'],
+      formality: 'smart-casual',
+      fit: 'regular',
       tags: ['Summer', 'linen', 'summer'],
       notes: '  Good for warm days.  ',
     },
@@ -44,6 +51,11 @@ test('creates deterministic normalized wardrobe items', () => {
     name: 'Navy Linen Shirt',
     category: 'tops',
     color: 'navy',
+    materials: ['linen', 'cotton'],
+    seasons: ['summer', 'spring'],
+    occasions: ['work', 'everyday'],
+    formality: 'smart-casual',
+    fit: 'regular',
     tags: ['summer', 'linen'],
     notes: 'Good for warm days.',
     createdAt: '2026-09-04T08:00:00.000Z',
@@ -59,12 +71,17 @@ test('creates deterministic normalized wardrobe items', () => {
   );
 });
 
-test('edits normalized fields while preserving stable identity and creation time', () => {
+test('edits structured fields while preserving stable identity and creation time', () => {
   const item = createWardrobeItem(
     {
       name: 'Navy Shirt',
       category: 'tops',
       color: 'navy',
+      materials: ['cotton'],
+      seasons: ['summer'],
+      occasions: ['everyday'],
+      formality: 'casual',
+      fit: 'regular',
       tags: ['summer'],
       notes: '',
     },
@@ -77,6 +94,11 @@ test('edits normalized fields while preserving stable identity and creation time
     {
       name: '  Blue   Linen Shirt ',
       color: ' Blue ',
+      materials: ['LINEN', 'linen', 'cotton'],
+      seasons: ['spring', 'summer'],
+      occasions: ['work'],
+      formality: 'business',
+      fit: 'slim',
       tags: ['LINEN', 'linen', 'work'],
       notes: '  Better with chinos. ',
     },
@@ -88,6 +110,11 @@ test('edits normalized fields while preserving stable identity and creation time
     name: 'Blue Linen Shirt',
     category: 'tops',
     color: 'blue',
+    materials: ['linen', 'cotton'],
+    seasons: ['spring', 'summer'],
+    occasions: ['work'],
+    formality: 'business',
+    fit: 'slim',
     tags: ['linen', 'work'],
     notes: 'Better with chinos.',
     createdAt: '2026-09-04T08:00:00.000Z',
@@ -96,8 +123,8 @@ test('edits normalized fields while preserving stable identity and creation time
   assert.equal(item.name, 'Navy Shirt');
 });
 
-test('hydrates valid entries, normalizes them, and drops malformed storage', () => {
-  const valid: WardrobeItem = {
+test('hydrates legacy entries with neutral structured defaults', () => {
+  const legacy = {
     id: '  coat-1 ',
     name: '  Wool   Coat ',
     category: 'outerwear',
@@ -107,15 +134,47 @@ test('hydrates valid entries, normalizes them, and drops malformed storage', () 
     createdAt: '2026-09-04T08:00:00.000Z',
     updatedAt: '2026-09-04T08:00:00.000Z',
   };
-  const malformed = { ...valid, category: 'furniture' };
+
+  assert.deepEqual(deserializeWardrobeItems(JSON.stringify([legacy])), [
+    {
+      ...legacy,
+      id: 'coat-1',
+      name: 'Wool Coat',
+      color: 'brown',
+      materials: [],
+      seasons: [],
+      occasions: [],
+      formality: null,
+      fit: null,
+      tags: ['winter', 'formal'],
+      notes: 'Heavy coat.',
+    },
+  ]);
+});
+
+test('hydrates enriched entries and drops malformed structured storage', () => {
+  const valid: WardrobeItem = {
+    id: 'coat-1',
+    name: 'Wool Coat',
+    category: 'outerwear',
+    color: 'brown',
+    materials: [' Wool ', 'wool'],
+    seasons: ['winter'],
+    occasions: ['work', 'formal'],
+    formality: 'formal',
+    fit: 'regular',
+    tags: ['Winter'],
+    notes: ' Heavy coat. ',
+    createdAt: '2026-09-04T08:00:00.000Z',
+    updatedAt: '2026-09-04T08:00:00.000Z',
+  };
+  const malformed = { ...valid, seasons: ['monsoon'] };
 
   assert.deepEqual(deserializeWardrobeItems(JSON.stringify([malformed, valid])), [
     {
       ...valid,
-      id: 'coat-1',
-      name: 'Wool Coat',
-      color: 'brown',
-      tags: ['winter', 'formal'],
+      materials: ['wool'],
+      tags: ['winter'],
       notes: 'Heavy coat.',
     },
   ]);
@@ -124,13 +183,35 @@ test('hydrates valid entries, normalizes them, and drops malformed storage', () 
   assert.deepEqual(deserializeWardrobeItems(null), []);
 });
 
-test('filters by category and searchable clothing evidence without reordering', () => {
+test('filters by category and all searchable clothing evidence without reordering', () => {
   const shirt = createWardrobeItem(
-    { name: 'Blue Oxford Shirt', category: 'tops', color: 'blue', tags: ['work'], notes: '' },
+    {
+      name: 'Blue Oxford Shirt',
+      category: 'tops',
+      color: 'blue',
+      materials: ['cotton'],
+      seasons: ['spring'],
+      occasions: ['work'],
+      formality: 'business',
+      fit: 'slim',
+      tags: ['office'],
+      notes: '',
+    },
     'shirt',
   );
   const jeans = createWardrobeItem(
-    { name: 'Straight Jeans', category: 'bottoms', color: 'denim', tags: ['casual'], notes: '' },
+    {
+      name: 'Straight Jeans',
+      category: 'bottoms',
+      color: 'denim',
+      materials: ['denim'],
+      seasons: ['autumn'],
+      occasions: ['everyday'],
+      formality: 'casual',
+      fit: 'regular',
+      tags: ['casual'],
+      notes: '',
+    },
     'jeans',
   );
   const coat = createWardrobeItem(
@@ -138,7 +219,12 @@ test('filters by category and searchable clothing evidence without reordering', 
       name: 'Wool Coat',
       category: 'outerwear',
       color: 'brown',
-      tags: ['formal'],
+      materials: ['wool'],
+      seasons: ['winter'],
+      occasions: ['formal'],
+      formality: 'formal',
+      fit: 'regular',
+      tags: ['tailored'],
       notes: 'Work meetings',
     },
     'coat',
@@ -155,4 +241,8 @@ test('filters by category and searchable clothing evidence without reordering', 
     'shirt',
     'coat',
   ]);
+  assert.deepEqual(filterWardrobeItems(source, 'wool', 'all').map((item) => item.id), ['coat']);
+  assert.deepEqual(filterWardrobeItems(source, 'autumn', 'all').map((item) => item.id), ['jeans']);
+  assert.deepEqual(filterWardrobeItems(source, 'business', 'all').map((item) => item.id), ['shirt']);
+  assert.deepEqual(filterWardrobeItems(source, 'slim', 'all').map((item) => item.id), ['shirt']);
 });

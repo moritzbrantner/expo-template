@@ -60,7 +60,7 @@ test('adds, completes, filters, and restores a persisted task', async ({ page })
 });
 
 test('validates, persists, applies, and resets custom dictation command words', async ({ page }) => {
-  await page.getByRole('button', { name: 'Open settings' }).click();
+  await page.getByRole('link', { name: 'Open settings' }).click();
   await expect(page.getByText('Dictation commands')).toBeVisible();
 
   const nextInput = page.getByLabel('New entry dictation word');
@@ -105,7 +105,7 @@ test('validates, persists, applies, and resets custom dictation command words', 
     page.getByText('Dictate several tasks hands-free. “weiter” starts a new entry; “fertig” finishes.'),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open settings' }).click();
+  await page.getByRole('link', { name: 'Open settings' }).click();
   await page.getByRole('button', { name: 'Reset defaults' }).click();
   await expect(page.getByText('Reset to defaults.')).toBeVisible();
   await expect(nextInput).toHaveValue('next');

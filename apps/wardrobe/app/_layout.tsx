@@ -5,6 +5,7 @@ export default function RootLayout() {
     <Tabs screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="index" options={{ title: 'Wardrobe' }} />
       <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
+      <Tabs.Screen name="outfits" options={{ title: 'Outfits' }} />
     </Tabs>
   );
 }

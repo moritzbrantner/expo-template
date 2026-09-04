@@ -129,6 +129,14 @@
       "source": "apps/wardrobe"
     },
     {
+      "slug": "photos",
+      "name": "Photos",
+      "description": "A private photo album that indexes the device library and groups recurring people with on-device face embeddings.",
+      "category": "Photos",
+      "status": "preview",
+      "source": "apps/photos"
+    },
+    {
       "slug": "nearby-history",
       "name": "Nearby History",
       "description": "Surface local stories about buildings, streets, churches, monasteries, rulers, and traditions.",

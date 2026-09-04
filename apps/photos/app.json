@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Photos",
+    "slug": "photos",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "photos",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Photos to index your photo library and group recurring people entirely on this device.",
+          "savePhotosPermission": "Allow Photos to save photos to your library.",
+          "granularPermissions": ["photo"]
+        }
+      ],
+      "onnxruntime-react-native"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

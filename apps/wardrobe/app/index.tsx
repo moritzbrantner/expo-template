@@ -19,6 +19,7 @@ import {
   deserializeWardrobeItems,
   filterWardrobeItems,
   parseTags,
+  updateWardrobeItem,
   WARDROBE_CATEGORIES,
   type WardrobeCategory,
   type WardrobeFilterCategory,
@@ -51,7 +52,17 @@ const COLORS = [
   'yellow',
 ] as const;
 
-const COLOR_SWATCHES: Record<(typeof COLORS)[number], string> = {
+type WardrobeColor = (typeof COLORS)[number];
+
+type EditDraft = {
+  name: string;
+  category: WardrobeCategory;
+  color: string;
+  tags: string;
+  notes: string;
+};
+
+const COLOR_SWATCHES: Record<WardrobeColor, string> = {
   black: '#222222',
   white: '#f4f2eb',
   grey: '#8b918c',
@@ -74,8 +85,18 @@ function percentage(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function draftFromItem(item: WardrobeItem): EditDraft {
+  return {
+    name: item.name,
+    category: item.category,
+    color: item.color,
+    tags: item.tags.join(', '),
+    notes: item.notes,
+  };
+}
+
 function ColorDot({ color, size = 22 }: { color: string; size?: number }) {
-  const swatch = COLOR_SWATCHES[color as keyof typeof COLOR_SWATCHES] ?? '#c9cbc7';
+  const swatch = COLOR_SWATCHES[color as WardrobeColor] ?? '#c9cbc7';
   return (
     <View
       accessibilityLabel={`${color} color`}
@@ -84,6 +105,70 @@ function ColorDot({ color, size = 22 }: { color: string; size?: number }) {
         { backgroundColor: swatch, width: size, height: size, borderRadius: size / 2 },
       ]}
     />
+  );
+}
+
+function CategorySelector({
+  value,
+  onChange,
+}: {
+  value: WardrobeCategory;
+  onChange: (category: WardrobeCategory) => void;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      {WARDROBE_CATEGORIES.map((option) => {
+        const active = value === option;
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(option)}
+            style={({ pressed }) => [
+              styles.chip,
+              active && styles.chipActive,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              {CATEGORY_LABELS[option]}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function ColorSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (color: WardrobeColor) => void;
+}) {
+  return (
+    <View style={styles.colorRow}>
+      {COLORS.map((option) => {
+        const active = value === option;
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityLabel={`${option} color`}
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(option)}
+            style={({ pressed }) => [
+              styles.colorChoice,
+              active && styles.colorChoiceActive,
+              pressed && styles.pressed,
+            ]}>
+            <ColorDot color={option} />
+            <Text style={styles.colorChoiceText}>{option}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -138,10 +223,11 @@ export default function WardrobeApp() {
   const [query, setQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<WardrobeFilterCategory>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [category, setCategory] = useState<WardrobeCategory>('tops');
-  const [color, setColor] = useState<(typeof COLORS)[number]>('navy');
+  const [color, setColor] = useState<WardrobeColor>('navy');
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -198,6 +284,16 @@ export default function WardrobeApp() {
     setNotes('');
   };
 
+  const openItem = (item: WardrobeItem) => {
+    setSelectedId(item.id);
+    setEditDraft(draftFromItem(item));
+  };
+
+  const closeItem = () => {
+    setSelectedId(null);
+    setEditDraft(null);
+  };
+
   const addItem = () => {
     if (!name.trim()) {
       return;
@@ -209,8 +305,25 @@ export default function WardrobeApp() {
     );
     setItems((current) => [next, ...current]);
     setSelectedId(next.id);
+    setEditDraft(draftFromItem(next));
     setAdding(false);
     resetDraft();
+  };
+
+  const saveSelected = () => {
+    if (!selectedItem || !editDraft || !editDraft.name.trim()) {
+      return;
+    }
+
+    const next = updateWardrobeItem(selectedItem, {
+      name: editDraft.name,
+      category: editDraft.category,
+      color: editDraft.color,
+      tags: parseTags(editDraft.tags),
+      notes: editDraft.notes,
+    });
+    setItems((current) => current.map((item) => (item.id === next.id ? next : item)));
+    setEditDraft(draftFromItem(next));
   };
 
   const deleteSelected = () => {
@@ -218,7 +331,7 @@ export default function WardrobeApp() {
       return;
     }
     setItems((current) => current.filter((item) => item.id !== selectedId));
-    setSelectedId(null);
+    closeItem();
   };
 
   return (
@@ -255,7 +368,9 @@ export default function WardrobeApp() {
               <Text style={styles.statLabel}>Categories</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{items.reduce((sum, item) => sum + item.tags.length, 0)}</Text>
+              <Text style={styles.statValue}>
+                {items.reduce((sum, item) => sum + item.tags.length, 0)}
+              </Text>
               <Text style={styles.statLabel}>Tag signals</Text>
             </View>
           </View>
@@ -279,50 +394,10 @@ export default function WardrobeApp() {
               />
 
               <Text style={styles.fieldLabel}>Category</Text>
-              <View style={styles.chipRow}>
-                {WARDROBE_CATEGORIES.map((option) => {
-                  const active = category === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => setCategory(option)}
-                      style={({ pressed }) => [
-                        styles.chip,
-                        active && styles.chipActive,
-                        pressed && styles.pressed,
-                      ]}>
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                        {CATEGORY_LABELS[option]}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <CategorySelector value={category} onChange={setCategory} />
 
               <Text style={styles.fieldLabel}>Color</Text>
-              <View style={styles.colorRow}>
-                {COLORS.map((option) => {
-                  const active = color === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${option} color`}
-                      accessibilityState={{ selected: active }}
-                      onPress={() => setColor(option)}
-                      style={({ pressed }) => [
-                        styles.colorChoice,
-                        active && styles.colorChoiceActive,
-                        pressed && styles.pressed,
-                      ]}>
-                      <ColorDot color={option} />
-                      <Text style={styles.colorChoiceText}>{option}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <ColorSelector value={color} onChange={setColor} />
 
               <Text style={styles.fieldLabel}>Tags</Text>
               <TextInput
@@ -361,7 +436,7 @@ export default function WardrobeApp() {
             </View>
           ) : null}
 
-          {selectedItem ? (
+          {selectedItem && editDraft ? (
             <View style={styles.detailCard}>
               <View style={styles.detailHeader}>
                 <View style={styles.detailIdentity}>
@@ -376,20 +451,83 @@ export default function WardrobeApp() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Close clothing details"
-                  onPress={() => setSelectedId(null)}
+                  onPress={closeItem}
                   style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
                   <Text style={styles.closeButtonText}>Close</Text>
                 </Pressable>
               </View>
 
-              {selectedItem.tags.length > 0 ? (
-                <View style={styles.tagRow}>
-                  {selectedItem.tags.map((tag) => (
-                    <Text key={tag} style={styles.tagBadge}>#{tag}</Text>
-                  ))}
+              <View style={styles.editSection}>
+                <Text style={styles.editTitle}>Edit details</Text>
+
+                <Text style={styles.fieldLabel}>Name</Text>
+                <TextInput
+                  accessibilityLabel="Edit clothing name"
+                  autoCapitalize="words"
+                  onChangeText={(value) => setEditDraft((current) => current && { ...current, name: value })}
+                  style={styles.input}
+                  value={editDraft.name}
+                />
+
+                <Text style={styles.fieldLabel}>Category</Text>
+                <CategorySelector
+                  value={editDraft.category}
+                  onChange={(value) =>
+                    setEditDraft((current) => current && { ...current, category: value })
+                  }
+                />
+
+                <Text style={styles.fieldLabel}>Color</Text>
+                <ColorSelector
+                  value={editDraft.color}
+                  onChange={(value) =>
+                    setEditDraft((current) => current && { ...current, color: value })
+                  }
+                />
+
+                <Text style={styles.fieldLabel}>Tags</Text>
+                <TextInput
+                  accessibilityLabel="Edit clothing tags"
+                  autoCapitalize="none"
+                  onChangeText={(value) => setEditDraft((current) => current && { ...current, tags: value })}
+                  placeholder="linen, summer, smart casual"
+                  placeholderTextColor="#7b817b"
+                  style={styles.input}
+                  value={editDraft.tags}
+                />
+
+                <Text style={styles.fieldLabel}>Notes</Text>
+                <TextInput
+                  accessibilityLabel="Edit clothing notes"
+                  multiline
+                  onChangeText={(value) => setEditDraft((current) => current && { ...current, notes: value })}
+                  placeholder="Fit, fabric, occasions, care…"
+                  placeholderTextColor="#7b817b"
+                  style={[styles.input, styles.notesInput]}
+                  textAlignVertical="top"
+                  value={editDraft.notes}
+                />
+
+                <View style={styles.editActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!editDraft.name.trim()}
+                    onPress={saveSelected}
+                    style={({ pressed }) => [
+                      styles.saveButton,
+                      !editDraft.name.trim() && styles.saveButtonDisabled,
+                      pressed && styles.pressed,
+                    ]}>
+                    <Text style={styles.saveButtonText}>Save changes</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setEditDraft(draftFromItem(selectedItem))}
+                    style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]}>
+                    <Text style={styles.resetButtonText}>Reset changes</Text>
+                  </Pressable>
                 </View>
-              ) : null}
-              {selectedItem.notes ? <Text style={styles.notesText}>{selectedItem.notes}</Text> : null}
+              </View>
 
               <Text style={styles.relatedTitle}>Closest pieces</Text>
               <Text style={styles.relatedIntro}>
@@ -451,7 +589,7 @@ export default function WardrobeApp() {
           <View style={styles.list}>
             {visibleItems.length > 0 ? (
               visibleItems.map((item) => (
-                <ItemCard key={item.id} item={item} onPress={() => setSelectedId(item.id)} />
+                <ItemCard key={item.id} item={item} onPress={() => openItem(item)} />
               ))
             ) : (
               <View style={styles.emptyCard}>
@@ -566,7 +704,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 7,
   },
-  colorChoiceActive: { borderColor: '#294333', borderWidth: 2, paddingHorizontal: 8, paddingVertical: 6 },
+  colorChoiceActive: {
+    borderColor: '#294333',
+    borderWidth: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
   colorChoiceText: { color: '#505852', fontSize: 12, textTransform: 'capitalize' },
   colorDot: { borderColor: '#c4c7c1', borderWidth: 1 },
   saveButton: {
@@ -587,30 +730,40 @@ const styles = StyleSheet.create({
     marginTop: 22,
     padding: 18,
   },
-  detailHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   detailIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   detailCopy: { flex: 1 },
   detailName: { color: '#233027', fontSize: 22, fontWeight: '800' },
   detailMeta: { color: '#667068', fontSize: 13, marginTop: 3, textTransform: 'capitalize' },
   closeButton: { paddingHorizontal: 8, paddingVertical: 5 },
   closeButtonText: { color: '#526056', fontSize: 13, fontWeight: '800' },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 16 },
-  tagBadge: {
-    color: '#3d5845',
-    backgroundColor: '#dce7db',
-    borderRadius: 999,
-    overflow: 'hidden',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    fontSize: 12,
-    fontWeight: '700',
+  editSection: {
+    backgroundColor: '#f8faf6',
+    borderColor: '#d3ddd2',
+    borderWidth: 1,
+    borderRadius: 17,
+    marginTop: 18,
+    padding: 14,
   },
-  notesText: { color: '#4f5a52', fontSize: 14, lineHeight: 21, marginTop: 14 },
+  editTitle: { color: '#314238', fontSize: 16, fontWeight: '800' },
+  editActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  resetButton: { marginTop: 20, paddingHorizontal: 4, paddingVertical: 10 },
+  resetButtonText: { color: '#56635a', fontSize: 13, fontWeight: '800' },
   relatedTitle: { color: '#263128', fontSize: 17, fontWeight: '800', marginTop: 22 },
   relatedIntro: { color: '#687069', fontSize: 13, lineHeight: 20, marginTop: 5 },
   relatedList: { gap: 9, marginTop: 12 },
   relatedCard: { backgroundColor: '#ffffff', borderRadius: 15, padding: 12 },
-  relatedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  relatedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   relatedIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
   relatedCopy: { flex: 1 },
   relatedName: { color: '#263128', fontSize: 14, fontWeight: '800' },

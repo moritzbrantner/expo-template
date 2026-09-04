@@ -8,6 +8,7 @@ import {
   normalizeTags,
   normalizeWardrobeText,
   parseTags,
+  updateWardrobeItem,
   type WardrobeItem,
 } from './wardrobe';
 
@@ -56,6 +57,43 @@ test('creates deterministic normalized wardrobe items', () => {
       ),
     /cannot be empty/i,
   );
+});
+
+test('edits normalized fields while preserving stable identity and creation time', () => {
+  const item = createWardrobeItem(
+    {
+      name: 'Navy Shirt',
+      category: 'tops',
+      color: 'navy',
+      tags: ['summer'],
+      notes: '',
+    },
+    'shirt-1',
+    new Date('2026-09-04T08:00:00.000Z'),
+  );
+
+  const updated = updateWardrobeItem(
+    item,
+    {
+      name: '  Blue   Linen Shirt ',
+      color: ' Blue ',
+      tags: ['LINEN', 'linen', 'work'],
+      notes: '  Better with chinos. ',
+    },
+    new Date('2026-09-04T09:30:00.000Z'),
+  );
+
+  assert.deepEqual(updated, {
+    id: 'shirt-1',
+    name: 'Blue Linen Shirt',
+    category: 'tops',
+    color: 'blue',
+    tags: ['linen', 'work'],
+    notes: 'Better with chinos.',
+    createdAt: '2026-09-04T08:00:00.000Z',
+    updatedAt: '2026-09-04T09:30:00.000Z',
+  });
+  assert.equal(item.name, 'Navy Shirt');
 });
 
 test('hydrates valid entries, normalizes them, and drops malformed storage', () => {

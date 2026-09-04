@@ -5,7 +5,8 @@ A local-first Expo app for cataloguing clothes and exploring meaningful similari
 ## MVP contract
 
 - Keep clothing items on-device with name, category, color, tags, and notes.
-- Search and filter the catalog without an account or backend.
+- Create, inspect, edit, and remove pieces without an account or backend.
+- Search and filter the catalog deterministically.
 - Rank the closest pieces with deterministic clothing-owned similarity evidence.
 - Keep category, color, tag, and name contributions inspectable instead of hiding the score behind a model.
 - Do not add engagement loops, shopping feeds, or recommendation pressure.

@@ -14,9 +14,17 @@ test('normalizes configurable dictation command words', () => {
   });
 });
 
+test('supports Unicode command words', () => {
+  assert.deepEqual(createDictationCommands('nächste', 'fertig'), {
+    next: 'nächste',
+    done: 'fertig',
+  });
+});
+
 test('requires distinct non-empty single-word commands', () => {
   assert.equal(createDictationCommands('', 'done'), null);
   assert.equal(createDictationCommands('new entry', 'done'), null);
+  assert.equal(createDictationCommands('next!', 'done'), null);
   assert.equal(createDictationCommands('next', ' NEXT '), null);
 });
 

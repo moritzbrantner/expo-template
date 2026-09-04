@@ -121,6 +121,14 @@
       "status": "planned"
     },
     {
+      "slug": "wardrobe",
+      "name": "Wardrobe",
+      "description": "A private local clothing catalog with inspectable similarity between pieces you already own.",
+      "category": "Household",
+      "status": "preview",
+      "source": "apps/wardrobe"
+    },
+    {
       "slug": "nearby-history",
       "name": "Nearby History",
       "description": "Surface local stories about buildings, streets, churches, monasteries, rulers, and traditions.",

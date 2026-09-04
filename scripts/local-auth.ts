@@ -58,7 +58,7 @@ export function readStarterAuthConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): StarterAuthConfig {
   return {
-    apiUrl: trimTrailingSlash(env.EXPO_PUBLIC_AUTH_API_URL?.trim() || DEFAULT_API_URL),
+    apiUrl: trimTrailingSlash(env.AUTH_STARTER_API_URL?.trim() || DEFAULT_API_URL),
     account: {
       email: env.AUTH_STARTER_EMAIL?.trim() || DEFAULT_EMAIL,
       password: env.AUTH_STARTER_PASSWORD || DEFAULT_PASSWORD,

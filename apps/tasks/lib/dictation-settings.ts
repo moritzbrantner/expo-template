@@ -11,7 +11,7 @@ export const DEFAULT_DICTATION_COMMANDS: DictationCommands = {
 export const DICTATION_COMMANDS_STORAGE_KEY = '@expo-template/tasks/dictation-commands-v1';
 
 export function normalizeDictationCommandWord(value: string) {
-  return value.trim().toLocaleLowerCase();
+  return value.trim().toLowerCase();
 }
 
 export function createDictationCommands(next: string, done: string): DictationCommands | null {

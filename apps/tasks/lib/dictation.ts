@@ -12,7 +12,7 @@ export type DictationParseResult = {
 };
 
 function normalizeCommandToken(token: string) {
-  return token.toLocaleLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+  return token.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
 }
 
 function isCommand(token: string, command: string) {

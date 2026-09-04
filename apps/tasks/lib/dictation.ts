@@ -1,3 +1,7 @@
+import {
+  DEFAULT_DICTATION_COMMANDS,
+  type DictationCommands,
+} from './dictation-settings';
 import { normalizeTaskTitle } from './tasks';
 
 export type DictationParseResult = {
@@ -8,22 +12,25 @@ export type DictationParseResult = {
 };
 
 function normalizeCommandToken(token: string) {
-  return token.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+  return token.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
 }
 
-function isCommand(token: string, command: 'next' | 'done') {
+function isCommand(token: string, command: string) {
   return normalizeCommandToken(token) === command;
 }
 
-export function parseDictationInput(value: string): DictationParseResult {
+export function parseDictationInput(
+  value: string,
+  commands: DictationCommands = DEFAULT_DICTATION_COMMANDS,
+): DictationParseResult {
   const tokens = value.trim().split(/\s+/).filter(Boolean);
-  const finishRequested = tokens.length > 0 && isCommand(tokens.at(-1) ?? '', 'done');
+  const finishRequested = tokens.length > 0 && isCommand(tokens.at(-1) ?? '', commands.done);
   const contentTokens = finishRequested ? tokens.slice(0, -1) : tokens;
   const entries: string[][] = [[]];
   let foundNextCommand = false;
 
   for (const token of contentTokens) {
-    if (isCommand(token, 'next')) {
+    if (isCommand(token, commands.next)) {
       foundNextCommand = true;
       entries.push([]);
       continue;

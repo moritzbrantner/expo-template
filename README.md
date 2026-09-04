@@ -43,7 +43,9 @@ Password: expo-template-local
 
 To customize the starter identity, change the `AUTH_STARTER_*` values in `.env` before running `dev:auth:up`.
 
-`EXPO_PUBLIC_AUTH_API_URL=http://localhost:4401` works for web and the iOS simulator. For the Android emulator use `http://10.0.2.2:4401`; for a physical device use the development machine's reachable LAN address.
+`EXPO_PUBLIC_AUTH_API_URL` is the URL used by the Expo client. `http://localhost:4401` works for web and the iOS simulator. For the Android emulator use `http://10.0.2.2:4401`; for a physical device use the development machine's reachable LAN address.
+
+`AUTH_STARTER_API_URL` is separate and host-side only. Leave it at `http://localhost:4401` for the normal Docker Compose setup even when the Expo client needs an emulator or LAN URL.
 
 Run the app without starting local services when you only need the client shell:
 

@@ -77,3 +77,17 @@ test('done is ordinary task text unless it is the final token', () => {
     finishRequested: false,
   });
 });
+
+test('uses configured command words instead of the defaults', () => {
+  assert.deepEqual(
+    parseDictationInput('Buy milk WEITER, Call dentist FERTIG!', {
+      next: 'weiter',
+      done: 'fertig',
+    }),
+    {
+      completedEntries: ['Call dentist', 'Buy milk'],
+      remainder: '',
+      finishRequested: true,
+    },
+  );
+});

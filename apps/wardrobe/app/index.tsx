@@ -97,7 +97,7 @@ type WardrobeColor = (typeof COLORS)[number];
 type ItemDraftState = {
   name: string;
   category: WardrobeCategory;
-  color: WardrobeColor;
+  color: string;
   materials: string;
   seasons: WardrobeSeason[];
   occasions: WardrobeOccasion[];
@@ -149,9 +149,7 @@ function draftFromItem(item: WardrobeItem): ItemDraftState {
   return {
     name: item.name,
     category: item.category,
-    color: COLORS.includes(item.color as WardrobeColor)
-      ? (item.color as WardrobeColor)
-      : 'navy',
+    color: item.color,
     materials: item.materials.join(', '),
     seasons: [...item.seasons],
     occasions: [...item.occasions],
@@ -217,7 +215,7 @@ function ColorSelector({
   value,
   onChange,
 }: {
-  value: WardrobeColor;
+  value: string;
   onChange: (color: WardrobeColor) => void;
 }) {
   return (

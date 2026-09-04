@@ -123,6 +123,32 @@ test('edits structured fields while preserving stable identity and creation time
   assert.equal(item.name, 'Navy Shirt');
 });
 
+test('preserves custom colors across edits and storage hydration', () => {
+  const item = createWardrobeItem(
+    {
+      name: 'Teal Overshirt',
+      category: 'tops',
+      color: ' Teal ',
+      tags: [],
+      notes: '',
+    },
+    'overshirt-1',
+    new Date('2026-09-04T08:00:00.000Z'),
+  );
+
+  assert.equal(item.color, 'teal');
+
+  const updated = updateWardrobeItem(
+    item,
+    { notes: 'Layering piece' },
+    new Date('2026-09-04T09:00:00.000Z'),
+  );
+  assert.equal(updated.color, 'teal');
+  assert.equal(updated.notes, 'Layering piece');
+
+  assert.equal(deserializeWardrobeItems(JSON.stringify([updated]))[0]?.color, 'teal');
+});
+
 test('hydrates legacy entries with neutral structured defaults', () => {
   const legacy = {
     id: '  coat-1 ',

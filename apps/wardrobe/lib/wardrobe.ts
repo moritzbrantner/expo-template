@@ -7,13 +7,43 @@ export const WARDROBE_CATEGORIES = [
   'accessories',
 ] as const;
 
+export const WARDROBE_SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
+
+export const WARDROBE_OCCASIONS = [
+  'everyday',
+  'work',
+  'formal',
+  'sport',
+  'outdoor',
+  'home',
+  'travel',
+] as const;
+
+export const WARDROBE_FORMALITY_LEVELS = [
+  'casual',
+  'smart-casual',
+  'business',
+  'formal',
+] as const;
+
+export const WARDROBE_FITS = ['slim', 'regular', 'relaxed', 'oversized'] as const;
+
 export type WardrobeCategory = (typeof WARDROBE_CATEGORIES)[number];
+export type WardrobeSeason = (typeof WARDROBE_SEASONS)[number];
+export type WardrobeOccasion = (typeof WARDROBE_OCCASIONS)[number];
+export type WardrobeFormality = (typeof WARDROBE_FORMALITY_LEVELS)[number];
+export type WardrobeFit = (typeof WARDROBE_FITS)[number];
 
 export type WardrobeItem = {
   id: string;
   name: string;
   category: WardrobeCategory;
   color: string;
+  materials: string[];
+  seasons: WardrobeSeason[];
+  occasions: WardrobeOccasion[];
+  formality: WardrobeFormality | null;
+  fit: WardrobeFit | null;
   tags: string[];
   notes: string;
   createdAt: string;
@@ -21,11 +51,24 @@ export type WardrobeItem = {
 };
 
 export type WardrobeDraft = Pick<WardrobeItem, 'name' | 'category' | 'color' | 'notes'> & {
+  materials?: readonly string[];
+  seasons?: readonly WardrobeSeason[];
+  occasions?: readonly WardrobeOccasion[];
+  formality?: WardrobeFormality | null;
+  fit?: WardrobeFit | null;
   tags: readonly string[];
 };
 
 export type WardrobePatch = Partial<WardrobeDraft>;
 export type WardrobeFilterCategory = WardrobeCategory | 'all';
+
+type StoredWardrobeItem = Omit<
+  WardrobeItem,
+  'materials' | 'seasons' | 'occasions' | 'formality' | 'fit'
+> &
+  Partial<
+    Pick<WardrobeItem, 'materials' | 'seasons' | 'occasions' | 'formality' | 'fit'>
+  >;
 
 export function normalizeWardrobeText(value: string) {
   return value.normalize('NFKC').trim().replace(/\s+/gu, ' ');
@@ -47,8 +90,37 @@ export function normalizeTags(values: readonly string[]) {
   return normalized;
 }
 
-export function parseTags(value: string) {
+export function parseList(value: string) {
   return normalizeTags(value.split(','));
+}
+
+export function parseTags(value: string) {
+  return parseList(value);
+}
+
+function normalizeEnumList<T extends string>(values: readonly T[] | undefined, allowed: readonly T[]) {
+  const normalized: T[] = [];
+  const seen = new Set<T>();
+
+  for (const value of values ?? []) {
+    if (!allowed.includes(value) || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    normalized.push(value);
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalEnum<T extends string>(value: T | null | undefined, allowed: readonly T[]) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (!allowed.includes(value)) {
+    throw new Error(`Wardrobe attribute value is invalid: ${value}`);
+  }
+  return value;
 }
 
 export function createWardrobeItem(
@@ -80,6 +152,11 @@ export function createWardrobeItem(
     name,
     category: draft.category,
     color,
+    materials: normalizeTags(draft.materials ?? []),
+    seasons: normalizeEnumList(draft.seasons, WARDROBE_SEASONS),
+    occasions: normalizeEnumList(draft.occasions, WARDROBE_OCCASIONS),
+    formality: normalizeOptionalEnum(draft.formality, WARDROBE_FORMALITY_LEVELS),
+    fit: normalizeOptionalEnum(draft.fit, WARDROBE_FITS),
     tags: normalizeTags(draft.tags),
     notes,
     createdAt: timestamp,
@@ -97,6 +174,11 @@ export function updateWardrobeItem(
       name: patch.name ?? item.name,
       category: patch.category ?? item.category,
       color: patch.color ?? item.color,
+      materials: patch.materials ?? item.materials,
+      seasons: patch.seasons ?? item.seasons,
+      occasions: patch.occasions ?? item.occasions,
+      formality: patch.formality === undefined ? item.formality : patch.formality,
+      fit: patch.fit === undefined ? item.fit : patch.fit,
       tags: patch.tags ?? item.tags,
       notes: patch.notes ?? item.notes,
     },
@@ -116,16 +198,34 @@ function isWardrobeCategory(value: unknown): value is WardrobeCategory {
   );
 }
 
+function isEnumList<T extends string>(value: unknown, allowed: readonly T[]) {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.every(
+        (entry) => typeof entry === 'string' && allowed.includes(entry as T),
+      ))
+  );
+}
+
+function isOptionalEnum<T extends string>(value: unknown, allowed: readonly T[]) {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && allowed.includes(value as T))
+  );
+}
+
 function isIsoTimestamp(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && !Number.isNaN(Date.parse(value));
 }
 
-function isWardrobeItem(value: unknown): value is WardrobeItem {
+function isStoredWardrobeItem(value: unknown): value is StoredWardrobeItem {
   if (!value || typeof value !== 'object') {
     return false;
   }
 
-  const item = value as Partial<WardrobeItem>;
+  const item = value as Partial<StoredWardrobeItem>;
   return (
     typeof item.id === 'string' &&
     normalizeWardrobeText(item.id).length > 0 &&
@@ -134,6 +234,12 @@ function isWardrobeItem(value: unknown): value is WardrobeItem {
     isWardrobeCategory(item.category) &&
     typeof item.color === 'string' &&
     normalizeWardrobeText(item.color).length > 0 &&
+    (item.materials === undefined ||
+      (Array.isArray(item.materials) && item.materials.every((material) => typeof material === 'string'))) &&
+    isEnumList(item.seasons, WARDROBE_SEASONS) &&
+    isEnumList(item.occasions, WARDROBE_OCCASIONS) &&
+    isOptionalEnum(item.formality, WARDROBE_FORMALITY_LEVELS) &&
+    isOptionalEnum(item.fit, WARDROBE_FITS) &&
     Array.isArray(item.tags) &&
     item.tags.every((tag) => typeof tag === 'string') &&
     typeof item.notes === 'string' &&
@@ -153,11 +259,16 @@ export function deserializeWardrobeItems(value: string | null): WardrobeItem[] {
       return [];
     }
 
-    return parsed.filter(isWardrobeItem).map((item) => ({
+    return parsed.filter(isStoredWardrobeItem).map((item) => ({
       ...item,
       id: normalizeWardrobeText(item.id),
       name: normalizeWardrobeText(item.name),
       color: normalizeWardrobeText(item.color).toLocaleLowerCase(),
+      materials: normalizeTags(item.materials ?? []),
+      seasons: normalizeEnumList(item.seasons, WARDROBE_SEASONS),
+      occasions: normalizeEnumList(item.occasions, WARDROBE_OCCASIONS),
+      formality: item.formality ?? null,
+      fit: item.fit ?? null,
       tags: normalizeTags(item.tags),
       notes: item.notes.trim(),
     }));
@@ -181,7 +292,18 @@ export function filterWardrobeItems(
       return true;
     }
 
-    return [item.name, item.category, item.color, item.tags.join(' '), item.notes]
+    return [
+      item.name,
+      item.category,
+      item.color,
+      item.materials.join(' '),
+      item.seasons.join(' '),
+      item.occasions.join(' '),
+      item.formality ?? '',
+      item.fit ?? '',
+      item.tags.join(' '),
+      item.notes,
+    ]
       .join(' ')
       .toLocaleLowerCase()
       .includes(normalizedQuery);

@@ -18,12 +18,21 @@ import {
   createWardrobeItem,
   deserializeWardrobeItems,
   filterWardrobeItems,
+  parseList,
   parseTags,
   updateWardrobeItem,
   WARDROBE_CATEGORIES,
+  WARDROBE_FITS,
+  WARDROBE_FORMALITY_LEVELS,
+  WARDROBE_OCCASIONS,
+  WARDROBE_SEASONS,
   type WardrobeCategory,
   type WardrobeFilterCategory,
+  type WardrobeFit,
+  type WardrobeFormality,
   type WardrobeItem,
+  type WardrobeOccasion,
+  type WardrobeSeason,
 } from '../lib/wardrobe';
 
 const STORAGE_KEY = '@expo-template/wardrobe/items-v1';
@@ -35,6 +44,37 @@ const CATEGORY_LABELS: Record<WardrobeCategory, string> = {
   'one-piece': 'One-piece',
   footwear: 'Footwear',
   accessories: 'Accessories',
+};
+
+const SEASON_LABELS: Record<WardrobeSeason, string> = {
+  spring: 'Spring',
+  summer: 'Summer',
+  autumn: 'Autumn',
+  winter: 'Winter',
+};
+
+const OCCASION_LABELS: Record<WardrobeOccasion, string> = {
+  everyday: 'Everyday',
+  work: 'Work',
+  formal: 'Formal',
+  sport: 'Sport',
+  outdoor: 'Outdoor',
+  home: 'Home',
+  travel: 'Travel',
+};
+
+const FORMALITY_LABELS: Record<WardrobeFormality, string> = {
+  casual: 'Casual',
+  'smart-casual': 'Smart casual',
+  business: 'Business',
+  formal: 'Formal',
+};
+
+const FIT_LABELS: Record<WardrobeFit, string> = {
+  slim: 'Slim',
+  regular: 'Regular',
+  relaxed: 'Relaxed',
+  oversized: 'Oversized',
 };
 
 const COLORS = [
@@ -54,10 +94,15 @@ const COLORS = [
 
 type WardrobeColor = (typeof COLORS)[number];
 
-type EditDraft = {
+type ItemDraftState = {
   name: string;
   category: WardrobeCategory;
-  color: string;
+  color: WardrobeColor;
+  materials: string;
+  seasons: WardrobeSeason[];
+  occasions: WardrobeOccasion[];
+  formality: WardrobeFormality | null;
+  fit: WardrobeFit | null;
   tags: string;
   notes: string;
 };
@@ -85,14 +130,42 @@ function percentage(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-function draftFromItem(item: WardrobeItem): EditDraft {
+function emptyDraft(): ItemDraftState {
+  return {
+    name: '',
+    category: 'tops',
+    color: 'navy',
+    materials: '',
+    seasons: [],
+    occasions: [],
+    formality: null,
+    fit: null,
+    tags: '',
+    notes: '',
+  };
+}
+
+function draftFromItem(item: WardrobeItem): ItemDraftState {
   return {
     name: item.name,
     category: item.category,
-    color: item.color,
+    color: COLORS.includes(item.color as WardrobeColor)
+      ? (item.color as WardrobeColor)
+      : 'navy',
+    materials: item.materials.join(', '),
+    seasons: [...item.seasons],
+    occasions: [...item.occasions],
+    formality: item.formality,
+    fit: item.fit,
     tags: item.tags.join(', '),
     notes: item.notes,
   };
+}
+
+function toggleChoice<T extends string>(values: readonly T[], value: T) {
+  return values.includes(value)
+    ? values.filter((candidate) => candidate !== value)
+    : [...values, value];
 }
 
 function ColorDot({ color, size = 22 }: { color: string; size?: number }) {
@@ -144,7 +217,7 @@ function ColorSelector({
   value,
   onChange,
 }: {
-  value: string;
+  value: WardrobeColor;
   onChange: (color: WardrobeColor) => void;
 }) {
   return (
@@ -172,7 +245,203 @@ function ColorSelector({
   );
 }
 
+function MultiChoice<T extends string>({
+  options,
+  labels,
+  values,
+  onChange,
+}: {
+  options: readonly T[];
+  labels: Record<T, string>;
+  values: readonly T[];
+  onChange: (values: T[]) => void;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      {options.map((option) => {
+        const active = values.includes(option);
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(toggleChoice(values, option))}
+            style={({ pressed }) => [
+              styles.chip,
+              active && styles.chipActive,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              {labels[option]}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function OptionalChoice<T extends string>({
+  options,
+  labels,
+  value,
+  onChange,
+}: {
+  options: readonly T[];
+  labels: Record<T, string>;
+  value: T | null;
+  onChange: (value: T | null) => void;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: value === null }}
+        onPress={() => onChange(null)}
+        style={({ pressed }) => [
+          styles.chip,
+          value === null && styles.chipActive,
+          pressed && styles.pressed,
+        ]}>
+        <Text style={[styles.chipText, value === null && styles.chipTextActive]}>Not set</Text>
+      </Pressable>
+      {options.map((option) => {
+        const active = value === option;
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(option)}
+            style={({ pressed }) => [
+              styles.chip,
+              active && styles.chipActive,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              {labels[option]}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function DraftFields({
+  draft,
+  onChange,
+  labelPrefix,
+}: {
+  draft: ItemDraftState;
+  onChange: (draft: ItemDraftState) => void;
+  labelPrefix: string;
+}) {
+  const update = <K extends keyof ItemDraftState>(key: K, value: ItemDraftState[K]) => {
+    onChange({ ...draft, [key]: value });
+  };
+
+  return (
+    <>
+      <Text style={styles.fieldLabel}>Name</Text>
+      <TextInput
+        accessibilityLabel={`${labelPrefix} name`}
+        autoCapitalize="words"
+        onChangeText={(value) => update('name', value)}
+        placeholder="Navy linen shirt"
+        placeholderTextColor="#7b817b"
+        style={styles.input}
+        value={draft.name}
+      />
+
+      <Text style={styles.fieldLabel}>Category</Text>
+      <CategorySelector value={draft.category} onChange={(value) => update('category', value)} />
+
+      <Text style={styles.fieldLabel}>Color</Text>
+      <ColorSelector value={draft.color} onChange={(value) => update('color', value)} />
+
+      <Text style={styles.fieldLabel}>Materials</Text>
+      <TextInput
+        accessibilityLabel={`${labelPrefix} materials`}
+        autoCapitalize="none"
+        onChangeText={(value) => update('materials', value)}
+        placeholder="linen, cotton"
+        placeholderTextColor="#7b817b"
+        style={styles.input}
+        value={draft.materials}
+      />
+
+      <Text style={styles.fieldLabel}>Seasons</Text>
+      <MultiChoice
+        options={WARDROBE_SEASONS}
+        labels={SEASON_LABELS}
+        values={draft.seasons}
+        onChange={(value) => update('seasons', value)}
+      />
+
+      <Text style={styles.fieldLabel}>Occasions</Text>
+      <MultiChoice
+        options={WARDROBE_OCCASIONS}
+        labels={OCCASION_LABELS}
+        values={draft.occasions}
+        onChange={(value) => update('occasions', value)}
+      />
+
+      <Text style={styles.fieldLabel}>Formality</Text>
+      <OptionalChoice
+        options={WARDROBE_FORMALITY_LEVELS}
+        labels={FORMALITY_LABELS}
+        value={draft.formality}
+        onChange={(value) => update('formality', value)}
+      />
+
+      <Text style={styles.fieldLabel}>Fit</Text>
+      <OptionalChoice
+        options={WARDROBE_FITS}
+        labels={FIT_LABELS}
+        value={draft.fit}
+        onChange={(value) => update('fit', value)}
+      />
+
+      <Text style={styles.fieldLabel}>Tags</Text>
+      <TextInput
+        accessibilityLabel={`${labelPrefix} tags`}
+        autoCapitalize="none"
+        onChangeText={(value) => update('tags', value)}
+        placeholder="minimal, striped, favourite"
+        placeholderTextColor="#7b817b"
+        style={styles.input}
+        value={draft.tags}
+      />
+
+      <Text style={styles.fieldLabel}>Notes</Text>
+      <TextInput
+        accessibilityLabel={`${labelPrefix} notes`}
+        multiline
+        onChangeText={(value) => update('notes', value)}
+        placeholder="Care, fit observations, combinations…"
+        placeholderTextColor="#7b817b"
+        style={[styles.input, styles.notesInput]}
+        textAlignVertical="top"
+        value={draft.notes}
+      />
+    </>
+  );
+}
+
+function attributeSummary(item: WardrobeItem) {
+  return [
+    item.materials[0],
+    item.seasons[0] ? SEASON_LABELS[item.seasons[0]] : null,
+    item.formality ? FORMALITY_LABELS[item.formality] : null,
+    item.fit ? FIT_LABELS[item.fit] : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 function ItemCard({ item, onPress }: { item: WardrobeItem; onPress: () => void }) {
+  const attributes = attributeSummary(item);
   return (
     <Pressable
       accessibilityRole="button"
@@ -185,6 +454,7 @@ function ItemCard({ item, onPress }: { item: WardrobeItem; onPress: () => void }
         <Text style={styles.itemMeta}>
           {CATEGORY_LABELS[item.category]} · {item.color}
         </Text>
+        {attributes ? <Text style={styles.itemAttributes}>{attributes}</Text> : null}
         {item.tags.length > 0 ? (
           <Text style={styles.itemTags} numberOfLines={1}>
             {item.tags.map((tag) => `#${tag}`).join('  ')}
@@ -197,6 +467,22 @@ function ItemCard({ item, onPress }: { item: WardrobeItem; onPress: () => void }
 
 function RelatedCard({ candidate }: { candidate: RelatedWardrobeItem }) {
   const { item, similarity } = candidate;
+  const signals = [
+    ['category', similarity.category, similarity.available.category],
+    ['color', similarity.color, similarity.available.color],
+    ['material', similarity.materials, similarity.available.materials],
+    ['season', similarity.seasons, similarity.available.seasons],
+    ['occasion', similarity.occasions, similarity.available.occasions],
+    ['formality', similarity.formality, similarity.available.formality],
+    ['fit', similarity.fit, similarity.available.fit],
+    ['tags', similarity.tags, similarity.available.tags],
+    ['name', similarity.name, similarity.available.name],
+  ] as const;
+  const breakdown = signals
+    .filter(([, , available]) => available)
+    .map(([label, score]) => `${label} ${percentage(score)}`)
+    .join(' · ');
+
   return (
     <View style={styles.relatedCard}>
       <View style={styles.relatedHeader}>
@@ -209,10 +495,7 @@ function RelatedCard({ candidate }: { candidate: RelatedWardrobeItem }) {
         </View>
         <Text style={styles.similarityScore}>{percentage(similarity.total)}</Text>
       </View>
-      <Text style={styles.breakdown}>
-        category {percentage(similarity.category)} · color {percentage(similarity.color)} · tags{' '}
-        {percentage(similarity.tags)} · name {percentage(similarity.name)}
-      </Text>
+      <Text style={styles.breakdown}>{breakdown}</Text>
     </View>
   );
 }
@@ -223,13 +506,9 @@ export default function WardrobeApp() {
   const [query, setQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<WardrobeFilterCategory>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [editDraft, setEditDraft] = useState<ItemDraftState | null>(null);
   const [adding, setAdding] = useState(false);
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<WardrobeCategory>('tops');
-  const [color, setColor] = useState<WardrobeColor>('navy');
-  const [tags, setTags] = useState('');
-  const [notes, setNotes] = useState('');
+  const [newDraft, setNewDraft] = useState<ItemDraftState>(() => emptyDraft());
 
   useEffect(() => {
     let active = true;
@@ -275,14 +554,17 @@ export default function WardrobeApp() {
     [items, selectedId],
   );
   const categoryCount = new Set(items.map((item) => item.category)).size;
-
-  const resetDraft = () => {
-    setName('');
-    setCategory('tops');
-    setColor('navy');
-    setTags('');
-    setNotes('');
-  };
+  const attributeSignalCount = items.reduce(
+    (sum, item) =>
+      sum +
+      item.materials.length +
+      item.seasons.length +
+      item.occasions.length +
+      item.tags.length +
+      (item.formality ? 1 : 0) +
+      (item.fit ? 1 : 0),
+    0,
+  );
 
   const openItem = (item: WardrobeItem) => {
     setSelectedId(item.id);
@@ -295,19 +577,30 @@ export default function WardrobeApp() {
   };
 
   const addItem = () => {
-    if (!name.trim()) {
+    if (!newDraft.name.trim()) {
       return;
     }
 
     const next = createWardrobeItem(
-      { name, category, color, tags: parseTags(tags), notes },
+      {
+        name: newDraft.name,
+        category: newDraft.category,
+        color: newDraft.color,
+        materials: parseList(newDraft.materials),
+        seasons: newDraft.seasons,
+        occasions: newDraft.occasions,
+        formality: newDraft.formality,
+        fit: newDraft.fit,
+        tags: parseTags(newDraft.tags),
+        notes: newDraft.notes,
+      },
       itemId(),
     );
     setItems((current) => [next, ...current]);
     setSelectedId(next.id);
     setEditDraft(draftFromItem(next));
     setAdding(false);
-    resetDraft();
+    setNewDraft(emptyDraft());
   };
 
   const saveSelected = () => {
@@ -319,6 +612,11 @@ export default function WardrobeApp() {
       name: editDraft.name,
       category: editDraft.category,
       color: editDraft.color,
+      materials: parseList(editDraft.materials),
+      seasons: editDraft.seasons,
+      occasions: editDraft.occasions,
+      formality: editDraft.formality,
+      fit: editDraft.fit,
       tags: parseTags(editDraft.tags),
       notes: editDraft.notes,
     });
@@ -346,7 +644,7 @@ export default function WardrobeApp() {
               <Text style={styles.eyebrow}>WARDROBE</Text>
               <Text style={styles.heading}>Know what you own.</Text>
               <Text style={styles.subtitle}>
-                Keep a calm catalog of your clothes and see which pieces are meaningfully close.
+                Catalog clothes with useful attributes and see which pieces are meaningfully close.
               </Text>
             </View>
             <Pressable
@@ -368,10 +666,8 @@ export default function WardrobeApp() {
               <Text style={styles.statLabel}>Categories</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>
-                {items.reduce((sum, item) => sum + item.tags.length, 0)}
-              </Text>
-              <Text style={styles.statLabel}>Tag signals</Text>
+              <Text style={styles.statValue}>{attributeSignalCount}</Text>
+              <Text style={styles.statLabel}>Attribute signals</Text>
             </View>
           </View>
 
@@ -379,56 +675,16 @@ export default function WardrobeApp() {
             <View style={styles.formCard}>
               <Text style={styles.sectionHeading}>Add a piece</Text>
               <Text style={styles.formHint}>
-                A few stable attributes are enough for useful local similarity. Photos can come later.
+                Structured attributes improve similarity without requiring a model. Leave unknown fields unset.
               </Text>
-
-              <Text style={styles.fieldLabel}>Name</Text>
-              <TextInput
-                accessibilityLabel="Clothing name"
-                autoCapitalize="words"
-                onChangeText={setName}
-                placeholder="Navy linen shirt"
-                placeholderTextColor="#7b817b"
-                style={styles.input}
-                value={name}
-              />
-
-              <Text style={styles.fieldLabel}>Category</Text>
-              <CategorySelector value={category} onChange={setCategory} />
-
-              <Text style={styles.fieldLabel}>Color</Text>
-              <ColorSelector value={color} onChange={setColor} />
-
-              <Text style={styles.fieldLabel}>Tags</Text>
-              <TextInput
-                accessibilityLabel="Clothing tags"
-                autoCapitalize="none"
-                onChangeText={setTags}
-                placeholder="linen, summer, smart casual"
-                placeholderTextColor="#7b817b"
-                style={styles.input}
-                value={tags}
-              />
-
-              <Text style={styles.fieldLabel}>Notes</Text>
-              <TextInput
-                accessibilityLabel="Clothing notes"
-                multiline
-                onChangeText={setNotes}
-                placeholder="Fit, fabric, occasions, care…"
-                placeholderTextColor="#7b817b"
-                style={[styles.input, styles.notesInput]}
-                textAlignVertical="top"
-                value={notes}
-              />
-
+              <DraftFields draft={newDraft} onChange={setNewDraft} labelPrefix="Clothing" />
               <Pressable
                 accessibilityRole="button"
-                disabled={!name.trim()}
+                disabled={!newDraft.name.trim()}
                 onPress={addItem}
                 style={({ pressed }) => [
                   styles.saveButton,
-                  !name.trim() && styles.saveButtonDisabled,
+                  !newDraft.name.trim() && styles.saveButtonDisabled,
                   pressed && styles.pressed,
                 ]}>
                 <Text style={styles.saveButtonText}>Save piece</Text>
@@ -446,6 +702,9 @@ export default function WardrobeApp() {
                     <Text style={styles.detailMeta}>
                       {CATEGORY_LABELS[selectedItem.category]} · {selectedItem.color}
                     </Text>
+                    {attributeSummary(selectedItem) ? (
+                      <Text style={styles.detailAttributes}>{attributeSummary(selectedItem)}</Text>
+                    ) : null}
                   </View>
                 </View>
                 <Pressable
@@ -459,55 +718,7 @@ export default function WardrobeApp() {
 
               <View style={styles.editSection}>
                 <Text style={styles.editTitle}>Edit details</Text>
-
-                <Text style={styles.fieldLabel}>Name</Text>
-                <TextInput
-                  accessibilityLabel="Edit clothing name"
-                  autoCapitalize="words"
-                  onChangeText={(value) => setEditDraft((current) => current && { ...current, name: value })}
-                  style={styles.input}
-                  value={editDraft.name}
-                />
-
-                <Text style={styles.fieldLabel}>Category</Text>
-                <CategorySelector
-                  value={editDraft.category}
-                  onChange={(value) =>
-                    setEditDraft((current) => current && { ...current, category: value })
-                  }
-                />
-
-                <Text style={styles.fieldLabel}>Color</Text>
-                <ColorSelector
-                  value={editDraft.color}
-                  onChange={(value) =>
-                    setEditDraft((current) => current && { ...current, color: value })
-                  }
-                />
-
-                <Text style={styles.fieldLabel}>Tags</Text>
-                <TextInput
-                  accessibilityLabel="Edit clothing tags"
-                  autoCapitalize="none"
-                  onChangeText={(value) => setEditDraft((current) => current && { ...current, tags: value })}
-                  placeholder="linen, summer, smart casual"
-                  placeholderTextColor="#7b817b"
-                  style={styles.input}
-                  value={editDraft.tags}
-                />
-
-                <Text style={styles.fieldLabel}>Notes</Text>
-                <TextInput
-                  accessibilityLabel="Edit clothing notes"
-                  multiline
-                  onChangeText={(value) => setEditDraft((current) => current && { ...current, notes: value })}
-                  placeholder="Fit, fabric, occasions, care…"
-                  placeholderTextColor="#7b817b"
-                  style={[styles.input, styles.notesInput]}
-                  textAlignVertical="top"
-                  value={editDraft.notes}
-                />
-
+                <DraftFields draft={editDraft} onChange={setEditDraft} labelPrefix="Edit clothing" />
                 <View style={styles.editActions}>
                   <Pressable
                     accessibilityRole="button"
@@ -531,7 +742,7 @@ export default function WardrobeApp() {
 
               <Text style={styles.relatedTitle}>Closest pieces</Text>
               <Text style={styles.relatedIntro}>
-                The score is local and inspectable: category, color, tags, and name each contribute a fixed share.
+                Only evidence known for both pieces enters the normalized score, so missing metadata stays neutral.
               </Text>
               {related.length > 0 ? (
                 <View style={styles.relatedList}>
@@ -555,7 +766,7 @@ export default function WardrobeApp() {
           <TextInput
             accessibilityLabel="Search wardrobe"
             onChangeText={setQuery}
-            placeholder="Search name, color, tags, or notes"
+            placeholder="Search material, season, occasion, fit, tags…"
             placeholderTextColor="#7b817b"
             style={styles.searchInput}
             value={query}
@@ -668,7 +879,13 @@ const styles = StyleSheet.create({
   },
   sectionHeading: { color: '#263128', fontSize: 21, fontWeight: '800' },
   formHint: { color: '#687069', fontSize: 14, lineHeight: 21, marginTop: 6, marginBottom: 2 },
-  fieldLabel: { color: '#424c44', fontSize: 13, fontWeight: '800', marginTop: 17, marginBottom: 7 },
+  fieldLabel: {
+    color: '#424c44',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 17,
+    marginBottom: 7,
+  },
   input: {
     backgroundColor: '#ffffff',
     borderColor: '#d5d8d1',
@@ -740,6 +957,7 @@ const styles = StyleSheet.create({
   detailCopy: { flex: 1 },
   detailName: { color: '#233027', fontSize: 22, fontWeight: '800' },
   detailMeta: { color: '#667068', fontSize: 13, marginTop: 3, textTransform: 'capitalize' },
+  detailAttributes: { color: '#526759', fontSize: 12, marginTop: 5 },
   closeButton: { paddingHorizontal: 8, paddingVertical: 5 },
   closeButtonText: { color: '#526056', fontSize: 13, fontWeight: '800' },
   editSection: {
@@ -810,7 +1028,8 @@ const styles = StyleSheet.create({
   itemCardBody: { flex: 1 },
   itemName: { color: '#263028', fontSize: 17, fontWeight: '800' },
   itemMeta: { color: '#6d746e', fontSize: 12, marginTop: 3, textTransform: 'capitalize' },
-  itemTags: { color: '#526759', fontSize: 11, marginTop: 7 },
+  itemAttributes: { color: '#526759', fontSize: 11, marginTop: 6, textTransform: 'capitalize' },
+  itemTags: { color: '#6d746e', fontSize: 11, marginTop: 5 },
   emptyCard: {
     backgroundColor: '#faf9f5',
     borderColor: '#dcddd7',

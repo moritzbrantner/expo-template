@@ -20,6 +20,9 @@ jobs:
         with:
           bun-version: 1.3.12
 
+      - name: Install repository dependencies
+        run: bun install --frozen-lockfile
+
       - name: Align Expo SDK dependencies
         run: bunx expo install --fix
 

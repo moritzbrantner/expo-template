@@ -24,6 +24,7 @@ export type WardrobeDraft = Pick<WardrobeItem, 'name' | 'category' | 'color' | '
   tags: readonly string[];
 };
 
+export type WardrobePatch = Partial<WardrobeDraft>;
 export type WardrobeFilterCategory = WardrobeCategory | 'all';
 
 export function normalizeWardrobeText(value: string) {
@@ -86,9 +87,33 @@ export function createWardrobeItem(
   };
 }
 
+export function updateWardrobeItem(
+  item: WardrobeItem,
+  patch: WardrobePatch,
+  now = new Date(),
+): WardrobeItem {
+  const updated = createWardrobeItem(
+    {
+      name: patch.name ?? item.name,
+      category: patch.category ?? item.category,
+      color: patch.color ?? item.color,
+      tags: patch.tags ?? item.tags,
+      notes: patch.notes ?? item.notes,
+    },
+    item.id,
+    now,
+  );
+
+  return {
+    ...updated,
+    createdAt: item.createdAt,
+  };
+}
+
 function isWardrobeCategory(value: unknown): value is WardrobeCategory {
-  return typeof value === 'string' &&
-    WARDROBE_CATEGORIES.includes(value as WardrobeCategory);
+  return (
+    typeof value === 'string' && WARDROBE_CATEGORIES.includes(value as WardrobeCategory)
+  );
 }
 
 function isIsoTimestamp(value: unknown): value is string {

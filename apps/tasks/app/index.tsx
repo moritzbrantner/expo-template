@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +14,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  DEFAULT_DICTATION_COMMANDS,
+  DICTATION_COMMANDS_STORAGE_KEY,
+  deserializeDictationCommands,
+  type DictationCommands,
+} from '../lib/dictation-settings';
 import { parseDictationInput } from '../lib/dictation';
 import {
   clearCompleted,
@@ -126,6 +133,9 @@ export default function TasksApp() {
   const [dictationMode, setDictationMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [dictationStatus, setDictationStatus] = useState<string | null>(null);
+  const [dictationCommands, setDictationCommands] = useState<DictationCommands>(
+    DEFAULT_DICTATION_COMMANDS,
+  );
   const draftRef = useRef('');
   const inputRef = useRef<TextInput>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -164,6 +174,28 @@ export default function TasksApp() {
 
     return () => clearTimeout(timer);
   }, [hydrated, tasks]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      void AsyncStorage.getItem(DICTATION_COMMANDS_STORAGE_KEY)
+        .then((stored) => {
+          if (active) {
+            setDictationCommands(deserializeDictationCommands(stored));
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setDictationCommands(DEFAULT_DICTATION_COMMANDS);
+          }
+        });
+
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   useEffect(
     () => () => {
@@ -231,7 +263,10 @@ export default function TasksApp() {
   };
 
   const consumeDictationInput = (value: string) => {
-    const { completedEntries, remainder, finishRequested } = parseDictationInput(value);
+    const { completedEntries, remainder, finishRequested } = parseDictationInput(
+      value,
+      dictationCommands,
+    );
     addTaskTitles(completedEntries);
     updateDraft(remainder);
 
@@ -248,7 +283,7 @@ export default function TasksApp() {
     const Recognition = getBrowserSpeechRecognitionConstructor();
     if (!Recognition) {
       setDictationStatus(
-        'Dictation mode is on. Use the keyboard microphone: say “next” for a new task and “done” to finish.',
+        `Dictation mode is on. Use the keyboard microphone: say “${dictationCommands.next}” for a new task and “${dictationCommands.done}” to finish.`,
       );
       setTimeout(() => inputRef.current?.focus(), 0);
       return;
@@ -307,7 +342,9 @@ export default function TasksApp() {
       recognitionRef.current = recognition;
       recognition.start();
       setIsListening(true);
-      setDictationStatus('Listening… “Next” starts another task. “Done” finishes dictation.');
+      setDictationStatus(
+        `Listening… “${dictationCommands.next}” starts another task. “${dictationCommands.done}” finishes dictation.`,
+      );
     } catch {
       recognitionRef.current = null;
       setIsListening(false);
@@ -334,7 +371,17 @@ export default function TasksApp() {
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled">
-          <Text style={styles.eyebrow}>TASKS</Text>
+          <View style={styles.eyebrowRow}>
+            <Text style={styles.eyebrow}>TASKS</Text>
+            <Link href="/settings" asChild>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open settings"
+                style={({ pressed }) => [styles.settingsButton, pressed && styles.pressed]}>
+                <Text style={styles.settingsText}>Settings</Text>
+              </Pressable>
+            </Link>
+          </View>
           <Text style={styles.heading}>Write it down. Finish it. Move on.</Text>
           <Text style={styles.summary}>
             {openCount} open · {doneCount} done
@@ -350,7 +397,11 @@ export default function TasksApp() {
                 dictationMode ? consumeDictationInput(value) : updateDraft(value)
               }
               onSubmitEditing={addTask}
-              placeholder={dictationMode ? 'Say a task, “next”, or “done”…' : 'What needs doing?'}
+              placeholder={
+                dictationMode
+                  ? `Say a task, “${dictationCommands.next}”, or “${dictationCommands.done}”…`
+                  : 'What needs doing?'
+              }
               placeholderTextColor="#7b827c"
               returnKeyType="done"
               style={[styles.input, dictationMode && styles.inputDictating]}
@@ -390,7 +441,7 @@ export default function TasksApp() {
             </Pressable>
             <Text style={styles.dictationHelp} accessibilityLiveRegion="polite">
               {dictationStatus ??
-                'Dictate several tasks hands-free. “Next” starts a new entry; “Done” finishes.'}
+                `Dictate several tasks hands-free. “${dictationCommands.next}” starts a new entry; “${dictationCommands.done}” finishes.`}
             </Text>
           </View>
 
@@ -476,12 +527,26 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 48,
   },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   eyebrow: {
     color: '#657067',
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.4,
   },
+  settingsButton: {
+    borderColor: '#cfd3cc',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  settingsText: { color: '#405247', fontSize: 12, fontWeight: '800' },
   heading: {
     color: '#1f2921',
     fontSize: 34,

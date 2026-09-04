@@ -4,14 +4,11 @@ import test from 'node:test';
 import { parseDictationInput } from './dictation';
 
 test('splits dictated tasks on the standalone next command in prepend order', () => {
-  assert.deepEqual(
-    parseDictationInput('Buy milk next Call dentist next Book train'),
-    {
-      completedEntries: ['Call dentist', 'Buy milk'],
-      remainder: 'Book train',
-      finishRequested: false,
-    },
-  );
+  assert.deepEqual(parseDictationInput('Buy milk next Call dentist next Book train'), {
+    completedEntries: ['Call dentist', 'Buy milk'],
+    remainder: 'Book train',
+    finishRequested: false,
+  });
 });
 
 test('accepts next case-insensitively with surrounding punctuation', () => {
@@ -22,10 +19,10 @@ test('accepts next case-insensitively with surrounding punctuation', () => {
   });
 });
 
-test('ignores repeated next commands instead of creating empty tasks', () => {
-  assert.deepEqual(parseDictationInput('next next Buy milk next next Call dentist'), {
-    completedEntries: ['Buy milk'],
-    remainder: 'Call dentist',
+test('ignores repeated and edge-position next commands instead of creating empty tasks', () => {
+  assert.deepEqual(parseDictationInput('next next Buy milk next next Call dentist next'), {
+    completedEntries: ['Call dentist', 'Buy milk'],
+    remainder: '',
     finishRequested: false,
   });
 });
@@ -38,10 +35,18 @@ test('does not split words that merely contain next', () => {
   });
 });
 
-test('keeps ordinary input as the uncommitted remainder', () => {
-  assert.deepEqual(parseDictationInput('  Call   dentist  '), {
+test('keeps ordinary input as the uncommitted normalized remainder', () => {
+  assert.deepEqual(parseDictationInput('  Call\t dentist\n tomorrow  '), {
     completedEntries: [],
-    remainder: 'Call dentist',
+    remainder: 'Call dentist tomorrow',
+    finishRequested: false,
+  });
+});
+
+test('returns an empty remainder for empty input', () => {
+  assert.deepEqual(parseDictationInput('   '), {
+    completedEntries: [],
+    remainder: '',
     finishRequested: false,
   });
 });
@@ -70,6 +75,14 @@ test('done by itself finishes without creating an empty task', () => {
   });
 });
 
+test('done after separators finishes without creating empty tasks', () => {
+  assert.deepEqual(parseDictationInput('Buy milk next next done'), {
+    completedEntries: ['Buy milk'],
+    remainder: '',
+    finishRequested: true,
+  });
+});
+
 test('done is ordinary task text unless it is the final token', () => {
   assert.deepEqual(parseDictationInput('Get taxes done tomorrow'), {
     completedEntries: [],
@@ -86,6 +99,48 @@ test('uses configured command words instead of the defaults', () => {
     }),
     {
       completedEntries: ['Call dentist', 'Buy milk'],
+      remainder: '',
+      finishRequested: true,
+    },
+  );
+});
+
+test('treats default command words as ordinary text when custom commands are active', () => {
+  assert.deepEqual(
+    parseDictationInput('Buy next item weiter Mark done tomorrow', {
+      next: 'weiter',
+      done: 'fertig',
+    }),
+    {
+      completedEntries: ['Buy next item'],
+      remainder: 'Mark done tomorrow',
+      finishRequested: false,
+    },
+  );
+});
+
+test('does not match configured commands embedded in larger words', () => {
+  assert.deepEqual(
+    parseDictationInput('Weiterleitung prüfen weiter Fertigstellung planen', {
+      next: 'weiter',
+      done: 'fertig',
+    }),
+    {
+      completedEntries: ['Weiterleitung prüfen'],
+      remainder: 'Fertigstellung planen',
+      finishRequested: false,
+    },
+  );
+});
+
+test('matches Unicode configured commands case-insensitively with punctuation', () => {
+  assert.deepEqual(
+    parseDictationInput('Milch kaufen NÄCHSTE, Zahnarzt anrufen FERTIG!', {
+      next: 'nächste',
+      done: 'fertig',
+    }),
+    {
+      completedEntries: ['Zahnarzt anrufen', 'Milch kaufen'],
       remainder: '',
       finishRequested: true,
     },

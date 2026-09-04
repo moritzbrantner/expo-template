@@ -13,7 +13,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'bunx expo start --web --port 4003 --non-interactive',
+    command: 'bun run build && python3 -m http.server 4003 -d dist',
     port: 4003,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

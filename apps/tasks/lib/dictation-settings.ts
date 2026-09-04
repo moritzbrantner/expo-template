@@ -10,6 +10,8 @@ export const DEFAULT_DICTATION_COMMANDS: DictationCommands = {
 
 export const DICTATION_COMMANDS_STORAGE_KEY = '@expo-template/tasks/dictation-commands-v1';
 
+const COMMAND_WORD_PATTERN = /^[\p{L}\p{N}]+$/u;
+
 export function normalizeDictationCommandWord(value: string) {
   return value.trim().toLowerCase();
 }
@@ -18,15 +20,11 @@ export function createDictationCommands(next: string, done: string): DictationCo
   const normalizedNext = normalizeDictationCommandWord(next);
   const normalizedDone = normalizeDictationCommandWord(done);
 
-  if (!normalizedNext || !normalizedDone) {
-    return null;
-  }
-
-  if (/\s/.test(normalizedNext) || /\s/.test(normalizedDone)) {
-    return null;
-  }
-
-  if (normalizedNext === normalizedDone) {
+  if (
+    !COMMAND_WORD_PATTERN.test(normalizedNext) ||
+    !COMMAND_WORD_PATTERN.test(normalizedDone) ||
+    normalizedNext === normalizedDone
+  ) {
     return null;
   }
 

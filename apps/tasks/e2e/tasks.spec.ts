@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-async function resetTaskApp(page: Page) {
+async function openTaskApp(page: Page) {
   await page.addInitScript(() => {
     Object.defineProperty(window, 'SpeechRecognition', {
       configurable: true,
@@ -13,8 +13,6 @@ async function resetTaskApp(page: Page) {
   });
 
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
   await expect(page.getByText('Nothing here yet. Add one thing worth doing.')).toBeVisible();
 }
 
@@ -36,7 +34,7 @@ async function waitForStoredValue(page: Page, fragment: string) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await resetTaskApp(page);
+  await openTaskApp(page);
 });
 
 test('adds, completes, filters, and restores a persisted task', async ({ page }) => {

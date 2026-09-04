@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   ensureStarterAccount,
+  readStarterAuthConfig,
   type FetchLike,
   type StarterAuthConfig,
 } from '../scripts/local-auth';
@@ -25,6 +26,15 @@ function jsonResponse(status: number, payload: unknown): Response {
     },
   });
 }
+
+test('starter bootstrap URL stays host-local when the Expo client uses an emulator URL', () => {
+  const starterConfig = readStarterAuthConfig({
+    EXPO_PUBLIC_AUTH_API_URL: 'http://10.0.2.2:4401',
+    AUTH_STARTER_API_URL: 'http://localhost:4401/',
+  });
+
+  assert.equal(starterConfig.apiUrl, 'http://localhost:4401');
+});
 
 test('local auth starter reuses an existing login without signing up again', async () => {
   const calls: string[] = [];

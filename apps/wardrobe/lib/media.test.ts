@@ -14,10 +14,10 @@ test('builds deterministic safe photo names from wardrobe ids', () => {
 });
 
 test('preserves supported image extensions and falls back from mime type', () => {
-  assert.equal(wardrobePhotoExtension({ fileName: 'IMG_1.JPEG', mimeType: null }), 'jpg');
+  assert.equal(wardrobePhotoExtension({ fileName: 'IMG_1.JPEG', mimeType: undefined }), 'jpg');
   assert.equal(wardrobePhotoExtension({ fileName: 'photo.heic', mimeType: 'image/heic' }), 'heic');
-  assert.equal(wardrobePhotoExtension({ fileName: null, mimeType: 'image/webp' }), 'webp');
-  assert.equal(wardrobePhotoExtension({ fileName: 'image.unknown', mimeType: null }), 'jpg');
+  assert.equal(wardrobePhotoExtension({ fileName: undefined, mimeType: 'image/webp' }), 'webp');
+  assert.equal(wardrobePhotoExtension({ fileName: 'image.unknown', mimeType: undefined }), 'jpg');
 });
 
 test('creates an inline web photo from picker base64 data', () => {

@@ -34,11 +34,17 @@ export type WardrobeOccasion = (typeof WARDROBE_OCCASIONS)[number];
 export type WardrobeFormality = (typeof WARDROBE_FORMALITY_LEVELS)[number];
 export type WardrobeFit = (typeof WARDROBE_FITS)[number];
 
+export type WardrobePhoto = {
+  uri: string;
+  kind: 'managed-file' | 'inline-data';
+};
+
 export type WardrobeItem = {
   id: string;
   name: string;
   category: WardrobeCategory;
   color: string;
+  photo: WardrobePhoto | null;
   materials: string[];
   seasons: WardrobeSeason[];
   occasions: WardrobeOccasion[];
@@ -51,6 +57,7 @@ export type WardrobeItem = {
 };
 
 export type WardrobeDraft = Pick<WardrobeItem, 'name' | 'category' | 'color' | 'notes'> & {
+  photo?: WardrobePhoto | null;
   materials?: readonly string[];
   seasons?: readonly WardrobeSeason[];
   occasions?: readonly WardrobeOccasion[];
@@ -64,10 +71,10 @@ export type WardrobeFilterCategory = WardrobeCategory | 'all';
 
 type StoredWardrobeItem = Omit<
   WardrobeItem,
-  'materials' | 'seasons' | 'occasions' | 'formality' | 'fit'
+  'photo' | 'materials' | 'seasons' | 'occasions' | 'formality' | 'fit'
 > &
   Partial<
-    Pick<WardrobeItem, 'materials' | 'seasons' | 'occasions' | 'formality' | 'fit'>
+    Pick<WardrobeItem, 'photo' | 'materials' | 'seasons' | 'occasions' | 'formality' | 'fit'>
   >;
 
 export function normalizeWardrobeText(value: string) {
@@ -123,6 +130,31 @@ function normalizeOptionalEnum<T extends string>(value: T | null | undefined, al
   return value;
 }
 
+function isWardrobePhoto(value: unknown): value is WardrobePhoto {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const photo = value as Partial<WardrobePhoto>;
+  if (photo.kind === 'managed-file') {
+    return typeof photo.uri === 'string' && photo.uri.startsWith('file://');
+  }
+  if (photo.kind === 'inline-data') {
+    return typeof photo.uri === 'string' && photo.uri.startsWith('data:image/');
+  }
+  return false;
+}
+
+function normalizePhoto(value: WardrobePhoto | null | undefined) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (!isWardrobePhoto(value)) {
+    throw new Error('Wardrobe photo reference is invalid.');
+  }
+  return { ...value };
+}
+
 export function createWardrobeItem(
   draft: WardrobeDraft,
   id: string,
@@ -152,6 +184,7 @@ export function createWardrobeItem(
     name,
     category: draft.category,
     color,
+    photo: normalizePhoto(draft.photo),
     materials: normalizeTags(draft.materials ?? []),
     seasons: normalizeEnumList(draft.seasons, WARDROBE_SEASONS),
     occasions: normalizeEnumList(draft.occasions, WARDROBE_OCCASIONS),
@@ -174,6 +207,7 @@ export function updateWardrobeItem(
       name: patch.name ?? item.name,
       category: patch.category ?? item.category,
       color: patch.color ?? item.color,
+      photo: patch.photo === undefined ? item.photo : patch.photo,
       materials: patch.materials ?? item.materials,
       seasons: patch.seasons ?? item.seasons,
       occasions: patch.occasions ?? item.occasions,
@@ -202,9 +236,7 @@ function isEnumList<T extends string>(value: unknown, allowed: readonly T[]) {
   return (
     value === undefined ||
     (Array.isArray(value) &&
-      value.every(
-        (entry) => typeof entry === 'string' && allowed.includes(entry as T),
-      ))
+      value.every((entry) => typeof entry === 'string' && allowed.includes(entry as T)))
   );
 }
 
@@ -234,6 +266,7 @@ function isStoredWardrobeItem(value: unknown): value is StoredWardrobeItem {
     isWardrobeCategory(item.category) &&
     typeof item.color === 'string' &&
     normalizeWardrobeText(item.color).length > 0 &&
+    (item.photo === undefined || item.photo === null || isWardrobePhoto(item.photo)) &&
     (item.materials === undefined ||
       (Array.isArray(item.materials) && item.materials.every((material) => typeof material === 'string'))) &&
     isEnumList(item.seasons, WARDROBE_SEASONS) &&
@@ -264,6 +297,7 @@ export function deserializeWardrobeItems(value: string | null): WardrobeItem[] {
       id: normalizeWardrobeText(item.id),
       name: normalizeWardrobeText(item.name),
       color: normalizeWardrobeText(item.color).toLocaleLowerCase(),
+      photo: item.photo ? { ...item.photo } : null,
       materials: normalizeTags(item.materials ?? []),
       seasons: normalizeEnumList(item.seasons, WARDROBE_SEASONS),
       occasions: normalizeEnumList(item.occasions, WARDROBE_OCCASIONS),

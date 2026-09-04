@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { persistWardrobePhoto, removeWardrobePhoto } from '../lib/media';
 import { rankRelatedItems, type RelatedWardrobeItem } from '../lib/semantic';
 import {
   createWardrobeItem,
@@ -179,6 +182,20 @@ function ColorDot({ color, size = 22 }: { color: string; size?: number }) {
   );
 }
 
+function ItemVisual({ item, size = 44 }: { item: WardrobeItem; size?: number }) {
+  if (item.photo) {
+    return (
+      <Image
+        accessibilityLabel={`Photo of ${item.name}`}
+        source={{ uri: item.photo.uri }}
+        style={{ width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.22)) }}
+        resizeMode="cover"
+      />
+    );
+  }
+  return <ColorDot color={item.color} size={Math.max(22, Math.round(size * 0.75))} />;
+}
+
 function CategorySelector({
   value,
   onChange,
@@ -269,9 +286,7 @@ function MultiChoice<T extends string>({
               active && styles.chipActive,
               pressed && styles.pressed,
             ]}>
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>
-              {labels[option]}
-            </Text>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{labels[option]}</Text>
           </Pressable>
         );
       })}
@@ -316,9 +331,7 @@ function OptionalChoice<T extends string>({
               active && styles.chipActive,
               pressed && styles.pressed,
             ]}>
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>
-              {labels[option]}
-            </Text>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{labels[option]}</Text>
           </Pressable>
         );
       })}
@@ -446,7 +459,7 @@ function ItemCard({ item, onPress }: { item: WardrobeItem; onPress: () => void }
       accessibilityLabel={`Open ${item.name}`}
       onPress={onPress}
       style={({ pressed }) => [styles.itemCard, pressed && styles.pressed]}>
-      <ColorDot color={item.color} size={34} />
+      <ItemVisual item={item} size={58} />
       <View style={styles.itemCardBody}>
         <Text style={styles.itemName}>{item.name}</Text>
         <Text style={styles.itemMeta}>
@@ -485,7 +498,7 @@ function RelatedCard({ candidate }: { candidate: RelatedWardrobeItem }) {
     <View style={styles.relatedCard}>
       <View style={styles.relatedHeader}>
         <View style={styles.relatedIdentity}>
-          <ColorDot color={item.color} />
+          <ItemVisual item={item} size={42} />
           <View style={styles.relatedCopy}>
             <Text style={styles.relatedName}>{item.name}</Text>
             <Text style={styles.relatedMeta}>{CATEGORY_LABELS[item.category]}</Text>
@@ -507,6 +520,8 @@ export default function WardrobeApp() {
   const [editDraft, setEditDraft] = useState<ItemDraftState | null>(null);
   const [adding, setAdding] = useState(false);
   const [newDraft, setNewDraft] = useState<ItemDraftState>(() => emptyDraft());
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoStatus, setPhotoStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -567,11 +582,13 @@ export default function WardrobeApp() {
   const openItem = (item: WardrobeItem) => {
     setSelectedId(item.id);
     setEditDraft(draftFromItem(item));
+    setPhotoStatus(null);
   };
 
   const closeItem = () => {
     setSelectedId(null);
     setEditDraft(null);
+    setPhotoStatus(null);
   };
 
   const addItem = () => {
@@ -599,6 +616,7 @@ export default function WardrobeApp() {
     setEditDraft(draftFromItem(next));
     setAdding(false);
     setNewDraft(emptyDraft());
+    setPhotoStatus('Piece saved. You can attach a photo now.');
   };
 
   const saveSelected = () => {
@@ -622,12 +640,82 @@ export default function WardrobeApp() {
     setEditDraft(draftFromItem(next));
   };
 
-  const deleteSelected = () => {
-    if (!selectedId) {
+  const choosePhoto = async () => {
+    if (!selectedItem || photoBusy) {
       return;
     }
-    setItems((current) => current.filter((item) => item.id !== selectedId));
-    closeItem();
+
+    setPhotoBusy(true);
+    setPhotoStatus(null);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 5],
+        quality: 0.8,
+        base64: Platform.OS === 'web',
+      });
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      const nextPhoto = await persistWardrobePhoto(selectedItem.id, result.assets[0]);
+      const previousPhoto = selectedItem.photo;
+      const next = updateWardrobeItem(selectedItem, { photo: nextPhoto });
+      setItems((current) => current.map((item) => (item.id === next.id ? next : item)));
+      setEditDraft(draftFromItem(next));
+
+      if (previousPhoto) {
+        try {
+          await removeWardrobePhoto(previousPhoto);
+        } catch {
+          setPhotoStatus('New photo saved, but the previous local file could not be cleaned up.');
+          return;
+        }
+      }
+      setPhotoStatus('Photo saved locally.');
+    } catch {
+      setPhotoStatus('Could not save that photo locally.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const clearPhoto = async () => {
+    if (!selectedItem?.photo || photoBusy) {
+      return;
+    }
+
+    setPhotoBusy(true);
+    setPhotoStatus(null);
+    try {
+      await removeWardrobePhoto(selectedItem.photo);
+      const next = updateWardrobeItem(selectedItem, { photo: null });
+      setItems((current) => current.map((item) => (item.id === next.id ? next : item)));
+      setEditDraft(draftFromItem(next));
+      setPhotoStatus('Photo removed.');
+    } catch {
+      setPhotoStatus('Could not remove the managed photo file. The item was left unchanged.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedItem || photoBusy) {
+      return;
+    }
+
+    setPhotoBusy(true);
+    try {
+      await removeWardrobePhoto(selectedItem.photo);
+      setItems((current) => current.filter((item) => item.id !== selectedItem.id));
+      closeItem();
+    } catch {
+      setPhotoStatus('Could not clean up the local photo, so the item was not removed.');
+    } finally {
+      setPhotoBusy(false);
+    }
   };
 
   return (
@@ -642,7 +730,7 @@ export default function WardrobeApp() {
               <Text style={styles.eyebrow}>WARDROBE</Text>
               <Text style={styles.heading}>Know what you own.</Text>
               <Text style={styles.subtitle}>
-                Catalog clothes with useful attributes and see which pieces are meaningfully close.
+                Catalog clothes with useful attributes and local photos, then see which pieces are meaningfully close.
               </Text>
             </View>
             <Pressable
@@ -694,7 +782,7 @@ export default function WardrobeApp() {
             <View style={styles.detailCard}>
               <View style={styles.detailHeader}>
                 <View style={styles.detailIdentity}>
-                  <ColorDot color={selectedItem.color} size={44} />
+                  <ItemVisual item={selectedItem} size={72} />
                   <View style={styles.detailCopy}>
                     <Text style={styles.detailName}>{selectedItem.name}</Text>
                     <Text style={styles.detailMeta}>
@@ -712,6 +800,38 @@ export default function WardrobeApp() {
                   style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
                   <Text style={styles.closeButtonText}>Close</Text>
                 </Pressable>
+              </View>
+
+              <View style={styles.photoSection}>
+                <Text style={styles.editTitle}>Photo</Text>
+                <Text style={styles.photoHelp}>
+                  One primary photo is stored locally. It is not uploaded or used for semantic scoring yet.
+                </Text>
+                <View style={styles.photoActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={photoBusy}
+                    onPress={() => void choosePhoto()}
+                    style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}>
+                    <Text style={styles.photoButtonText}>
+                      {photoBusy ? 'Working…' : selectedItem.photo ? 'Replace photo' : 'Choose photo'}
+                    </Text>
+                  </Pressable>
+                  {selectedItem.photo ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={photoBusy}
+                      onPress={() => void clearPhoto()}
+                      style={({ pressed }) => [styles.photoRemoveButton, pressed && styles.pressed]}>
+                      <Text style={styles.photoRemoveText}>Remove photo</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                {photoStatus ? (
+                  <Text accessibilityLiveRegion="polite" style={styles.photoStatus}>
+                    {photoStatus}
+                  </Text>
+                ) : null}
               </View>
 
               <View style={styles.editSection}>
@@ -740,7 +860,7 @@ export default function WardrobeApp() {
 
               <Text style={styles.relatedTitle}>Closest pieces</Text>
               <Text style={styles.relatedIntro}>
-                Only evidence known for both pieces enters the normalized score, so missing metadata stays neutral.
+                Only structured evidence known for both pieces enters the normalized score; photos are presentation-only in this slice.
               </Text>
               {related.length > 0 ? (
                 <View style={styles.relatedList}>
@@ -754,7 +874,8 @@ export default function WardrobeApp() {
 
               <Pressable
                 accessibilityRole="button"
-                onPress={deleteSelected}
+                disabled={photoBusy}
+                onPress={() => void deleteSelected()}
                 style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteButtonText}>Remove piece</Text>
               </Pressable>
@@ -815,7 +936,7 @@ export default function WardrobeApp() {
           </View>
 
           <Text style={styles.footer}>
-            Wardrobe data stays on this device. Similarity is deterministic clothing policy, not a shopping feed or remote model.
+            Wardrobe data and photos stay local to this app. Similarity remains deterministic clothing policy, not a shopping feed or remote model.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -958,6 +1079,26 @@ const styles = StyleSheet.create({
   detailAttributes: { color: '#526759', fontSize: 12, marginTop: 5 },
   closeButton: { paddingHorizontal: 8, paddingVertical: 5 },
   closeButtonText: { color: '#526056', fontSize: 13, fontWeight: '800' },
+  photoSection: {
+    backgroundColor: '#f8faf6',
+    borderColor: '#d3ddd2',
+    borderWidth: 1,
+    borderRadius: 17,
+    marginTop: 18,
+    padding: 14,
+  },
+  photoHelp: { color: '#687069', fontSize: 13, lineHeight: 19, marginTop: 5 },
+  photoActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 12 },
+  photoButton: {
+    backgroundColor: '#294333',
+    borderRadius: 999,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+  },
+  photoButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
+  photoRemoveButton: { paddingHorizontal: 3, paddingVertical: 9 },
+  photoRemoveText: { color: '#8b3f3f', fontSize: 13, fontWeight: '800' },
+  photoStatus: { color: '#526759', fontSize: 12, lineHeight: 18, marginTop: 10 },
   editSection: {
     backgroundColor: '#f8faf6',
     borderColor: '#d3ddd2',

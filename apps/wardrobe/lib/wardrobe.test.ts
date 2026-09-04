@@ -51,6 +51,7 @@ test('creates deterministic normalized wardrobe items with structured attributes
     name: 'Navy Linen Shirt',
     category: 'tops',
     color: 'navy',
+    photo: null,
     materials: ['linen', 'cotton'],
     seasons: ['summer', 'spring'],
     occasions: ['work', 'everyday'],
@@ -110,6 +111,7 @@ test('edits structured fields while preserving stable identity and creation time
     name: 'Blue Linen Shirt',
     category: 'tops',
     color: 'blue',
+    photo: null,
     materials: ['linen', 'cotton'],
     seasons: ['spring', 'summer'],
     occasions: ['work'],
@@ -121,6 +123,21 @@ test('edits structured fields while preserving stable identity and creation time
     updatedAt: '2026-09-04T09:30:00.000Z',
   });
   assert.equal(item.name, 'Navy Shirt');
+});
+
+test('updates and clears owned photo references without mutating the original item', () => {
+  const item = createWardrobeItem(
+    { name: 'Coat', category: 'outerwear', color: 'brown', tags: [], notes: '' },
+    'coat-1',
+  );
+  const photo = { kind: 'managed-file', uri: 'file:///documents/wardrobe-photos/coat.jpg' } as const;
+
+  const withPhoto = updateWardrobeItem(item, { photo });
+  assert.deepEqual(withPhoto.photo, photo);
+  assert.equal(item.photo, null);
+
+  const withoutPhoto = updateWardrobeItem(withPhoto, { photo: null });
+  assert.equal(withoutPhoto.photo, null);
 });
 
 test('preserves custom colors across edits and storage hydration', () => {
@@ -149,7 +166,7 @@ test('preserves custom colors across edits and storage hydration', () => {
   assert.equal(deserializeWardrobeItems(JSON.stringify([updated]))[0]?.color, 'teal');
 });
 
-test('hydrates legacy entries with neutral structured defaults', () => {
+test('hydrates legacy entries with neutral structured and photo defaults', () => {
   const legacy = {
     id: '  coat-1 ',
     name: '  Wool   Coat ',
@@ -167,6 +184,7 @@ test('hydrates legacy entries with neutral structured defaults', () => {
       id: 'coat-1',
       name: 'Wool Coat',
       color: 'brown',
+      photo: null,
       materials: [],
       seasons: [],
       occasions: [],
@@ -178,12 +196,13 @@ test('hydrates legacy entries with neutral structured defaults', () => {
   ]);
 });
 
-test('hydrates enriched entries and drops malformed structured storage', () => {
+test('hydrates enriched entries and drops malformed structured or photo storage', () => {
   const valid: WardrobeItem = {
     id: 'coat-1',
     name: 'Wool Coat',
     category: 'outerwear',
     color: 'brown',
+    photo: { kind: 'inline-data', uri: 'data:image/jpeg;base64,abc' },
     materials: [' Wool ', 'wool'],
     seasons: ['winter'],
     occasions: ['work', 'formal'],
@@ -194,9 +213,10 @@ test('hydrates enriched entries and drops malformed structured storage', () => {
     createdAt: '2026-09-04T08:00:00.000Z',
     updatedAt: '2026-09-04T08:00:00.000Z',
   };
-  const malformed = { ...valid, seasons: ['monsoon'] };
+  const malformedSeason = { ...valid, seasons: ['monsoon'] };
+  const malformedPhoto = { ...valid, photo: { kind: 'managed-file', uri: 'https://example.com/a.jpg' } };
 
-  assert.deepEqual(deserializeWardrobeItems(JSON.stringify([malformed, valid])), [
+  assert.deepEqual(deserializeWardrobeItems(JSON.stringify([malformedSeason, malformedPhoto, valid])), [
     {
       ...valid,
       materials: ['wool'],

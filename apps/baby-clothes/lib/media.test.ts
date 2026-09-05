@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 import {
   babyClothingPhotoBaseName,
@@ -8,12 +9,21 @@ import {
 
 describe('baby clothing photo helpers', () => {
   test('creates filesystem-safe local photo names', () => {
-    expect(babyClothingPhotoBaseName('Body 62 / Blue', 'Photo 1')).toBe('body-62-blue-photo-1');
+    assert.equal(
+      babyClothingPhotoBaseName('Body 62 / Blue', 'Photo 1'),
+      'body-62-blue-photo-1',
+    );
   });
 
   test('uses filename extension first and MIME type as fallback', () => {
-    expect(babyClothingPhotoExtension({ fileName: 'piece.JPEG', mimeType: 'image/png' })).toBe('jpg');
-    expect(babyClothingPhotoExtension({ fileName: null, mimeType: 'image/webp' })).toBe('webp');
+    assert.equal(
+      babyClothingPhotoExtension({ fileName: 'piece.JPEG', mimeType: 'image/png' }),
+      'jpg',
+    );
+    assert.equal(
+      babyClothingPhotoExtension({ fileName: null, mimeType: 'image/webp' }),
+      'webp',
+    );
   });
 
   test('web photos remain explicit local inline data', () => {
@@ -23,7 +33,7 @@ describe('baby clothing photo helpers', () => {
       new Date('2026-09-05T10:00:00Z'),
     );
 
-    expect(photo).toEqual({
+    assert.deepEqual(photo, {
       id: 'photo-1',
       kind: 'inline-data',
       uri: 'data:image/png;base64,ZmFrZQ==',

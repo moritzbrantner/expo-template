@@ -68,8 +68,13 @@ jobs:
           const packageJson = JSON.parse(fs.readFileSync('generated/package.json', 'utf8'));
           const conventions = JSON.parse(fs.readFileSync('generated/conventions.json', 'utf8'));
           const tooling = JSON.parse(fs.readFileSync('generated/.coding-tooling.json', 'utf8'));
+          const eas = JSON.parse(fs.readFileSync('generated/eas.json', 'utf8'));
+          const release = JSON.parse(fs.readFileSync('generated/release.config.json', 'utf8'));
           const features = fs.readFileSync('generated/app.features.ts', 'utf8');
           const layout = fs.readFileSync('generated/app/_layout.tsx', 'utf8');
+          const mobileRelease = fs.readFileSync('generated/.github/workflows/mobile-release.yml', 'utf8');
+          const releaseBuild = fs.readFileSync('generated/scripts/build-store-release.ts', 'utf8');
+          const releasePreflight = fs.readFileSync('generated/scripts/check-store-release.ts', 'utf8');
           const expected = process.env.EXPECTED_PROFILE;
           const expectedNavigation = process.env.EXPECTED_NAVIGATION;
           const hasAuth = fs.existsSync('generated/core/auth') && fs.existsSync('generated/app/sign-in.tsx');
@@ -91,6 +96,24 @@ jobs:
           if (hasNotifications !== (expected === 'scheduled')) throw new Error('notification boundary mismatch');
           if (initializesNotifications !== (expected === 'scheduled')) throw new Error('notification initialization boundary mismatch');
           if (!fs.existsSync('generated/.maestro/stopwatch.yaml')) throw new Error('missing native stopwatch flow');
+
+          if (eas.cli?.requireCommit !== true) throw new Error('generated EAS release must require a commit');
+          if (eas.build?.production?.autoIncrement !== true) throw new Error('production build must autoIncrement native versions');
+          if (eas.submit?.internal?.android?.track !== 'internal') throw new Error('internal delivery must target Play internal');
+          if (eas.submit?.internal?.android?.releaseStatus !== 'completed') throw new Error('Play internal delivery must complete its internal release');
+          if (eas.submit?.production?.android?.track !== 'production') throw new Error('production delivery must target Play production');
+          if (eas.submit?.production?.android?.releaseStatus !== 'draft') throw new Error('generated Play production delivery must remain draft');
+          if (release.schemaVersion !== 1 || release.appSlug !== `fixture-${expected}`) throw new Error('missing app-owned release config');
+          if (release.release?.buildProfile !== 'production') throw new Error('release config must build through production profile');
+          if (!packageJson.scripts?.['release:preflight'] || !packageJson.scripts?.['release:qualify'] || !packageJson.scripts?.['release:build']) throw new Error('missing release commands');
+          if (!releaseBuild.includes("'eas',\n      'build'") || !releaseBuild.includes('mobile-release.json')) throw new Error('release build must create exact EAS binary evidence');
+          if (!releasePreflight.includes('submit.internal.ios.ascAppId')) throw new Error('release preflight must require App Store Connect identity');
+
+          const refs = [...mobileRelease.matchAll(/moritzbrantner\/reusable-workflows\/\.github\/workflows\/[A-Za-z0-9._-]+@([0-9a-f]{40})/g)].map((match) => match[1]);
+          if (refs.length !== 3 || new Set(refs).size !== 1) throw new Error('mobile release workflow must pin one exact reusable-workflows revision');
+          if (!mobileRelease.includes('artifact_paths: .artifacts/mobile-release')) throw new Error('mobile release workflow must preserve the mobile release artifact');
+          if (!mobileRelease.includes('build_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('mobile qualification must pass Expo credentials only through build_token');
+          if (!mobileRelease.includes('expo_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('mobile delivery must pass Expo credentials through the terminal delivery seam');
           NODE
 
       - name: Install generated dependencies

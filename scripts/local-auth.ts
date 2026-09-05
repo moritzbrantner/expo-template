@@ -17,6 +17,8 @@ export type StarterAuthConfig = {
 
 export type StarterAuthResult = 'created' | 'existing';
 
+type Environment = Readonly<Record<string, string | undefined>>;
+
 const DEFAULT_API_URL = 'http://localhost:4401';
 const DEFAULT_EMAIL = 'admin@example.test';
 const DEFAULT_PASSWORD = 'expo-template-local';
@@ -55,7 +57,7 @@ async function signIn(
 }
 
 export function readStarterAuthConfig(
-  env: NodeJS.ProcessEnv = process.env,
+  env: Environment = process.env,
 ): StarterAuthConfig {
   return {
     apiUrl: trimTrailingSlash(env.AUTH_STARTER_API_URL?.trim() || DEFAULT_API_URL),

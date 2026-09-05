@@ -1,4 +1,5 @@
 export type MilkType = 'breast-milk' | 'formula';
+export type BottleCareKind = 'bottle-clean' | 'bottle-sterilize';
 
 export type FeedEntry = {
   id: string;
@@ -6,6 +7,7 @@ export type FeedEntry = {
   milkType: MilkType;
   amountMl: number;
   occurredAt: number;
+  bottleUsed: boolean;
 };
 
 export type PumpingEntry = {
@@ -15,7 +17,13 @@ export type PumpingEntry = {
   occurredAt: number;
 };
 
-export type FeedingEntry = FeedEntry | PumpingEntry;
+export type BottleCareEntry = {
+  id: string;
+  kind: BottleCareKind;
+  occurredAt: number;
+};
+
+export type FeedingEntry = FeedEntry | PumpingEntry | BottleCareEntry;
 
 export type FeedingLog = {
   entries: FeedingEntry[];
@@ -39,18 +47,25 @@ function sortEntries(entries: FeedingEntry[]) {
   );
 }
 
-export function addFeed(log: FeedingLog, entry: Omit<FeedEntry, 'kind'>): FeedingLog {
+export function addFeed(
+  log: FeedingLog,
+  entry: Omit<FeedEntry, 'kind' | 'bottleUsed'> & { bottleUsed?: boolean },
+): FeedingLog {
   if (
     !entry.id ||
     (entry.milkType !== 'breast-milk' && entry.milkType !== 'formula') ||
     !isValidAmountMl(entry.amountMl) ||
-    !isValidTimestamp(entry.occurredAt)
+    !isValidTimestamp(entry.occurredAt) ||
+    (entry.bottleUsed !== undefined && typeof entry.bottleUsed !== 'boolean')
   ) {
     return log;
   }
 
   return {
-    entries: sortEntries([...log.entries, { ...entry, kind: 'feed' }]),
+    entries: sortEntries([
+      ...log.entries,
+      { ...entry, bottleUsed: entry.bottleUsed ?? false, kind: 'feed' },
+    ]),
   };
 }
 
@@ -64,6 +79,21 @@ export function addPumping(log: FeedingLog, entry: Omit<PumpingEntry, 'kind'>): 
   };
 }
 
+export function addBottleCare(
+  log: FeedingLog,
+  entry: Omit<BottleCareEntry, 'kind'> & { kind: BottleCareKind },
+): FeedingLog {
+  if (
+    !entry.id ||
+    (entry.kind !== 'bottle-clean' && entry.kind !== 'bottle-sterilize') ||
+    !isValidTimestamp(entry.occurredAt)
+  ) {
+    return log;
+  }
+
+  return { entries: sortEntries([...log.entries, entry]) };
+}
+
 export function removeEntry(log: FeedingLog, id: string): FeedingLog {
   return { entries: log.entries.filter((entry) => entry.id !== id) };
 }
@@ -74,6 +104,28 @@ export function latestFeed(log: FeedingLog): FeedEntry | null {
     if (entry.kind === 'feed') return entry;
   }
   return null;
+}
+
+export function latestBottleCare(log: FeedingLog, kind: BottleCareKind): BottleCareEntry | null {
+  for (let index = log.entries.length - 1; index >= 0; index -= 1) {
+    const entry = log.entries[index];
+    if (entry.kind === kind) return entry;
+  }
+  return null;
+}
+
+export function dirtyBottleCount(log: FeedingLog): number {
+  let dirty = 0;
+
+  for (const entry of sortEntries(log.entries)) {
+    if (entry.kind === 'bottle-clean') {
+      dirty = 0;
+    } else if (entry.kind === 'feed' && entry.bottleUsed) {
+      dirty += 1;
+    }
+  }
+
+  return dirty;
 }
 
 export function formatDateInput(timestamp: number): string {
@@ -118,6 +170,25 @@ export function parseLocalDateTime(dateText: string, timeText: string): number |
   return date.getTime();
 }
 
+export function roundToFiveMinutes(timestamp: number): number {
+  const date = new Date(timestamp);
+  date.setSeconds(0, 0);
+  date.setMinutes(Math.round(date.getMinutes() / 5) * 5);
+  return date.getTime();
+}
+
+export function adjustLocalMinutes(timestamp: number, deltaMinutes: number): number {
+  const date = new Date(timestamp);
+  date.setMinutes(date.getMinutes() + deltaMinutes);
+  return date.getTime();
+}
+
+export function adjustLocalDays(timestamp: number, deltaDays: number): number {
+  const date = new Date(timestamp);
+  date.setDate(date.getDate() + deltaDays);
+  return date.getTime();
+}
+
 export function deserializeFeedingLog(value: string | null): FeedingLog {
   if (!value) return emptyFeedingLog();
 
@@ -125,23 +196,48 @@ export function deserializeFeedingLog(value: string | null): FeedingLog {
     const parsed = JSON.parse(value) as { entries?: unknown };
     if (!Array.isArray(parsed.entries)) return emptyFeedingLog();
 
-    const entries = parsed.entries.filter((candidate): candidate is FeedingEntry => {
-      if (!candidate || typeof candidate !== 'object') return false;
+    const entries = parsed.entries.flatMap<FeedingEntry>((candidate) => {
+      if (!candidate || typeof candidate !== 'object') return [];
       const entry = candidate as Record<string, unknown>;
-      if (
-        typeof entry.id !== 'string' ||
-        !entry.id ||
-        !isValidAmountMl(entry.amountMl) ||
-        !isValidTimestamp(entry.occurredAt)
-      ) {
-        return false;
+      if (typeof entry.id !== 'string' || !entry.id || !isValidTimestamp(entry.occurredAt)) {
+        return [];
       }
 
-      if (entry.kind === 'pumping') return true;
-      return (
+      if (entry.kind === 'bottle-clean' || entry.kind === 'bottle-sterilize') {
+        return [{ id: entry.id, kind: entry.kind, occurredAt: entry.occurredAt }];
+      }
+
+      if (!isValidAmountMl(entry.amountMl)) return [];
+
+      if (entry.kind === 'pumping') {
+        return [
+          {
+            id: entry.id,
+            kind: 'pumping',
+            amountMl: entry.amountMl,
+            occurredAt: entry.occurredAt,
+          },
+        ];
+      }
+
+      if (
         entry.kind === 'feed' &&
-        (entry.milkType === 'breast-milk' || entry.milkType === 'formula')
-      );
+        (entry.milkType === 'breast-milk' || entry.milkType === 'formula') &&
+        (entry.bottleUsed === undefined || typeof entry.bottleUsed === 'boolean')
+      ) {
+        return [
+          {
+            id: entry.id,
+            kind: 'feed',
+            milkType: entry.milkType,
+            amountMl: entry.amountMl,
+            occurredAt: entry.occurredAt,
+            bottleUsed: entry.bottleUsed ?? false,
+          },
+        ];
+      }
+
+      return [];
     });
 
     return { entries: sortEntries(entries) };

@@ -1,4 +1,4 @@
-import { PropsWithChildren, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, useCallback, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
@@ -25,18 +25,11 @@ export function DragConfirm({
   const { hapticsEnabled, minimumTargetSize, palette } = useTouchInteractionConfig();
   const [width, setWidth] = useState(0);
   const [progress, setProgress] = useState(0);
-  const progressRef = useRef(0);
 
-  const update = (next: number) => {
-    const clamped = clampNumber(next, 0, 1);
-    progressRef.current = clamped;
-    setProgress(clamped);
-  };
-
-  const confirm = () => {
+  const confirm = useCallback(() => {
     onConfirm();
     void triggerSemanticHaptic(destructive ? 'warning' : 'success', hapticsEnabled);
-  };
+  }, [destructive, hapticsEnabled, onConfirm]);
 
   const gesture = useMemo(
     () =>
@@ -44,17 +37,18 @@ export function DragConfirm({
         .maxPointers(1)
         .minDistance(0)
         .runOnJS(true)
-        .onUpdate((event) => update(width <= 0 ? 0 : event.x / width))
-        .onEnd(() => {
-          if (progressRef.current >= threshold) {
+        .onUpdate((event) => setProgress(clampNumber(width <= 0 ? 0 : event.x / width, 0, 1)))
+        .onEnd((event) => {
+          const completedProgress = clampNumber(width <= 0 ? 0 : event.x / width, 0, 1);
+          if (completedProgress >= threshold) {
             confirm();
-          } else if (progressRef.current > 0) {
+          } else if (completedProgress > 0) {
             void triggerSemanticHaptic('reject', hapticsEnabled);
           }
-          update(0);
+          setProgress(0);
         })
-        .onFinalize(() => update(0)),
-    [width, threshold, destructive, hapticsEnabled, onConfirm],
+        .onFinalize(() => setProgress(0)),
+    [confirm, hapticsEnabled, threshold, width],
   );
 
   const knobSize = minimumTargetSize;
@@ -118,10 +112,10 @@ type GestureUndoProps = PropsWithChildren<{
 export function GestureUndo({ children, onUndo, label = 'Undo', style }: GestureUndoProps) {
   const { hapticsEnabled, minimumTargetSize, palette } = useTouchInteractionConfig();
 
-  const undo = () => {
+  const undo = useCallback(() => {
     onUndo();
     void triggerSemanticHaptic('snap', hapticsEnabled);
-  };
+  }, [hapticsEnabled, onUndo]);
 
   const gesture = useMemo(
     () =>
@@ -133,7 +127,7 @@ export function GestureUndo({ children, onUndo, label = 'Undo', style }: Gesture
             undo();
           }
         }),
-    [onUndo, hapticsEnabled],
+    [undo],
   );
 
   return (

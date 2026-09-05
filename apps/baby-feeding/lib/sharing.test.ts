@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { addBottleCare, addFeed, addPumping, emptyFeedingLog } from './feeding';
+import { addBottleCare, addBreastfeeding, addFeed, addPumping, emptyFeedingLog } from './feeding';
 import {
   buildSharedFeedingUrl,
   decodeSharedFeedingLog,
@@ -19,6 +19,7 @@ function populatedLog() {
     occurredAt: 10_000,
     bottleUsed: true,
   });
+  log = addBreastfeeding(log, { id: 'nursing-1', occurredAt: 15_000 });
   log = addPumping(log, { id: 'pump-1', amountMl: 120, occurredAt: 20_000 });
   log = addBottleCare(log, { id: 'clean-1', kind: 'bottle-clean', occurredAt: 30_000 });
   return addBottleCare(log, {
@@ -46,10 +47,28 @@ test('builds a public Pages URL whose query parameter restores the snapshot', ()
   assert.deepEqual(decodeSharedFeedingLog(encodedState), log);
 });
 
+test('keeps version-one share links readable after adding direct breastfeeding records', () => {
+  const legacy = JSON.stringify([
+    1,
+    [
+      ['f', 'feed', 10_000, 90, 'f', 1],
+      ['p', 'pump', 20_000, 110],
+      ['c', 'clean', 30_000],
+    ],
+  ]);
+
+  assert.deepEqual(decodeSharedFeedingLog(legacy)?.entries.map((entry) => entry.kind), [
+    'feed',
+    'pumping',
+    'bottle-clean',
+  ]);
+});
+
 test('rejects malformed, unsupported, or partially invalid shared snapshots', () => {
   assert.equal(decodeSharedFeedingLog(null), null);
   assert.equal(decodeSharedFeedingLog('{broken'), null);
-  assert.equal(decodeSharedFeedingLog(JSON.stringify([2, []])), null);
-  assert.equal(decodeSharedFeedingLog(JSON.stringify([1, [['f', '', 1, 90, 'b', 1]]])), null);
-  assert.equal(decodeSharedFeedingLog(JSON.stringify([1, [['unknown', 'x', 1]]])), null);
+  assert.equal(decodeSharedFeedingLog(JSON.stringify([3, []])), null);
+  assert.equal(decodeSharedFeedingLog(JSON.stringify([2, [['f', '', 1, 90, 'b', 1]]])), null);
+  assert.equal(decodeSharedFeedingLog(JSON.stringify([1, [['n', 'nursing', 1]]])), null);
+  assert.equal(decodeSharedFeedingLog(JSON.stringify([2, [['unknown', 'x', 1]]])), null);
 });

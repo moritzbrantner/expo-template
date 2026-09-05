@@ -4,13 +4,20 @@ export const BABY_FEEDING_STORAGE_KEY = '@expo-template/baby-feeding/log-v1';
 export const SHARE_QUERY_PARAM = 'state';
 export const SHARE_BASE_URL = 'https://moritzbrantner.github.io/expo-template/baby-feeding/';
 
-const SHARE_VERSION = 1;
+const SHARE_VERSION = 2;
 
 type CompactFeedEntry = ['f', string, number, number, 'b' | 'f', 0 | 1];
+type CompactBreastfeedingEntry = ['n', string, number];
 type CompactPumpingEntry = ['p', string, number, number];
 type CompactBottleCareEntry = ['c' | 's', string, number];
-type CompactEntry = CompactFeedEntry | CompactPumpingEntry | CompactBottleCareEntry;
-type SharePayload = [typeof SHARE_VERSION, CompactEntry[]];
+type CompactEntry =
+  | CompactFeedEntry
+  | CompactBreastfeedingEntry
+  | CompactPumpingEntry
+  | CompactBottleCareEntry;
+type SharePayloadV1 = [1, Exclude<CompactEntry, CompactBreastfeedingEntry>[]];
+type SharePayloadV2 = [typeof SHARE_VERSION, CompactEntry[]];
+type SharePayload = SharePayloadV1 | SharePayloadV2;
 
 function compactEntry(entry: FeedingEntry): CompactEntry {
   if (entry.kind === 'feed') {
@@ -24,6 +31,10 @@ function compactEntry(entry: FeedingEntry): CompactEntry {
     ];
   }
 
+  if (entry.kind === 'breastfeeding') {
+    return ['n', entry.id, entry.occurredAt];
+  }
+
   if (entry.kind === 'pumping') {
     return ['p', entry.id, entry.occurredAt, entry.amountMl];
   }
@@ -31,7 +42,7 @@ function compactEntry(entry: FeedingEntry): CompactEntry {
   return [entry.kind === 'bottle-clean' ? 'c' : 's', entry.id, entry.occurredAt];
 }
 
-function expandEntry(candidate: unknown): FeedingEntry | null {
+function expandEntry(candidate: unknown, version: 1 | 2): FeedingEntry | null {
   if (!Array.isArray(candidate) || typeof candidate[0] !== 'string') return null;
 
   if (candidate[0] === 'f') {
@@ -53,6 +64,23 @@ function expandEntry(candidate: unknown): FeedingEntry | null {
       amountMl: candidate[3],
       milkType: candidate[4] === 'b' ? 'breast-milk' : 'formula',
       bottleUsed: candidate[5] === 1,
+    };
+  }
+
+  if (candidate[0] === 'n') {
+    if (
+      version !== 2 ||
+      candidate.length !== 3 ||
+      typeof candidate[1] !== 'string' ||
+      typeof candidate[2] !== 'number'
+    ) {
+      return null;
+    }
+
+    return {
+      id: candidate[1],
+      kind: 'breastfeeding',
+      occurredAt: candidate[2],
     };
   }
 
@@ -94,7 +122,7 @@ function expandEntry(candidate: unknown): FeedingEntry | null {
 }
 
 export function encodeSharedFeedingLog(log: FeedingLog): string {
-  const payload: SharePayload = [SHARE_VERSION, log.entries.map(compactEntry)];
+  const payload: SharePayloadV2 = [SHARE_VERSION, log.entries.map(compactEntry)];
   return JSON.stringify(payload);
 }
 
@@ -112,10 +140,13 @@ export function decodeSharedFeedingLog(value: unknown): FeedingLog | null {
     }
   }
 
-  if (!Array.isArray(parsed) || parsed.length !== 2 || parsed[0] !== SHARE_VERSION) return null;
+  if (!Array.isArray(parsed) || parsed.length !== 2) return null;
+  if (parsed[0] !== 1 && parsed[0] !== SHARE_VERSION) return null;
   if (!Array.isArray(parsed[1])) return null;
 
-  const expanded = parsed[1].map(expandEntry);
+  const payload = parsed as SharePayload;
+  const version = payload[0];
+  const expanded = payload[1].map((candidate) => expandEntry(candidate, version));
   if (expanded.some((entry) => entry === null)) return null;
 
   const entries = expanded.filter((entry): entry is FeedingEntry => entry !== null);

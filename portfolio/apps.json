@@ -66,6 +66,14 @@
       "source": "apps/baby-feeding"
     },
     {
+      "slug": "baby-clothes",
+      "name": "Baby Clothes",
+      "description": "A private local-first catalog for baby-clothing photos, printed and normalized sizes, grouped quantities, and lifecycle state.",
+      "category": "Family",
+      "status": "preview",
+      "source": "apps/baby-clothes"
+    },
+    {
       "slug": "flashlight",
       "name": "Flashlight",
       "description": "A deliberately tiny flashlight utility with no unnecessary account or tracking.",

@@ -72,23 +72,27 @@ export async function checkStoreRelease() {
   }
 
   const internal = eas.submit?.[release.release.internalSubmitProfile];
-  if (internal?.android?.track !== 'internal' || internal.android.releaseStatus !== 'completed') {
+  const internalAndroid = internal?.android;
+  if (internalAndroid?.track !== 'internal' || internalAndroid.releaseStatus !== 'completed') {
     throw new Error('the internal Android submit profile must target the completed internal track');
   }
-  requireValue(internal?.ios?.ascAppId, 'submit.internal.ios.ascAppId');
-  if (!/^\d+$/.test(internal.ios.ascAppId)) {
+  const internalIosAscAppId = internal?.ios?.ascAppId;
+  requireValue(internalIosAscAppId, 'submit.internal.ios.ascAppId');
+  if (!/^\d+$/.test(internalIosAscAppId)) {
     throw new Error('submit.internal.ios.ascAppId must be the numeric App Store Connect app ID');
   }
 
   const production = eas.submit?.[release.release.productionSubmitProfile];
-  if (production?.android?.track !== 'production') {
+  const productionAndroid = production?.android;
+  if (productionAndroid?.track !== 'production') {
     throw new Error('the production Android submit profile must target the production track');
   }
-  if (production.android.releaseStatus !== 'draft') {
+  if (productionAndroid.releaseStatus !== 'draft') {
     throw new Error('the generated production Android submit profile must remain draft until rollout is explicitly authorized');
   }
-  requireValue(production?.ios?.ascAppId, 'submit.production.ios.ascAppId');
-  if (production.ios.ascAppId !== internal.ios.ascAppId) {
+  const productionIosAscAppId = production?.ios?.ascAppId;
+  requireValue(productionIosAscAppId, 'submit.production.ios.ascAppId');
+  if (productionIosAscAppId !== internalIosAscAppId) {
     throw new Error('internal and production iOS submit profiles must target the same App Store Connect app');
   }
 

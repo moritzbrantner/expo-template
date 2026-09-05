@@ -84,6 +84,29 @@ test('root layout installs the gesture-handler ownership boundary', () => {
   assert.match(rootLayout, /style=\{\{ flex: 1 \}\}/);
 });
 
+test('press-only interactions expose atomic accessibility activation', () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const source = readFileSync(path.join(repoRoot, 'components', 'touch', 'press-controls.tsx'), 'utf8');
+  const repeatButton = source.slice(
+    source.indexOf('export function RepeatButton'),
+    source.indexOf('type HoldActionProps'),
+  );
+  const holdAction = source.slice(
+    source.indexOf('export function HoldAction'),
+    source.indexOf('type StepControlProps'),
+  );
+
+  for (const control of [repeatButton, holdAction]) {
+    assert.match(control, /accessibilityActions=\{\[\{ name: 'activate'/);
+    assert.match(control, /onAccessibilityAction=/);
+    assert.match(control, /actionName === 'activate'/);
+    assert.match(control, /!disabled/);
+  }
+
+  assert.match(repeatButton, /invoke\(\);/);
+  assert.match(holdAction, /activate\(\);/);
+});
+
 test('touch layer exports every interaction family and documents visible fallbacks', () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const indexSource = readFileSync(path.join(repoRoot, 'components', 'touch', 'index.ts'), 'utf8');

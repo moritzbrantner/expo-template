@@ -56,8 +56,9 @@ jobs:
 
           if (packageJson.packageManager !== 'bun@1.3.12') throw new Error('converter Bun version must be exact');
           if (packageJson.devDependencies?.['@types/bun'] !== '1.3.12') throw new Error('converter Bun release scripts must pin matching Bun types');
-          if (rootPackageJson.packageManager !== packageJson.packageManager || rootPackageJson.devDependencies?.['@types/bun'] !== packageJson.devDependencies?.['@types/bun']) throw new Error('root and converter Bun runtime/type versions must remain aligned');
-          if (!rootTsconfig.compilerOptions?.types?.includes('bun')) throw new Error('repository-wide TypeScript validation must load Bun globals');
+          if (rootPackageJson.packageManager !== packageJson.packageManager) throw new Error('root and converter Bun runtime versions must remain aligned');
+          if (rootPackageJson.devDependencies?.['@types/bun']) throw new Error('Bun global types must remain converter-owned');
+          if (!Array.isArray(rootTsconfig.exclude) || !rootTsconfig.exclude.includes('apps/converter')) throw new Error('root TypeScript validation must delegate the converter project to its own contract');
           if (!tsconfig.compilerOptions?.types?.includes('bun')) throw new Error('converter TypeScript config must load Bun globals for release scripts');
           if (eas.cli?.version !== '23.2.0' || eas.cli?.requireCommit !== true) throw new Error('converter EAS CLI/source policy drifted');
           if (eas.build?.production?.autoIncrement !== true) throw new Error('converter production builds must autoIncrement');

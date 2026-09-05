@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": "23.2.0",
+    "requireCommit": true
   },
   "build": {
     "development": {
@@ -12,6 +13,22 @@
     },
     "production": {
       "autoIncrement": true
+    }
+  },
+  "submit": {
+    "internal": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed"
+      },
+      "ios": {}
+    },
+    "production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "draft"
+      },
+      "ios": {}
     }
   }
 }

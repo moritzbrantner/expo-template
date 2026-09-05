@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { ThemeModeProvider, useThemeMode } from '@/hooks/theme-mode';
@@ -39,8 +40,10 @@ function AppNavigator() {
 
 export default function RootLayout() {
   return (
-    <ThemeModeProvider>
-      <AppNavigator />
-    </ThemeModeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeModeProvider>
+        <AppNavigator />
+      </ThemeModeProvider>
+    </GestureHandlerRootView>
   );
 }

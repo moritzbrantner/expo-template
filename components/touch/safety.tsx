@@ -120,7 +120,7 @@ export function GestureUndo({ children, onUndo, label = 'Undo', style }: Gesture
   const gesture = useMemo(
     () =>
       Gesture.Tap()
-        .numberOfPointers(2)
+        .minPointers(2)
         .runOnJS(true)
         .onEnd((_event, success) => {
           if (success) {

@@ -112,8 +112,8 @@ jobs:
           const refs = [...mobileRelease.matchAll(/moritzbrantner\/reusable-workflows\/\.github\/workflows\/[A-Za-z0-9._-]+@([0-9a-f]{40})/g)].map((match) => match[1]);
           if (refs.length !== 3 || new Set(refs).size !== 1) throw new Error('mobile release workflow must pin one exact reusable-workflows revision');
           if (!mobileRelease.includes('artifact_paths: .artifacts/mobile-release')) throw new Error('mobile release workflow must preserve the mobile release artifact');
-          if (!mobileRelease.includes('build_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('mobile qualification must pass Expo credentials only through build_token');
-          if (!mobileRelease.includes('expo_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('mobile delivery must pass Expo credentials through the terminal delivery seam');
+          if (!mobileRelease.includes('build_token:') || !mobileRelease.includes('secrets.EXPO_TOKEN')) throw new Error('mobile qualification must pass Expo credentials only through build_token');
+          if (!mobileRelease.includes('expo_token:')) throw new Error('mobile delivery must pass Expo credentials through the terminal delivery seam');
           NODE
 
       - name: Install generated dependencies

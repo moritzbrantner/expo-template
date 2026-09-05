@@ -120,6 +120,7 @@ async function main() {
       '--profile',
       buildProfile,
       '--freeze-credentials',
+      '--non-interactive',
       '--wait',
       '--json',
     ],

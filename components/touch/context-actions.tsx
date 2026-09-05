@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactNode, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, ReactNode, useCallback, useMemo, useState } from 'react';
 import {
   GestureResponderEvent,
   Pressable,
@@ -45,13 +45,16 @@ export function SwipeActions({
   const [translation, setTranslation] = useState(0);
   const [showFallback, setShowFallback] = useState(false);
 
-  const invoke = (action: SwipeAction | undefined) => {
-    if (!action) {
-      return;
-    }
-    action.onPress();
-    void triggerSemanticHaptic(action.destructive ? 'warning' : 'snap', hapticsEnabled);
-  };
+  const invoke = useCallback(
+    (action: SwipeAction | undefined) => {
+      if (!action) {
+        return;
+      }
+      action.onPress();
+      void triggerSemanticHaptic(action.destructive ? 'warning' : 'snap', hapticsEnabled);
+    },
+    [hapticsEnabled],
+  );
 
   const gesture = useMemo(
     () =>
@@ -68,7 +71,7 @@ export function SwipeActions({
           setTranslation(0);
         })
         .onFinalize(() => setTranslation(0)),
-    [threshold, leftAction, rightAction, hapticsEnabled],
+    [invoke, leftAction, rightAction, threshold],
   );
 
   return (
@@ -154,32 +157,18 @@ export function RadialMenu({
   const [open, setOpen] = useState(false);
   const [center, setCenter] = useState<TouchPoint>({ x: 0, y: 0 });
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const centerRef = useRef<TouchPoint>({ x: 0, y: 0 });
-  const selectedRef = useRef<number | null>(null);
 
-  const select = (index: number | null) => {
-    if (index !== selectedRef.current) {
-      selectedRef.current = index;
-      setSelectedIndex(index);
-      if (index !== null) {
-        void triggerSemanticHaptic('tick', hapticsEnabled);
+  const invoke = useCallback(
+    (index: number) => {
+      const action = actions[index];
+      if (!action) {
+        return;
       }
-    }
-  };
-
-  const close = () => {
-    setOpen(false);
-    select(null);
-  };
-
-  const invoke = (index: number) => {
-    const action = actions[index];
-    if (!action) {
-      return;
-    }
-    action.onPress();
-    void triggerSemanticHaptic(action.destructive ? 'warning' : 'snap', hapticsEnabled);
-  };
+      action.onPress();
+      void triggerSemanticHaptic(action.destructive ? 'warning' : 'snap', hapticsEnabled);
+    },
+    [actions, hapticsEnabled],
+  );
 
   const gesture = useMemo(
     () =>
@@ -189,29 +178,26 @@ export function RadialMenu({
         .activateAfterLongPress(activationDelayMs)
         .runOnJS(true)
         .onBegin((event) => {
-          const next = { x: event.x, y: event.y };
-          centerRef.current = next;
-          setCenter(next);
+          setCenter({ x: event.x, y: event.y });
+          setSelectedIndex(null);
           setOpen(true);
         })
         .onUpdate((event) => {
-          select(
-            radialActionIndex(
-              event.x - centerRef.current.x,
-              event.y - centerRef.current.y,
-              actions.length,
-            ),
-          );
+          setSelectedIndex(radialActionIndex(event.translationX, event.translationY, actions.length));
         })
-        .onEnd(() => {
-          const index = selectedRef.current;
+        .onEnd((event) => {
+          const index = radialActionIndex(event.translationX, event.translationY, actions.length);
           if (index !== null) {
             invoke(index);
           }
-          close();
+          setOpen(false);
+          setSelectedIndex(null);
         })
-        .onFinalize(close),
-    [actions, activationDelayMs, hapticsEnabled],
+        .onFinalize(() => {
+          setOpen(false);
+          setSelectedIndex(null);
+        }),
+    [actions.length, activationDelayMs, invoke],
   );
 
   return (
@@ -248,11 +234,11 @@ export function RadialMenu({
           })
         : null}
       <View style={styles.radialFallback}>
-        {actions.map((action) => (
+        {actions.map((action, index) => (
           <Pressable
             key={action.key}
             accessibilityRole="button"
-            onPress={() => invoke(actions.indexOf(action))}
+            onPress={() => invoke(index)}
             style={[
               styles.radialFallbackButton,
               {
@@ -349,10 +335,10 @@ export function EdgeHandle({
   const { hapticsEnabled, minimumTargetSize, palette } = useTouchInteractionConfig();
   const direction = edge === 'left' ? 1 : -1;
 
-  const activate = () => {
+  const activate = useCallback(() => {
     onOpen();
     void triggerSemanticHaptic('snap', hapticsEnabled);
-  };
+  }, [hapticsEnabled, onOpen]);
 
   const gesture = useMemo(
     () =>
@@ -364,7 +350,7 @@ export function EdgeHandle({
             activate();
           }
         }),
-    [direction, threshold, onOpen, hapticsEnabled],
+    [activate, direction, threshold],
   );
 
   return (
@@ -407,10 +393,13 @@ export function FlickSurface({
 }: FlickSurfaceProps) {
   const { hapticsEnabled, minimumTargetSize, palette } = useTouchInteractionConfig();
 
-  const invoke = (direction: 'left' | 'right' | 'up' | 'down') => {
-    onFlick(direction);
-    void triggerSemanticHaptic('snap', hapticsEnabled);
-  };
+  const invoke = useCallback(
+    (direction: 'left' | 'right' | 'up' | 'down') => {
+      onFlick(direction);
+      void triggerSemanticHaptic('snap', hapticsEnabled);
+    },
+    [hapticsEnabled, onFlick],
+  );
 
   const gesture = useMemo(
     () =>
@@ -427,7 +416,7 @@ export function FlickSurface({
             invoke(event.velocityY >= 0 ? 'down' : 'up');
           }
         }),
-    [threshold, onFlick, hapticsEnabled],
+    [invoke, threshold],
   );
 
   return (

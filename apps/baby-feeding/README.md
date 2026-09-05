@@ -5,11 +5,15 @@ A private local-first log for baby feeds and pumping sessions, based on the pape
 ## MVP contract
 
 - Record a feed with its time, amount in millilitres, and milk source: breast milk or formula.
+- Make common recording operations tap-first: adjust millilitres with +/- buttons, adjust time by +/-5 minutes or +/-1 hour, and adjust the date without opening the keyboard.
+- Open a dedicated calendar/time selector only when the displayed date or time is tapped directly.
 - Record pumping/expression sessions separately so expressed volume is not confused with what the baby drank.
-- Keep the most recent feed visible without turning the screen into a dashboard of counters.
+- Mark whether a feed used a bottle and derive the current dirty-bottle count from bottle-used feeds since the latest cleaning event.
+- Record bottle cleaning and sterilization as timestamped log events, including whether sterilization has been recorded since the latest cleaning.
+- Keep the most recent feed visible without turning the screen into a dashboard of decorative counters.
 - Show a chronological daily log and allow individual records to be deleted.
 - Persist the log on-device with AsyncStorage; no account, cloud sync, analytics, or advertising is required.
-- Treat the app as a recorder, not as medical advice or a feeding recommendation system.
+- Treat the app as a recorder, not as medical advice, a feeding recommendation system, or a hard-coded sterilization schedule.
 
 ## Run
 

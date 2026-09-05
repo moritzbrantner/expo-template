@@ -58,6 +58,14 @@
       "source": "apps/contractions"
     },
     {
+      "slug": "baby-feeding",
+      "name": "Baby Feeding",
+      "description": "A private local-first log for breast-milk and formula feeds, bottle amounts, times, and pumping sessions.",
+      "category": "Family",
+      "status": "preview",
+      "source": "apps/baby-feeding"
+    },
+    {
       "slug": "flashlight",
       "name": "Flashlight",
       "description": "A deliberately tiny flashlight utility with no unnecessary account or tracking.",

@@ -1,0 +1,80 @@
+name: Converter Release Contract
+
+on:
+  pull_request:
+    paths:
+      - apps/converter/**
+      - .github/workflows/converter-mobile-release.yml
+      - .github/workflows/converter-release-contract.yml
+  push:
+    branches:
+      - main
+    paths:
+      - apps/converter/**
+      - .github/workflows/converter-mobile-release.yml
+      - .github/workflows/converter-release-contract.yml
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/converter
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install frozen converter dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify deterministic converter source
+        run: bun run verify
+
+      - name: Verify immutable release structure
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          const release = JSON.parse(fs.readFileSync('release.config.json', 'utf8'));
+          const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const workflow = fs.readFileSync('../../.github/workflows/converter-mobile-release.yml', 'utf8');
+          const buildScript = fs.readFileSync('scripts/build-store-release.ts', 'utf8');
+
+          if (packageJson.packageManager !== 'bun@1.3.12') throw new Error('converter Bun version must be exact');
+          if (eas.cli?.version !== '23.2.0' || eas.cli?.requireCommit !== true) throw new Error('converter EAS CLI/source policy drifted');
+          if (eas.build?.production?.autoIncrement !== true) throw new Error('converter production builds must autoIncrement');
+          if (eas.submit?.internal?.android?.track !== 'internal' || eas.submit?.internal?.android?.releaseStatus !== 'completed') throw new Error('converter internal Play profile drifted');
+          if (eas.submit?.production?.android?.track !== 'production' || eas.submit?.production?.android?.releaseStatus !== 'draft') throw new Error('converter production Play profile must remain draft');
+          if (release.schemaVersion !== 1 || release.appSlug !== 'converter') throw new Error('converter release metadata contract drifted');
+          if (release.release?.buildProfile !== 'production') throw new Error('converter release must build through production profile');
+          if (!packageJson.scripts?.['release:preflight'] || !packageJson.scripts?.['release:qualify'] || !packageJson.scripts?.['release:build']) throw new Error('converter release scripts are incomplete');
+          if (!buildScript.includes("'--freeze-credentials'") || !buildScript.includes("'--non-interactive'") || !buildScript.includes('mobile-release.json')) throw new Error('converter build must preserve exact EAS binary evidence');
+
+          const refs = [...workflow.matchAll(/moritzbrantner\/reusable-workflows\/\.github\/workflows\/[A-Za-z0-9._-]+@([0-9a-f]{40})/g)].map((match) => match[1]);
+          if (refs.length !== 3 || new Set(refs).size !== 1) throw new Error('converter release workflow must pin one exact reusable-workflows revision');
+          if (!workflow.includes('working_directory: apps/converter')) throw new Error('converter release workflow must execute in the converter project');
+          if (!workflow.includes('artifact_paths: apps/converter/.artifacts/mobile-release')) throw new Error('converter release workflow must preserve the exact app-local artifact');
+          if (!workflow.includes('build_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('converter build credential must use the opaque build seam');
+          if (!workflow.includes('expo_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('converter delivery credential must use the terminal delivery seam');
+          NODE
+
+      - name: Verify unresolved owner setup fails closed
+        run: |
+          set +e
+          output="$(bun run release:preflight 2>&1)"
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "Converter store identity is fully configured; preflight is green."
+            exit 0
+          fi
+
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | grep -Eq \
+            'configure a permanent iOS bundleIdentifier|configure a permanent Android package|link the app to EAS|submit\.internal\.ios\.ascAppId|submit\.production\.ios\.ascAppId|supportUrl|privacyUrl'

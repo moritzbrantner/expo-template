@@ -17,6 +17,8 @@
     "dev": "expo start --port 4002",
     "dev:api:up": "docker compose up -d dev-api",
     "dev:api:down": "docker compose stop dev-api",
+    "dev:auth:up": "bun ./scripts/start-local-auth.ts",
+    "dev:auth:down": "docker compose stop auth-api mailpit",
     "build": "expo export --platform web",
     "test": "bun test ./tests",
     "test:unit": "bun test ./tests/unit.test.ts",

@@ -13,32 +13,60 @@ Expo Router platform scaffold for auth, authz, social discovery, public profiles
 
 ## Get started
 
-Install dependencies:
+Install dependencies and create the local environment file:
 
 ```bash
 bun install
-```
-
-Create a local env file from the tracked example:
-
-```bash
 cp .env.example .env
 ```
 
-Run the app only:
+Start the local auth stack and create or verify the starter account:
+
+```bash
+bun run dev:auth:up
+```
+
+Then start Expo in another terminal:
+
+```bash
+bun web
+```
+
+The tracked starter configuration is intentionally local-only. After copying `.env.example`, sign in with:
+
+```text
+Email:    admin@example.test
+Password: expo-template-local
+```
+
+`dev:auth:up` is idempotent: it reuses the account when those credentials already work, creates it on a fresh auth volume, and fails instead of overwriting an existing account with different credentials.
+
+To customize the starter identity, change the `AUTH_STARTER_*` values in `.env` before running `dev:auth:up`.
+
+`EXPO_PUBLIC_AUTH_API_URL` is the URL used by the Expo client. `http://localhost:4401` works for web and the iOS simulator. For the Android emulator use `http://10.0.2.2:4401`; for a physical device use the development machine's reachable LAN address.
+
+`AUTH_STARTER_API_URL` is separate and host-side only. Leave it at `http://localhost:4401` for the normal Docker Compose setup even when the Expo client needs an emulator or LAN URL.
+
+Run the app without starting local services when you only need the client shell:
 
 ```bash
 bun start
 ```
 
-Run the app against the local auth stack:
+Stop the auth services while preserving the local account:
 
 ```bash
-bun test:e2e:services:up
-EXPO_PUBLIC_AUTH_API_URL=http://localhost:4401 bun web
+bun run dev:auth:down
 ```
 
-Rebuild the auth stack only when Dockerfiles or service dependencies change:
+If you intentionally need a clean auth store, remove the local Compose volume and bootstrap again:
+
+```bash
+docker compose down -v
+bun run dev:auth:up
+```
+
+Rebuild the complete local service stack only when Dockerfiles or service dependencies change:
 
 ```bash
 bun test:e2e:services:rebuild
@@ -50,11 +78,10 @@ Run the optional seeded fixture service:
 bun dev:api:up
 ```
 
-Stop services when finished:
+Stop that fixture service when finished:
 
 ```bash
 bun dev:api:down
-bun test:e2e:services:down
 ```
 
 ## Auth stack
@@ -80,6 +107,7 @@ The Expo app uses `auth-api` as the canonical scaffold backend:
 Useful manual checks:
 
 ```bash
+curl http://localhost:4401/health
 curl http://localhost:4401/profiles
 curl http://localhost:4401/profiles/<username>
 ```
@@ -87,6 +115,7 @@ curl http://localhost:4401/profiles/<username>
 Run the browser smoke/auth suite with:
 
 ```bash
+bun test:e2e:services:up
 bun test:e2e
 ```
 

@@ -59,6 +59,7 @@ export type BabyClothingEntry = {
   name: string;
   category: BabyClothingCategory;
   brand: string;
+  color: string;
   originalSizeLabel: string;
   normalizedSize: BabyClothingSizeRange | null;
   entryType: BabyClothingEntryType;
@@ -82,11 +83,14 @@ export type BabyClothingDraft = Pick<
   | 'status'
   | 'notes'
 > & {
+  color?: string;
   photos: readonly BabyClothingPhoto[];
 };
 
 export type BabyClothingPatch = Partial<BabyClothingDraft>;
 export type BabyClothingStatusFilter = BabyClothingStatus | 'all';
+
+type StoredBabyClothingEntry = Omit<BabyClothingEntry, 'color'> & { color?: string };
 
 export function normalizeBabyClothingText(value: string) {
   return value.normalize('NFKC').trim().replace(/\s+/gu, ' ');
@@ -235,6 +239,7 @@ export function createBabyClothingEntry(
     name,
     category: draft.category,
     brand: normalizeOptionalText(draft.brand),
+    color: normalizeOptionalText(draft.color ?? ''),
     originalSizeLabel: normalizeOptionalText(draft.originalSizeLabel),
     normalizedSize: normalizeSizeRange(draft.normalizedSize),
     entryType: draft.entryType,
@@ -257,6 +262,7 @@ export function updateBabyClothingEntry(
       name: patch.name ?? entry.name,
       category: patch.category ?? entry.category,
       brand: patch.brand ?? entry.brand,
+      color: patch.color === undefined ? entry.color : patch.color,
       originalSizeLabel: patch.originalSizeLabel ?? entry.originalSizeLabel,
       normalizedSize:
         patch.normalizedSize === undefined ? entry.normalizedSize : patch.normalizedSize,
@@ -273,11 +279,11 @@ export function updateBabyClothingEntry(
   return { ...updated, createdAt: entry.createdAt };
 }
 
-function isStoredEntry(value: unknown): value is BabyClothingEntry {
+function isStoredEntry(value: unknown): value is StoredBabyClothingEntry {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const entry = value as Partial<BabyClothingEntry>;
+  const entry = value as Partial<StoredBabyClothingEntry>;
 
   return (
     typeof entry.id === 'string' &&
@@ -286,6 +292,7 @@ function isStoredEntry(value: unknown): value is BabyClothingEntry {
     normalizeBabyClothingText(entry.name).length > 0 &&
     isCategory(entry.category) &&
     typeof entry.brand === 'string' &&
+    (entry.color === undefined || typeof entry.color === 'string') &&
     typeof entry.originalSizeLabel === 'string' &&
     (entry.normalizedSize === null || isSizeRange(entry.normalizedSize)) &&
     isEntryType(entry.entryType) &&
@@ -317,6 +324,7 @@ export function deserializeBabyClothingEntries(value: string | null): BabyClothi
       id: normalizeBabyClothingText(entry.id),
       name: normalizeBabyClothingText(entry.name),
       brand: normalizeOptionalText(entry.brand),
+      color: normalizeOptionalText(entry.color ?? ''),
       originalSizeLabel: normalizeOptionalText(entry.originalSizeLabel),
       normalizedSize: normalizeSizeRange(entry.normalizedSize),
       quantity: normalizeQuantity(entry.entryType, entry.quantity),
@@ -376,6 +384,7 @@ export function filterBabyClothingEntries(
         entry.name,
         entry.category,
         entry.brand,
+        entry.color,
         entry.originalSizeLabel,
         entry.status,
         entry.notes,

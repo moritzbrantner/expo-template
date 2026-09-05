@@ -5,8 +5,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateTimePickerModal } from '../components/DateTimePickerModal';
+import { FeedingModeSetup } from '../components/FeedingModeSetup';
 import {
   addBottleCare,
+  addBreastfeeding,
   addFeed,
   addPumping,
   adjustLocalDays,
@@ -21,12 +23,20 @@ import {
   roundToFiveMinutes,
   type BottleCareKind,
   type FeedingEntry,
+  type FeedingEventEntry,
   type MilkType,
 } from '../lib/feeding';
+import {
+  deserializeFeedingPreferences,
+  FEEDING_PREFERENCES_STORAGE_KEY,
+  feedingModeEnabled,
+  type FeedingMode,
+  type FeedingPreferences,
+} from '../lib/preferences';
 
 const STORAGE_KEY = '@expo-template/baby-feeding/log-v1';
 
-type EntryMode = 'feed' | 'pumping';
+type EntryMode = 'breastfeeding' | 'feed' | 'pumping';
 type PickerMode = 'date' | 'time';
 
 type ChoiceButtonProps = {
@@ -108,7 +118,31 @@ function milkLabel(milkType: MilkType) {
   return milkType === 'breast-milk' ? 'Breast milk' : 'Formula';
 }
 
+function entryModeForFeedingMode(mode: FeedingMode): EntryMode {
+  if (mode === 'breastfeeding') return 'breastfeeding';
+  if (mode === 'bottle') return 'feed';
+  return 'pumping';
+}
+
+function entryModeLabel(mode: EntryMode) {
+  if (mode === 'breastfeeding') return 'Breastfeeding';
+  if (mode === 'feed') return 'Bottle';
+  return 'Pumping';
+}
+
+function feedingModeLabel(mode: FeedingMode) {
+  if (mode === 'breastfeeding') return 'Breastfeeding';
+  if (mode === 'bottle') return 'Bottle';
+  return 'Pumping';
+}
+
+function latestFeedMeta(entry: FeedingEventEntry) {
+  if (entry.kind === 'breastfeeding') return 'Direct breastfeeding';
+  return `${milkLabel(entry.milkType)} · ${entry.amountMl} ml`;
+}
+
 function entryTitle(entry: FeedingEntry) {
+  if (entry.kind === 'breastfeeding') return 'Breastfeeding';
   if (entry.kind === 'feed') return milkLabel(entry.milkType);
   if (entry.kind === 'pumping') return 'Pumping';
   if (entry.kind === 'bottle-clean') return 'Bottles cleaned';
@@ -116,6 +150,7 @@ function entryTitle(entry: FeedingEntry) {
 }
 
 function entryMeta(entry: FeedingEntry) {
+  if (entry.kind === 'breastfeeding') return 'Direct breastfeeding';
   if (entry.kind === 'feed') {
     return `${entry.amountMl} ml${entry.bottleUsed ? ' · bottle used' : ''}`;
   }
@@ -125,30 +160,46 @@ function entryMeta(entry: FeedingEntry) {
 }
 
 function entryDeleteLabel(entry: FeedingEntry) {
-  if (entry.kind === 'feed') return 'feed';
+  if (entry.kind === 'breastfeeding') return 'breastfeeding';
+  if (entry.kind === 'feed') return 'bottle feed';
   if (entry.kind === 'pumping') return 'pumping';
   if (entry.kind === 'bottle-clean') return 'bottle cleaning';
   return 'bottle sterilization';
 }
 
+function saveButtonLabel(mode: EntryMode) {
+  if (mode === 'breastfeeding') return 'Save breastfeeding';
+  if (mode === 'feed') return 'Save bottle feed';
+  return 'Save pumping';
+}
+
 export default function BabyFeedingApp() {
   const [log, setLog] = useState(emptyFeedingLog);
   const [hydrated, setHydrated] = useState(false);
+  const [preferences, setPreferences] = useState<FeedingPreferences | null | undefined>(undefined);
+  const [editingPreferences, setEditingPreferences] = useState(false);
   const [mode, setMode] = useState<EntryMode>('feed');
   const [milkType, setMilkType] = useState<MilkType>('breast-milk');
   const [amountMl, setAmountMl] = useState(100);
   const [occurredAt, setOccurredAt] = useState(() => roundToFiveMinutes(Date.now()));
-  const [bottleUsed, setBottleUsed] = useState(false);
+  const [bottleUsed, setBottleUsed] = useState(true);
   const [pickerMode, setPickerMode] = useState<PickerMode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
-        if (active) setLog(deserializeFeedingLog(stored));
+    void Promise.all([
+      AsyncStorage.getItem(STORAGE_KEY),
+      AsyncStorage.getItem(FEEDING_PREFERENCES_STORAGE_KEY),
+    ])
+      .then(([storedLog, storedPreferences]) => {
+        if (!active) return;
+        setLog(deserializeFeedingLog(storedLog));
+        setPreferences(deserializeFeedingPreferences(storedPreferences));
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active) setPreferences(null);
+      })
       .finally(() => {
         if (active) setHydrated(true);
       });
@@ -165,6 +216,20 @@ export default function BabyFeedingApp() {
     return () => clearTimeout(timer);
   }, [hydrated, log]);
 
+  useEffect(() => {
+    if (!preferences) return;
+    const enabledModes = preferences.modes.map(entryModeForFeedingMode);
+    if (enabledModes.includes(mode)) return;
+    const nextMode = enabledModes[0];
+    if (!nextMode) return;
+    setMode(nextMode);
+    setBottleUsed(nextMode === 'feed');
+  }, [mode, preferences]);
+
+  const availableModes = useMemo(
+    () => preferences?.modes.map(entryModeForFeedingMode) ?? [],
+    [preferences],
+  );
   const mostRecentFeed = useMemo(() => latestFeed(log), [log]);
   const dirtyBottles = useMemo(() => dirtyBottleCount(log), [log]);
   const lastCleaned = useMemo(() => latestBottleCare(log, 'bottle-clean'), [log]);
@@ -195,8 +260,14 @@ export default function BabyFeedingApp() {
 
   const resetComposer = () => {
     setAmountMl(100);
-    setBottleUsed(false);
+    setBottleUsed(mode === 'feed');
     setOccurredAt(roundToFiveMinutes(Date.now()));
+  };
+
+  const selectMode = (nextMode: EntryMode) => {
+    setMode(nextMode);
+    setBottleUsed(nextMode === 'feed');
+    setError(null);
   };
 
   const adjustAmount = (delta: number) => {
@@ -213,13 +284,33 @@ export default function BabyFeedingApp() {
     });
   };
 
+  const handleSavePreferences = async (nextPreferences: FeedingPreferences) => {
+    await AsyncStorage.setItem(FEEDING_PREFERENCES_STORAGE_KEY, JSON.stringify(nextPreferences));
+    setPreferences(nextPreferences);
+    setEditingPreferences(false);
+
+    const enabledModes = nextPreferences.modes.map(entryModeForFeedingMode);
+    if (!enabledModes.includes(mode) && enabledModes[0]) {
+      setMode(enabledModes[0]);
+      setBottleUsed(enabledModes[0] === 'feed');
+    }
+  };
+
   const handleSave = () => {
+    const id = recordId();
+
+    if (mode === 'breastfeeding') {
+      setLog((current) => addBreastfeeding(current, { id, occurredAt }));
+      setError(null);
+      resetComposer();
+      return;
+    }
+
     if (!Number.isSafeInteger(amountMl) || amountMl <= 0) {
       setError('Amount must be greater than zero.');
       return;
     }
 
-    const id = recordId();
     setLog((current) =>
       mode === 'feed'
         ? addFeed(current, { id, milkType, amountMl, occurredAt, bottleUsed })
@@ -239,25 +330,59 @@ export default function BabyFeedingApp() {
     );
   };
 
+  if (preferences === undefined) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.loadingState}>
+          <Text style={styles.loadingText}>Loading feeding setup…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (preferences === null || editingPreferences) {
+    return (
+      <FeedingModeSetup
+        initialPreferences={preferences}
+        onCancel={preferences ? () => setEditingPreferences(false) : undefined}
+        onSave={handleSavePreferences}
+      />
+    );
+  }
+
+  const modeSummary = preferences.modes.map(feedingModeLabel).join(' · ');
+  const bottleModeEnabled = feedingModeEnabled(preferences, 'bottle');
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.eyebrow}>BABY FEEDING</Text>
-        <Text style={styles.heading}>Bottle feeds and pumping, written down properly.</Text>
+        <Text style={styles.heading}>Record only the feeding workflows you use.</Text>
         <Text style={styles.subheading}>
-          Tap the common adjustments instead of typing. Date and time open a dedicated picker only when
-          selected directly.
+          Your setup controls which record types and bottle-care tools are shown.
         </Text>
+
+        <View style={styles.setupRow}>
+          <View style={styles.setupCopy}>
+            <Text style={styles.setupLabel}>Current setup</Text>
+            <Text style={styles.setupValue}>{modeSummary}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setEditingPreferences(true)}
+            style={({ pressed }) => [styles.changeSetupButton, pressed && styles.pressed]}>
+            <Text style={styles.changeSetupText}>Change setup</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.latestFeed}>
           <Text style={styles.latestLabel}>Last feed</Text>
           {mostRecentFeed ? (
             <View style={styles.latestCopy}>
               <Text style={styles.latestValue}>{formatClock(mostRecentFeed.occurredAt)}</Text>
-              <Text style={styles.latestMeta}>
-                {milkLabel(mostRecentFeed.milkType)} · {mostRecentFeed.amountMl} ml
-              </Text>
+              <Text style={styles.latestMeta}>{latestFeedMeta(mostRecentFeed)}</Text>
             </View>
           ) : (
             <Text style={styles.latestEmpty}>No feed recorded yet.</Text>
@@ -267,15 +392,21 @@ export default function BabyFeedingApp() {
         <View style={styles.composer}>
           <Text style={styles.sectionTitle}>Add record</Text>
 
-          <Text style={styles.controlLabel}>Record type</Text>
-          <View style={styles.choiceRow}>
-            <ChoiceButton label="Feed" selected={mode === 'feed'} onPress={() => setMode('feed')} />
-            <ChoiceButton
-              label="Pumping"
-              selected={mode === 'pumping'}
-              onPress={() => setMode('pumping')}
-            />
-          </View>
+          {availableModes.length > 1 ? (
+            <>
+              <Text style={styles.controlLabel}>Record type</Text>
+              <View style={styles.choiceRow}>
+                {availableModes.map((availableMode) => (
+                  <ChoiceButton
+                    key={availableMode}
+                    label={entryModeLabel(availableMode)}
+                    selected={mode === availableMode}
+                    onPress={() => selectMode(availableMode)}
+                  />
+                ))}
+              </View>
+            </>
+          ) : null}
 
           {mode === 'feed' ? (
             <>
@@ -295,17 +426,25 @@ export default function BabyFeedingApp() {
             </>
           ) : null}
 
-          <Text style={styles.controlLabel}>Amount</Text>
-          <View style={styles.amountDisplay}>
-            <Text style={styles.amountValue}>{amountMl}</Text>
-            <Text style={styles.unit}>ml</Text>
-          </View>
-          <View style={styles.stepRow}>
-            <StepButton label="−10 ml" onPress={() => adjustAmount(-10)} />
-            <StepButton label="−5 ml" onPress={() => adjustAmount(-5)} />
-            <StepButton label="+5 ml" onPress={() => adjustAmount(5)} />
-            <StepButton label="+10 ml" onPress={() => adjustAmount(10)} />
-          </View>
+          {mode !== 'breastfeeding' ? (
+            <>
+              <Text style={styles.controlLabel}>Amount</Text>
+              <View style={styles.amountDisplay}>
+                <Text style={styles.amountValue}>{amountMl}</Text>
+                <Text style={styles.unit}>ml</Text>
+              </View>
+              <View style={styles.stepRow}>
+                <StepButton label="−10 ml" onPress={() => adjustAmount(-10)} />
+                <StepButton label="−5 ml" onPress={() => adjustAmount(-5)} />
+                <StepButton label="+5 ml" onPress={() => adjustAmount(5)} />
+                <StepButton label="+10 ml" onPress={() => adjustAmount(10)} />
+              </View>
+            </>
+          ) : (
+            <Text style={styles.breastfeedingHint}>
+              Direct breastfeeding is recorded as a feeding event at the selected date and time.
+            </Text>
+          )}
 
           <Text style={styles.controlLabel}>Date</Text>
           <Pressable
@@ -373,61 +512,63 @@ export default function BabyFeedingApp() {
             accessibilityRole="button"
             onPress={handleSave}
             style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}>
-            <Text style={styles.saveButtonText}>{mode === 'feed' ? 'Save feed' : 'Save pumping'}</Text>
+            <Text style={styles.saveButtonText}>{saveButtonLabel(mode)}</Text>
           </Pressable>
         </View>
 
-        <View style={styles.bottleCare}>
-          <Text style={styles.sectionTitle}>Bottle care</Text>
-          <View style={styles.bottleStatusRow}>
-            <View style={styles.bottleStatusCopy}>
-              <Text style={styles.bottleStatusLabel}>Dirty bottles</Text>
-              <Text style={styles.bottleStatusHint}>
-                {dirtyBottles > 0
-                  ? 'These recorded bottle uses have not been marked cleaned yet.'
-                  : 'No dirty bottles are currently recorded.'}
+        {bottleModeEnabled ? (
+          <View style={styles.bottleCare}>
+            <Text style={styles.sectionTitle}>Bottle care</Text>
+            <View style={styles.bottleStatusRow}>
+              <View style={styles.bottleStatusCopy}>
+                <Text style={styles.bottleStatusLabel}>Dirty bottles</Text>
+                <Text style={styles.bottleStatusHint}>
+                  {dirtyBottles > 0
+                    ? 'These recorded bottle uses have not been marked cleaned yet.'
+                    : 'No dirty bottles are currently recorded.'}
+                </Text>
+              </View>
+              <Text style={styles.bottleCount}>{dirtyBottles}</Text>
+            </View>
+
+            <View style={styles.careActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: dirtyBottles === 0 }}
+                disabled={dirtyBottles === 0}
+                onPress={() => handleBottleCare('bottle-clean')}
+                style={({ pressed }) => [
+                  styles.careButton,
+                  dirtyBottles === 0 && styles.careButtonDisabled,
+                  pressed && styles.pressed,
+                ]}>
+                <Text style={styles.careButtonText}>Mark all cleaned</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleBottleCare('bottle-sterilize')}
+                style={({ pressed }) => [styles.careButton, pressed && styles.pressed]}>
+                <Text style={styles.careButtonText}>Mark sterilized</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.careHistory}>
+              <Text style={styles.careHistoryText}>
+                Last cleaned: {formatCareTimestamp(lastCleaned?.occurredAt ?? null)}
+              </Text>
+              <Text style={styles.careHistoryText}>
+                Last sterilized: {formatCareTimestamp(lastSterilized?.occurredAt ?? null)}
+              </Text>
+              <Text style={styles.careStateText}>
+                {sterilizedSinceLastClean === null
+                  ? 'No cleaning cycle recorded yet.'
+                  : sterilizedSinceLastClean
+                    ? 'Sterilization has been recorded since the last cleaning.'
+                    : 'Sterilization has not been recorded since the last cleaning.'}
               </Text>
             </View>
-            <Text style={styles.bottleCount}>{dirtyBottles}</Text>
           </View>
-
-          <View style={styles.careActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: dirtyBottles === 0 }}
-              disabled={dirtyBottles === 0}
-              onPress={() => handleBottleCare('bottle-clean')}
-              style={({ pressed }) => [
-                styles.careButton,
-                dirtyBottles === 0 && styles.careButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              <Text style={styles.careButtonText}>Mark all cleaned</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleBottleCare('bottle-sterilize')}
-              style={({ pressed }) => [styles.careButton, pressed && styles.pressed]}>
-              <Text style={styles.careButtonText}>Mark sterilized</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.careHistory}>
-            <Text style={styles.careHistoryText}>
-              Last cleaned: {formatCareTimestamp(lastCleaned?.occurredAt ?? null)}
-            </Text>
-            <Text style={styles.careHistoryText}>
-              Last sterilized: {formatCareTimestamp(lastSterilized?.occurredAt ?? null)}
-            </Text>
-            <Text style={styles.careStateText}>
-              {sterilizedSinceLastClean === null
-                ? 'No cleaning cycle recorded yet.'
-                : sterilizedSinceLastClean
-                  ? 'Sterilization has been recorded since the last cleaning.'
-                  : 'Sterilization has not been recorded since the last cleaning.'}
-            </Text>
-          </View>
-        </View>
+        ) : null}
 
         <Text style={styles.timelineTitle}>Log</Text>
         {groupedEntries.length === 0 ? (
@@ -456,8 +597,8 @@ export default function BabyFeedingApp() {
         )}
 
         <Text style={styles.footer}>
-          Records stay on this device. Bottle care records what has been cleaned or sterilized; it does
-          not set a medical sterilization schedule or make feeding recommendations.
+          Records and feeding setup stay on this device. The app records what happened; it does not make
+          feeding recommendations or set a medical sterilization schedule.
         </Text>
       </ScrollView>
 
@@ -474,6 +615,8 @@ export default function BabyFeedingApp() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f7f2ee' },
+  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  loadingText: { color: '#776d68', fontSize: 14 },
   content: { width: '100%', maxWidth: 680, alignSelf: 'center', padding: 20, paddingBottom: 48 },
   eyebrow: { color: '#78685f', fontSize: 12, fontWeight: '800', letterSpacing: 1.4 },
   heading: {
@@ -485,16 +628,35 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   subheading: { color: '#776d68', fontSize: 14, lineHeight: 21, marginTop: 10 },
+  setupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+    borderBottomColor: '#ded4ce',
+    borderBottomWidth: 1,
+    marginTop: 20,
+    paddingBottom: 14,
+  },
+  setupCopy: { flex: 1 },
+  setupLabel: { color: '#8a7d76', fontSize: 10, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  setupValue: { color: '#4b403b', fontSize: 13, fontWeight: '700', marginTop: 3 },
+  changeSetupButton: {
+    minHeight: 42,
+    justifyContent: 'center',
+    borderColor: '#c8bbb5',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  changeSetupText: { color: '#5f554f', fontSize: 12, fontWeight: '800' },
   latestFeed: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 18,
-    borderTopColor: '#ded4ce',
-    borderTopWidth: 1,
     borderBottomColor: '#ded4ce',
     borderBottomWidth: 1,
-    marginTop: 24,
     paddingVertical: 16,
   },
   latestLabel: {
@@ -526,9 +688,10 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     textTransform: 'uppercase',
   },
-  choiceRow: { flexDirection: 'row', gap: 8 },
+  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choiceButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
     minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
@@ -555,6 +718,14 @@ const styles = StyleSheet.create({
   },
   amountValue: { color: '#332c29', fontSize: 30, fontWeight: '800', fontVariant: ['tabular-nums'] },
   unit: { color: '#6e625c', fontSize: 14, fontWeight: '800' },
+  breastfeedingHint: {
+    color: '#6e625c',
+    fontSize: 13,
+    lineHeight: 20,
+    borderBottomColor: '#e2d8d2',
+    borderBottomWidth: 1,
+    paddingVertical: 16,
+  },
   stepRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
   stepRowThree: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
   stepButton: {

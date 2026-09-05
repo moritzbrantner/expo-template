@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactNode, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, ReactNode, useMemo, useState } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
@@ -101,40 +101,33 @@ export function PinchSurface({
   style,
 }: PinchSurfaceProps) {
   const { hapticsEnabled, minimumTargetSize, palette } = useTouchInteractionConfig();
-  const [previewScale, setPreviewScale] = useState(scale);
-  const startScaleRef = useRef(scale);
-  const currentScaleRef = useRef(scale);
-
-  const preview = (next: number) => {
-    currentScaleRef.current = next;
-    setPreviewScale(next);
-    onPreviewScale?.(next);
-  };
-
-  const commit = (next = currentScaleRef.current) => {
-    currentScaleRef.current = next;
-    setPreviewScale(next);
-    onCommitScale(next);
-    void triggerSemanticHaptic('snap', hapticsEnabled);
-  };
+  const [previewScale, setPreviewScale] = useState<number | null>(null);
+  const displayedScale = previewScale ?? scale;
 
   const pinch = useMemo(
     () =>
       Gesture.Pinch()
         .runOnJS(true)
-        .onBegin(() => {
-          startScaleRef.current = scale;
-          currentScaleRef.current = scale;
+        .onUpdate((event) => {
+          const next = clampNumber(scale * event.scale, minScale, maxScale);
+          setPreviewScale(next);
+          onPreviewScale?.(next);
         })
-        .onUpdate((event) => preview(clampNumber(startScaleRef.current * event.scale, minScale, maxScale)))
-        .onEnd(() => commit()),
-    [scale, minScale, maxScale, hapticsEnabled, onPreviewScale, onCommitScale],
+        .onEnd((event) => {
+          const next = clampNumber(scale * event.scale, minScale, maxScale);
+          setPreviewScale(null);
+          onCommitScale(next);
+          void triggerSemanticHaptic('snap', hapticsEnabled);
+        })
+        .onFinalize(() => setPreviewScale(null)),
+    [hapticsEnabled, maxScale, minScale, onCommitScale, onPreviewScale, scale],
   );
 
   const adjust = (delta: number) => {
-    const next = clampNumber(currentScaleRef.current + delta, minScale, maxScale);
-    preview(next);
-    commit(next);
+    const next = clampNumber(scale + delta, minScale, maxScale);
+    onPreviewScale?.(next);
+    onCommitScale(next);
+    void triggerSemanticHaptic('snap', hapticsEnabled);
   };
 
   return (
@@ -142,7 +135,7 @@ export function PinchSurface({
       <GestureDetector gesture={pinch}>
         <View
           accessibilityHint="Pinch to change scale"
-          accessibilityLabel={`Scale ${previewScale.toFixed(2)}`}
+          accessibilityLabel={`Scale ${displayedScale.toFixed(2)}`}
           style={styles.fill}>
           {children}
         </View>
@@ -155,7 +148,12 @@ export function PinchSurface({
             onPress={() => adjust(-step)}
             style={[
               styles.roundButton,
-              { backgroundColor: palette.surface, borderColor: palette.border, minHeight: minimumTargetSize, minWidth: minimumTargetSize },
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+                minHeight: minimumTargetSize,
+                minWidth: minimumTargetSize,
+              },
             ]}>
             <Text style={[styles.roundButtonText, { color: palette.text }]}>−</Text>
           </Pressable>
@@ -165,7 +163,12 @@ export function PinchSurface({
             onPress={() => adjust(step)}
             style={[
               styles.roundButton,
-              { backgroundColor: palette.surface, borderColor: palette.border, minHeight: minimumTargetSize, minWidth: minimumTargetSize },
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+                minHeight: minimumTargetSize,
+                minWidth: minimumTargetSize,
+              },
             ]}>
             <Text style={[styles.roundButtonText, { color: palette.text }]}>+</Text>
           </Pressable>
@@ -259,8 +262,6 @@ export function GestureSelection({
   const { hapticsEnabled, minimumTargetSize, palette } = useTouchInteractionConfig();
   const [selectionMode, setSelectionMode] = useState(false);
   const [rect, setRect] = useState<TouchRect | null>(null);
-  const startRef = useRef<TouchPoint>({ x: 0, y: 0 });
-  const rectRef = useRef<TouchRect | null>(null);
 
   const gesture = useMemo(
     () =>
@@ -268,25 +269,30 @@ export function GestureSelection({
         .minPointers(selectionMode ? 1 : 2)
         .runOnJS(true)
         .onBegin((event) => {
-          startRef.current = { x: event.x, y: event.y };
-          const next = normalizeSelectionRect(startRef.current, startRef.current);
-          rectRef.current = next;
-          setRect(next);
+          const point = { x: event.x, y: event.y };
+          setRect(normalizeSelectionRect(point, point));
         })
         .onUpdate((event) => {
-          const next = normalizeSelectionRect(startRef.current, { x: event.x, y: event.y });
-          rectRef.current = next;
-          setRect(next);
+          const start = {
+            x: event.x - event.translationX,
+            y: event.y - event.translationY,
+          };
+          setRect(normalizeSelectionRect(start, { x: event.x, y: event.y }));
         })
-        .onEnd(() => {
-          const completed = rectRef.current;
+        .onEnd((event) => {
+          const start = {
+            x: event.x - event.translationX,
+            y: event.y - event.translationY,
+          };
+          const completed = normalizeSelectionRect(start, { x: event.x, y: event.y });
           setRect(null);
-          if (completed && completed.width >= 8 && completed.height >= 8) {
+          if (completed.width >= 8 && completed.height >= 8) {
             onSelect(completed);
             void triggerSemanticHaptic('snap', hapticsEnabled);
           }
-        }),
-    [selectionMode, onSelect, hapticsEnabled],
+        })
+        .onFinalize(() => setRect(null)),
+    [hapticsEnabled, onSelect, selectionMode],
   );
 
   return (
@@ -347,21 +353,27 @@ export function TouchPreview({
 }: TouchPreviewProps) {
   const [point, setPoint] = useState<TouchPoint | null>(null);
 
-  const update = (next: TouchPoint | null) => {
-    setPoint(next);
-    onPointChange?.(next);
-  };
-
   const gesture = useMemo(
     () =>
       Gesture.Pan()
         .maxPointers(1)
         .minDistance(0)
         .runOnJS(true)
-        .onBegin((event) => update({ x: event.x, y: event.y }))
-        .onUpdate((event) => update({ x: event.x, y: event.y }))
-        .onFinalize(() => update(null)),
-    [onPointChange, offset.x, offset.y],
+        .onBegin((event) => {
+          const next = { x: event.x, y: event.y };
+          setPoint(next);
+          onPointChange?.(next);
+        })
+        .onUpdate((event) => {
+          const next = { x: event.x, y: event.y };
+          setPoint(next);
+          onPointChange?.(next);
+        })
+        .onFinalize(() => {
+          setPoint(null);
+          onPointChange?.(null);
+        }),
+    [onPointChange],
   );
 
   return (
@@ -396,21 +408,26 @@ export function RemoteHandle({
 }: RemoteHandleProps) {
   const [target, setTarget] = useState<TouchPoint | null>(null);
 
-  const update = (point: TouchPoint | null) => {
-    const next = point ? { x: point.x + offset.x, y: point.y + offset.y } : null;
-    setTarget(next);
-    onTargetChange(next);
-  };
-
   const gesture = useMemo(
     () =>
       Gesture.Pan()
         .maxPointers(1)
         .minDistance(0)
         .runOnJS(true)
-        .onBegin((event) => update({ x: event.x, y: event.y }))
-        .onUpdate((event) => update({ x: event.x, y: event.y }))
-        .onFinalize(() => update(null)),
+        .onBegin((event) => {
+          const next = { x: event.x + offset.x, y: event.y + offset.y };
+          setTarget(next);
+          onTargetChange(next);
+        })
+        .onUpdate((event) => {
+          const next = { x: event.x + offset.x, y: event.y + offset.y };
+          setTarget(next);
+          onTargetChange(next);
+        })
+        .onFinalize(() => {
+          setTarget(null);
+          onTargetChange(null);
+        }),
     [offset.x, offset.y, onTargetChange],
   );
 

@@ -507,9 +507,21 @@ export default function TasksApp() {
             </Pressable>
           ) : null}
 
-          <Text style={styles.footer}>
-            Tasks stay stored on this device. Speech recognition is handled by your browser or keyboard provider.
-          </Text>
+          <View style={styles.footerRow}>
+            <Text style={styles.footer}>
+              Tasks stay stored on this device. Speech recognition is handled by your browser or
+              keyboard provider.
+            </Text>
+            <Link href="/about" asChild>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="About"
+                hitSlop={8}
+                style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}>
+                <Text style={styles.aboutText}>About</Text>
+              </Pressable>
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -702,11 +714,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   clearText: { color: '#675d57', fontSize: 13, fontWeight: '700' },
+  footerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    gap: 10,
+    marginTop: 28,
+  },
   footer: {
     color: '#868b86',
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 28,
+  },
+  aboutLink: {
+    paddingVertical: 2,
+  },
+  aboutText: {
+    color: '#737a74',
+    fontSize: 12,
+    lineHeight: 18,
+    textDecorationLine: 'underline',
   },
   pressed: { opacity: 0.68 },
 });

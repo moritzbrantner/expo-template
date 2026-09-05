@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 import {
   BABY_CLOTHING_SIZE_PRESETS,
@@ -26,13 +27,13 @@ describe('baby clothing model', () => {
   test('keeps printed size evidence while normalizing sortable range and grouped quantity', () => {
     const entry = createBabyClothingEntry(baseDraft, ' group-1 ', new Date('2026-09-05T10:00:00Z'));
 
-    expect(entry.id).toBe('group-1');
-    expect(entry.name).toBe('Blue bodysuits');
-    expect(entry.brand).toBe('Brand Name');
-    expect(entry.originalSizeLabel).toBe('0–3 M');
-    expect(entry.normalizedSize).toEqual({ minCm: 56, maxCm: 62 });
-    expect(entry.quantity).toBe(3);
-    expect(entry.notes).toBe('drawer one');
+    assert.equal(entry.id, 'group-1');
+    assert.equal(entry.name, 'Blue bodysuits');
+    assert.equal(entry.brand, 'Brand Name');
+    assert.equal(entry.originalSizeLabel, '0–3 M');
+    assert.deepEqual(entry.normalizedSize, { minCm: 56, maxCm: 62 });
+    assert.equal(entry.quantity, 3);
+    assert.equal(entry.notes, 'drawer one');
   });
 
   test('single entries always represent exactly one garment', () => {
@@ -40,19 +41,20 @@ describe('baby clothing model', () => {
       { ...baseDraft, entryType: 'single', quantity: 9 },
       'single-1',
     );
-    expect(entry.quantity).toBe(1);
+    assert.equal(entry.quantity, 1);
   });
 
   test('group quantities must be positive whole numbers', () => {
-    expect(() =>
-      createBabyClothingEntry({ ...baseDraft, quantity: 0 }, 'group-0'),
-    ).toThrow('positive whole number');
+    assert.throws(
+      () => createBabyClothingEntry({ ...baseDraft, quantity: 0 }, 'group-0'),
+      /positive whole number/,
+    );
   });
 
   test('size formatting and overlap stay deterministic', () => {
-    expect(formatBabyClothingSize({ minCm: 62, maxCm: 68 })).toBe('62–68 cm');
-    expect(sizeRangesOverlap({ minCm: 56, maxCm: 62 }, { minCm: 62, maxCm: 68 })).toBe(true);
-    expect(sizeRangesOverlap({ minCm: 50, maxCm: 56 }, { minCm: 62, maxCm: 68 })).toBe(false);
+    assert.equal(formatBabyClothingSize({ minCm: 62, maxCm: 68 }), '62–68 cm');
+    assert.equal(sizeRangesOverlap({ minCm: 56, maxCm: 62 }, { minCm: 62, maxCm: 68 }), true);
+    assert.equal(sizeRangesOverlap({ minCm: 50, maxCm: 56 }, { minCm: 62, maxCm: 68 }), false);
   });
 
   test('filters by lifecycle and normalized size without using printed labels as authority', () => {
@@ -68,21 +70,22 @@ describe('baby clothing model', () => {
       'large',
     );
 
-    expect(
+    assert.deepEqual(
       filterBabyClothingEntries(
         [large, small],
         '',
         'in-use',
         BABY_CLOTHING_SIZE_PRESETS[2],
       ).map((entry) => entry.id),
-    ).toEqual(['small']);
+      ['small'],
+    );
   });
 
   test('deserialization rejects malformed entries instead of manufacturing inventory', () => {
     const valid = createBabyClothingEntry(baseDraft, 'valid', new Date('2026-09-05T10:00:00Z'));
     const malformed = { ...valid, status: 'lost-somewhere' };
 
-    expect(deserializeBabyClothingEntries(JSON.stringify([malformed, valid]))).toEqual([valid]);
-    expect(deserializeBabyClothingEntries('{')).toEqual([]);
+    assert.deepEqual(deserializeBabyClothingEntries(JSON.stringify([malformed, valid])), [valid]);
+    assert.deepEqual(deserializeBabyClothingEntries('{'), []);
   });
 });

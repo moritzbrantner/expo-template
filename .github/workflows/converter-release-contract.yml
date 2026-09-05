@@ -46,6 +46,7 @@ jobs:
           const buildScript = fs.readFileSync('scripts/build-store-release.ts', 'utf8');
 
           if (packageJson.packageManager !== 'bun@1.3.12') throw new Error('converter Bun version must be exact');
+          if (packageJson.devDependencies?.['@types/bun'] !== '1.3.12') throw new Error('converter Bun release scripts must pin matching Bun types');
           if (eas.cli?.version !== '23.2.0' || eas.cli?.requireCommit !== true) throw new Error('converter EAS CLI/source policy drifted');
           if (eas.build?.production?.autoIncrement !== true) throw new Error('converter production builds must autoIncrement');
           if (eas.submit?.internal?.android?.track !== 'internal' || eas.submit?.internal?.android?.releaseStatus !== 'completed') throw new Error('converter internal Play profile drifted');

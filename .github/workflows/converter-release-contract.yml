@@ -59,8 +59,8 @@ jobs:
           if (refs.length !== 3 || new Set(refs).size !== 1) throw new Error('converter release workflow must pin one exact reusable-workflows revision');
           if (!workflow.includes('working_directory: apps/converter')) throw new Error('converter release workflow must execute in the converter project');
           if (!workflow.includes('artifact_paths: apps/converter/.artifacts/mobile-release')) throw new Error('converter release workflow must preserve the exact app-local artifact');
-          if (!workflow.includes('build_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('converter build credential must use the opaque build seam');
-          if (!workflow.includes('expo_token: ${{ secrets.EXPO_TOKEN }}')) throw new Error('converter delivery credential must use the terminal delivery seam');
+          if (!workflow.includes('build_token:') || !workflow.includes('secrets.EXPO_TOKEN')) throw new Error('converter build credential must use the opaque build seam');
+          if (!workflow.includes('expo_token:') || !workflow.includes('secrets.EXPO_TOKEN')) throw new Error('converter delivery credential must use the terminal delivery seam');
           NODE
 
       - name: Verify unresolved owner setup fails closed

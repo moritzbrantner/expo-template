@@ -76,11 +76,17 @@ export function RepeatButton({
 
   return (
     <Pressable
+      accessibilityActions={[{ name: 'activate', label: accessibilityLabel ?? label }]}
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
       hitSlop={8}
+      onAccessibilityAction={(event) => {
+        if (!disabled && event.nativeEvent.actionName === 'activate') {
+          invoke();
+        }
+      }}
       onPressIn={start}
       onPressOut={clearTimer}
       style={[
@@ -126,12 +132,18 @@ export function HoldAction({
 
   return (
     <Pressable
+      accessibilityActions={[{ name: 'activate', label }]}
       accessibilityHint={`Hold for ${Math.round(delayMs / 100) / 10} seconds to activate`}
       accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       delayLongPress={delayMs}
       disabled={disabled}
+      onAccessibilityAction={(event) => {
+        if (!disabled && event.nativeEvent.actionName === 'activate') {
+          activate();
+        }
+      }}
       onLongPress={activate}
       style={[
         styles.holdButton,

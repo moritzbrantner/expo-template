@@ -13,7 +13,11 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:native": "maestro test .maestro",
-    "doctor": "bunx expo-doctor"
+    "doctor": "bunx expo-doctor",
+    "verify": "bun run lint && bun run typecheck && bun test && bun run doctor",
+    "release:preflight": "bun scripts/check-store-release.ts",
+    "release:qualify": "bun run verify && bun run release:preflight",
+    "release:build": "bun scripts/build-store-release.ts"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

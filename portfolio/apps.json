@@ -147,9 +147,10 @@
     {
       "slug": "nearby-history",
       "name": "Nearby History",
-      "description": "Surface local stories about buildings, streets, churches, monasteries, rulers, and traditions.",
+      "description": "Align a sourced reconstruction with a known historical place and blend between the present view and the past.",
       "category": "History",
-      "status": "planned"
+      "status": "preview",
+      "source": "apps/nearby-history"
     }
   ]
 }

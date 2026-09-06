@@ -33,6 +33,7 @@ import {
   feedingModeEnabled,
   type FeedingPreferences,
 } from '../lib/preferences';
+import { isEarlierLocalDay } from '../lib/recording-time';
 import { BABY_FEEDING_STORAGE_KEY } from '../lib/sharing';
 
 type EntryMode = 'breastfeeding' | 'feed' | 'pumping';
@@ -320,6 +321,13 @@ export default function BabyFeedingApp() {
     });
   };
 
+  const setTimeToNow = () => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    setOccurredAt(now.getTime());
+    setError(null);
+  };
+
   const handleSave = () => {
     const id = recordId();
 
@@ -454,26 +462,30 @@ export default function BabyFeedingApp() {
             </Text>
           )}
 
-          <Text style={styles.controlLabel}>Date</Text>
-          <Pressable
-            accessibilityLabel="Select date"
-            accessibilityRole="button"
-            onPress={() => setPickerMode('date')}
-            style={({ pressed }) => [styles.directPicker, pressed && styles.pressed]}>
-            <Text style={styles.directPickerValue}>{formatDateButton(occurredAt)}</Text>
-            <Text style={styles.directPickerHint}>Tap to choose</Text>
-          </Pressable>
-          <View style={styles.stepRowThree}>
-            <StepButton
-              label="−1 day"
-              onPress={() => setOccurredAt((current) => adjustLocalDays(current, -1))}
-            />
-            <StepButton label="Today" onPress={setDateToToday} />
-            <StepButton
-              label="+1 day"
-              onPress={() => setOccurredAt((current) => adjustLocalDays(current, 1))}
-            />
-          </View>
+          {isEarlierLocalDay(occurredAt, Date.now()) ? (
+            <>
+              <Text style={styles.controlLabel}>Date</Text>
+              <Pressable
+                accessibilityLabel="Select date"
+                accessibilityRole="button"
+                onPress={() => setPickerMode('date')}
+                style={({ pressed }) => [styles.directPicker, pressed && styles.pressed]}>
+                <Text style={styles.directPickerValue}>{formatDateButton(occurredAt)}</Text>
+                <Text style={styles.directPickerHint}>Tap to choose</Text>
+              </Pressable>
+              <View style={styles.stepRowThree}>
+                <StepButton
+                  label="−1 day"
+                  onPress={() => setOccurredAt((current) => adjustLocalDays(current, -1))}
+                />
+                <StepButton label="Today" onPress={setDateToToday} />
+                <StepButton
+                  label="+1 day"
+                  onPress={() => setOccurredAt((current) => adjustLocalDays(current, 1))}
+                />
+              </View>
+            </>
+          ) : null}
 
           <Text style={styles.controlLabel}>Time</Text>
           <Pressable
@@ -484,7 +496,7 @@ export default function BabyFeedingApp() {
             <Text style={[styles.directPickerValue, styles.timeDigits]}>{formatClock(occurredAt)}</Text>
             <Text style={styles.directPickerHint}>Tap to choose</Text>
           </Pressable>
-          <View style={styles.stepRow}>
+          <View style={styles.timeStepRow}>
             <View style={styles.stepGroup}>
               <StepButton
                 label="−1 h"
@@ -495,6 +507,13 @@ export default function BabyFeedingApp() {
                 onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -5))}
               />
             </View>
+            <Pressable
+              accessibilityLabel="Set time to now"
+              accessibilityRole="button"
+              onPress={setTimeToNow}
+              style={({ pressed }) => [styles.nowButton, pressed && styles.pressed]}>
+              <Text style={styles.nowButtonText}>Now</Text>
+            </Pressable>
             <View style={styles.stepGroup}>
               <StepButton
                 label="+1 h"
@@ -731,6 +750,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   stepRow: { flexDirection: 'row', gap: 7, marginTop: 8 },
+  timeStepRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginTop: 8 },
   stepGroup: { flex: 1, flexDirection: 'row', gap: 7, minWidth: 0 },
   stepRowThree: { flexDirection: 'row', gap: 7, marginTop: 8 },
   stepButton: {
@@ -745,6 +765,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   stepButtonText: { color: '#5f554f', fontSize: 12, fontWeight: '800' },
+  nowButton: {
+    minWidth: 64,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: '#b9aaa3',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+  },
+  nowButtonText: { color: '#3f5b4d', fontSize: 12, fontWeight: '900' },
   directPicker: {
     minHeight: 55,
     flexDirection: 'row',

@@ -49,19 +49,19 @@ test('groups four-step adjustments into decrease and increase flex pairs', () =>
   assert.match(index, /stepGroup: \{ flex: 1, flexDirection: 'row', gap: 7, minWidth: 0 \}/);
   assert.match(
     index,
-    /styles\.stepGroup\}>\s*<StepButton label="−10 ml"[\s\S]*?<StepButton label="−5 ml"/,
+    /styles\.stepGroup\}>\s*<StepButton\s*icon="−−"\s*label="−10 ml"[\s\S]*?<StepButton\s*icon="−"\s*label="−5 ml"/,
   );
   assert.match(
     index,
-    /styles\.stepGroup\}>\s*<StepButton label="\+10 ml"[\s\S]*?<StepButton label="\+5 ml"/,
+    /styles\.stepGroup\}>\s*<StepButton\s*icon="\+\+"\s*label="\+10 ml"[\s\S]*?<StepButton\s*icon="\+"\s*label="\+5 ml"/,
   );
   assert.match(
     index,
-    /styles\.stepGroup\}>\s*<StepButton\s*label="−1 h"[\s\S]*?<StepButton\s*label="−5 min"/,
+    /styles\.stepGroup\}>\s*<StepButton\s*icon="↞"\s*label="−1 h"[\s\S]*?<StepButton\s*icon="‹"\s*label="−5 min"/,
   );
   assert.match(
     index,
-    /styles\.stepGroup\}>\s*<StepButton\s*label="\+1 h"[\s\S]*?<StepButton\s*label="\+5 min"/,
+    /styles\.stepGroup\}>\s*<StepButton\s*icon="↠"\s*label="\+1 h"[\s\S]*?<StepButton\s*icon="›"\s*label="\+5 min"/,
   );
 });
 
@@ -70,7 +70,7 @@ test('keeps date controls contextual and centers Now between time directions', (
 
   assert.match(index, /isEarlierLocalDay\(occurredAt, Date\.now\(\)\) \? \(/);
   assert.match(index, /accessibilityLabel="Set time to now"/);
-  assert.match(index, /<Text style=\{styles\.nowButtonText\}>Now<\/Text>/);
+  assert.match(index, /icon="◎"\s*label="Now"/);
   assert.match(
     index,
     /label="−5 min"[\s\S]*?accessibilityLabel="Set time to now"[\s\S]*?label="\+1 h"/,
@@ -79,4 +79,48 @@ test('keeps date controls contextual and centers Now between time directions', (
     index,
     /timeStepRow: \{ flexDirection: 'row', alignItems: 'stretch', gap: 7, marginTop: 8 \}/,
   );
+});
+
+test('puts the recorder after history in a bottom thumb zone and keeps record types on one row', () => {
+  const index = read('app/index.tsx');
+  const historyPosition = index.indexOf('<View style={styles.historyArea}>');
+  const composerPosition = index.indexOf('<View style={styles.composer}>');
+
+  assert.ok(historyPosition >= 0);
+  assert.ok(composerPosition > historyPosition);
+  assert.match(index, /content: \{[\s\S]*?flexGrow: 1,[\s\S]*?paddingBottom: 24/);
+  assert.match(index, /historyArea: \{ flexGrow: 1 \}/);
+  assert.match(index, /recordTypeRow: \{ flexDirection: 'row', gap: 8 \}/);
+  assert.match(index, /<View style=\{styles\.recordTypeRow\}>/);
+  assert.doesNotMatch(index, /recordTypeRow:[^\n]*flexWrap/);
+});
+
+test('keeps bottle-used compact and lets recording buttons use icons, text, or both', () => {
+  const index = read('app/index.tsx');
+  const settings = read('app/settings.tsx');
+
+  assert.match(index, /<ChoiceButton\s*compact\s*icon="🍼"\s*label="Bottle used"/);
+  assert.match(index, /choiceButtonCompact: \{[\s\S]*?flexGrow: 0,[\s\S]*?alignSelf: 'flex-start'/);
+  assert.match(index, /presentation=\{buttonPresentation\}/);
+  assert.match(settings, /value: 'icons', label: 'Icons'/);
+  assert.match(settings, /value: 'text', label: 'Text'/);
+  assert.match(settings, /value: 'icons-text', label: 'Icons \+ text'/);
+});
+
+test('keeps bottle and pumping-gear care on dedicated pages', () => {
+  const layout = read('app/_layout.tsx');
+  const settings = read('app/settings.tsx');
+  const bottles = read('app/bottles.tsx');
+  const pumpingGear = read('app/pumping-gear.tsx');
+  const tracker = read('components/EquipmentTrackerScreen.tsx');
+
+  assert.match(settings, /href="\/bottles"/);
+  assert.match(settings, /href="\/pumping-gear"/);
+  assert.match(layout, /name="bottles"/);
+  assert.match(layout, /name="pumping-gear"/);
+  assert.match(bottles, /kind="bottle"/);
+  assert.match(pumpingGear, /kind="pump-kit"/);
+  assert.match(tracker, /label: 'Dirty'/);
+  assert.match(tracker, /label: 'Washed'/);
+  assert.match(tracker, /label: 'Sterilized'/);
 });

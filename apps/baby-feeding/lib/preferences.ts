@@ -1,6 +1,6 @@
 export const FEEDING_PREFERENCES_STORAGE_KEY = '@expo-template/baby-feeding/preferences-v1';
 
-export const FEEDING_MODE_ORDER = ['breastfeeding', 'bottle', 'pumping'] as const;
+export const FEEDING_MODE_ORDER = ['breast-milk', 'pumping', 'formula'] as const;
 
 export type FeedingMode = (typeof FEEDING_MODE_ORDER)[number];
 
@@ -9,7 +9,11 @@ export type FeedingPreferences = {
 };
 
 function isFeedingMode(value: unknown): value is FeedingMode {
-  return value === 'breastfeeding' || value === 'bottle' || value === 'pumping';
+  return value === 'breast-milk' || value === 'pumping' || value === 'formula';
+}
+
+export function defaultFeedingPreferences(): FeedingPreferences {
+  return { modes: [...FEEDING_MODE_ORDER] };
 }
 
 export function createFeedingPreferences(modes: readonly FeedingMode[]): FeedingPreferences | null {

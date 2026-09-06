@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Link, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -379,9 +379,6 @@ export default function BabyFeedingApp() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.eyebrow}>BABY FEEDING</Text>
-        <Text style={styles.heading}>Feeding log</Text>
-
         <View style={styles.latestFeed}>
           <Text style={styles.latestLabel}>Last feed</Text>
           {mostRecentFeed ? (
@@ -393,15 +390,6 @@ export default function BabyFeedingApp() {
             <Text style={styles.latestEmpty}>No feed recorded yet.</Text>
           )}
         </View>
-
-        <Link href="/stats" asChild>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.statsLink, pressed && styles.pressed]}>
-            <Text style={styles.statsLinkTitle}>Stats</Text>
-            <Text style={styles.statsLinkMeta}>Last 7 days ›</Text>
-          </Pressable>
-        </Link>
 
         <View style={styles.composer}>
           <Text style={styles.sectionTitle}>Add record</Text>
@@ -649,15 +637,6 @@ const styles = StyleSheet.create({
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   loadingText: { color: '#776d68', fontSize: 14 },
   content: { width: '100%', maxWidth: 680, alignSelf: 'center', padding: 20, paddingBottom: 48 },
-  eyebrow: { color: '#78685f', fontSize: 12, fontWeight: '800', letterSpacing: 1.4 },
-  heading: {
-    color: '#332c29',
-    fontSize: 34,
-    fontWeight: '800',
-    lineHeight: 39,
-    letterSpacing: -1,
-    marginTop: 8,
-  },
   latestFeed: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -667,7 +646,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomColor: '#ded4ce',
     borderBottomWidth: 1,
-    marginTop: 22,
     paddingVertical: 16,
   },
   latestLabel: {
@@ -681,18 +659,6 @@ const styles = StyleSheet.create({
   latestValue: { color: '#342c29', fontSize: 23, fontWeight: '800', fontVariant: ['tabular-nums'] },
   latestMeta: { color: '#786e69', fontSize: 12, marginTop: 2 },
   latestEmpty: { color: '#918680', fontSize: 13 },
-  statsLink: {
-    minHeight: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    borderBottomColor: '#ded4ce',
-    borderBottomWidth: 1,
-    paddingVertical: 12,
-  },
-  statsLinkTitle: { color: '#3f5b4d', fontSize: 14, fontWeight: '800' },
-  statsLinkMeta: { color: '#776d68', fontSize: 12, fontWeight: '700' },
   composer: {
     backgroundColor: '#fffdfb',
     borderColor: '#e2d8d2',

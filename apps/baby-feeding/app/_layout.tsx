@@ -103,6 +103,8 @@ export default function RootLayout() {
       />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="stats" options={{ headerShown: false }} />
+      <Stack.Screen name="bottles" options={{ headerShown: false }} />
+      <Stack.Screen name="pumping-gear" options={{ headerShown: false }} />
       <Stack.Screen name="share" options={{ headerShown: false }} />
     </Stack>
   );

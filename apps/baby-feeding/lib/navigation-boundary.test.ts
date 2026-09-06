@@ -15,8 +15,13 @@ test('keeps feeding-method configuration behind the settings gear', () => {
   const index = read('app/index.tsx');
   const settings = read('app/settings.tsx');
 
+  assert.match(layout, /headerTitle: 'Feeding Log'/);
+  assert.match(layout, /accessibilityLabel="Open stats"/);
+  assert.match(layout, />📊</);
   assert.match(layout, /accessibilityLabel="Open settings"/);
-  assert.match(layout, />⚙</);
+  assert.match(layout, />⚙️</);
+  assert.match(layout, /marginRight: 12/);
+  assert.doesNotMatch(index, /BABY FEEDING|<Text style=\{styles\.heading\}>Feeding log/);
   assert.doesNotMatch(index, /Change setup|Current setup|Record only the feeding workflows/);
   assert.match(settings, /title: 'Breast milk'/);
   assert.match(settings, /title: 'Pumping'/);
@@ -25,10 +30,12 @@ test('keeps feeding-method configuration behind the settings gear', () => {
 });
 
 test('keeps historical stats on a dedicated page', () => {
+  const layout = read('app/_layout.tsx');
   const index = read('app/index.tsx');
   const stats = read('app/stats.tsx');
 
-  assert.match(index, /href="\/stats"/);
+  assert.doesNotMatch(index, /href="\/stats"/);
+  assert.match(layout, /href="\/stats"/);
   assert.match(stats, /Last 7 days/);
   assert.match(stats, /Measured intake/);
   assert.match(stats, /Pumping/);

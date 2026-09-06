@@ -94,6 +94,14 @@
       "status": "planned"
     },
     {
+      "slug": "books",
+      "name": "Books",
+      "description": "A local-first reading library with ISBN scanning, book metadata, private notes, and considered reviews.",
+      "category": "Reflection",
+      "status": "preview",
+      "source": "apps/books"
+    },
+    {
       "slug": "calculator",
       "name": "Calculator",
       "description": "A straightforward calculator for common arithmetic without distractions.",

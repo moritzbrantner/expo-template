@@ -34,3 +34,26 @@ test('keeps historical stats on a dedicated page', () => {
   assert.match(stats, /Pumping/);
   assert.match(stats, /does not invent a milk volume/);
 });
+
+test('groups four-step adjustments into decrease and increase flex pairs', () => {
+  const index = read('app/index.tsx');
+
+  assert.match(index, /stepRow: \{ flexDirection: 'row', gap: 7, marginTop: 8 \}/);
+  assert.match(index, /stepGroup: \{ flex: 1, flexDirection: 'row', gap: 7, minWidth: 0 \}/);
+  assert.match(
+    index,
+    /styles\.stepGroup\}>\s*<StepButton label="−10 ml"[\s\S]*?<StepButton label="−5 ml"/,
+  );
+  assert.match(
+    index,
+    /styles\.stepGroup\}>\s*<StepButton label="\+10 ml"[\s\S]*?<StepButton label="\+5 ml"/,
+  );
+  assert.match(
+    index,
+    /styles\.stepGroup\}>\s*<StepButton\s*label="−1 h"[\s\S]*?<StepButton\s*label="−5 min"/,
+  );
+  assert.match(
+    index,
+    /styles\.stepGroup\}>\s*<StepButton\s*label="\+1 h"[\s\S]*?<StepButton\s*label="\+5 min"/,
+  );
+});

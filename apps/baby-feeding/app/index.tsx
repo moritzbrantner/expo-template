@@ -438,10 +438,14 @@ export default function BabyFeedingApp() {
                 <Text style={styles.unit}>ml</Text>
               </View>
               <View style={styles.stepRow}>
-                <StepButton label="−10 ml" onPress={() => adjustAmount(-10)} />
-                <StepButton label="−5 ml" onPress={() => adjustAmount(-5)} />
-                <StepButton label="+5 ml" onPress={() => adjustAmount(5)} />
-                <StepButton label="+10 ml" onPress={() => adjustAmount(10)} />
+                <View style={styles.stepGroup}>
+                  <StepButton label="−10 ml" onPress={() => adjustAmount(-10)} />
+                  <StepButton label="−5 ml" onPress={() => adjustAmount(-5)} />
+                </View>
+                <View style={styles.stepGroup}>
+                  <StepButton label="+10 ml" onPress={() => adjustAmount(10)} />
+                  <StepButton label="+5 ml" onPress={() => adjustAmount(5)} />
+                </View>
               </View>
             </>
           ) : (
@@ -481,22 +485,26 @@ export default function BabyFeedingApp() {
             <Text style={styles.directPickerHint}>Tap to choose</Text>
           </Pressable>
           <View style={styles.stepRow}>
-            <StepButton
-              label="−1 h"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -60))}
-            />
-            <StepButton
-              label="−5 min"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -5))}
-            />
-            <StepButton
-              label="+5 min"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 5))}
-            />
-            <StepButton
-              label="+1 h"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 60))}
-            />
+            <View style={styles.stepGroup}>
+              <StepButton
+                label="−1 h"
+                onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -60))}
+              />
+              <StepButton
+                label="−5 min"
+                onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -5))}
+              />
+            </View>
+            <View style={styles.stepGroup}>
+              <StepButton
+                label="+1 h"
+                onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 60))}
+              />
+              <StepButton
+                label="+5 min"
+                onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 5))}
+              />
+            </View>
           </View>
 
           {mode === 'feed' ? (
@@ -722,11 +730,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingVertical: 16,
   },
-  stepRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
-  stepRowThree: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
+  stepRow: { flexDirection: 'row', gap: 7, marginTop: 8 },
+  stepGroup: { flex: 1, flexDirection: 'row', gap: 7, minWidth: 0 },
+  stepRowThree: { flexDirection: 'row', gap: 7, marginTop: 8 },
   stepButton: {
-    flexGrow: 1,
-    flexBasis: 108,
+    flex: 1,
+    minWidth: 0,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',

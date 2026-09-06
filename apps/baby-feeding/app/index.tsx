@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateTimePickerModal } from '../components/DateTimePickerModal';
-import { FeedingModeSetup } from '../components/FeedingModeSetup';
 import {
   addBottleCare,
   addBreastfeeding,
@@ -27,14 +27,13 @@ import {
   type MilkType,
 } from '../lib/feeding';
 import {
+  defaultFeedingPreferences,
   deserializeFeedingPreferences,
   FEEDING_PREFERENCES_STORAGE_KEY,
   feedingModeEnabled,
-  type FeedingMode,
   type FeedingPreferences,
 } from '../lib/preferences';
-
-const STORAGE_KEY = '@expo-template/baby-feeding/log-v1';
+import { BABY_FEEDING_STORAGE_KEY } from '../lib/sharing';
 
 type EntryMode = 'breastfeeding' | 'feed' | 'pumping';
 type PickerMode = 'date' | 'time';
@@ -118,21 +117,28 @@ function milkLabel(milkType: MilkType) {
   return milkType === 'breast-milk' ? 'Breast milk' : 'Formula';
 }
 
-function entryModeForFeedingMode(mode: FeedingMode): EntryMode {
-  if (mode === 'breastfeeding') return 'breastfeeding';
-  if (mode === 'bottle') return 'feed';
-  return 'pumping';
+function entryModesForPreferences(preferences: FeedingPreferences): EntryMode[] {
+  const modes: EntryMode[] = [];
+  const breastMilkEnabled = feedingModeEnabled(preferences, 'breast-milk');
+  const formulaEnabled = feedingModeEnabled(preferences, 'formula');
+
+  if (breastMilkEnabled) modes.push('breastfeeding');
+  if (breastMilkEnabled || formulaEnabled) modes.push('feed');
+  if (feedingModeEnabled(preferences, 'pumping')) modes.push('pumping');
+
+  return modes;
+}
+
+function milkTypesForPreferences(preferences: FeedingPreferences): MilkType[] {
+  const milkTypes: MilkType[] = [];
+  if (feedingModeEnabled(preferences, 'breast-milk')) milkTypes.push('breast-milk');
+  if (feedingModeEnabled(preferences, 'formula')) milkTypes.push('formula');
+  return milkTypes;
 }
 
 function entryModeLabel(mode: EntryMode) {
   if (mode === 'breastfeeding') return 'Breastfeeding';
   if (mode === 'feed') return 'Bottle';
-  return 'Pumping';
-}
-
-function feedingModeLabel(mode: FeedingMode) {
-  if (mode === 'breastfeeding') return 'Breastfeeding';
-  if (mode === 'bottle') return 'Bottle';
   return 'Pumping';
 }
 
@@ -176,8 +182,7 @@ function saveButtonLabel(mode: EntryMode) {
 export default function BabyFeedingApp() {
   const [log, setLog] = useState(emptyFeedingLog);
   const [hydrated, setHydrated] = useState(false);
-  const [preferences, setPreferences] = useState<FeedingPreferences | null | undefined>(undefined);
-  const [editingPreferences, setEditingPreferences] = useState(false);
+  const [preferences, setPreferences] = useState<FeedingPreferences | undefined>(undefined);
   const [mode, setMode] = useState<EntryMode>('feed');
   const [milkType, setMilkType] = useState<MilkType>('breast-milk');
   const [amountMl, setAmountMl] = useState(100);
@@ -189,20 +194,23 @@ export default function BabyFeedingApp() {
   useEffect(() => {
     let active = true;
     void Promise.all([
-      AsyncStorage.getItem(STORAGE_KEY),
+      AsyncStorage.getItem(BABY_FEEDING_STORAGE_KEY),
       AsyncStorage.getItem(FEEDING_PREFERENCES_STORAGE_KEY),
     ])
       .then(([storedLog, storedPreferences]) => {
         if (!active) return;
         setLog(deserializeFeedingLog(storedLog));
-        setPreferences(deserializeFeedingPreferences(storedPreferences));
+        setPreferences(
+          deserializeFeedingPreferences(storedPreferences) ?? defaultFeedingPreferences(),
+        );
       })
       .catch(() => {
-        if (active) setPreferences(null);
+        if (active) setPreferences(defaultFeedingPreferences());
       })
       .finally(() => {
         if (active) setHydrated(true);
       });
+
     return () => {
       active = false;
     };
@@ -211,25 +219,53 @@ export default function BabyFeedingApp() {
   useEffect(() => {
     if (!hydrated) return;
     const timer = setTimeout(() => {
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+      void AsyncStorage.setItem(BABY_FEEDING_STORAGE_KEY, JSON.stringify(log));
     }, 100);
     return () => clearTimeout(timer);
   }, [hydrated, log]);
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void AsyncStorage.getItem(FEEDING_PREFERENCES_STORAGE_KEY)
+        .then((stored) => {
+          if (active) {
+            setPreferences(deserializeFeedingPreferences(stored) ?? defaultFeedingPreferences());
+          }
+        })
+        .catch(() => {
+          if (active) setPreferences(defaultFeedingPreferences());
+        });
+
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const availableModes = useMemo(
+    () => (preferences ? entryModesForPreferences(preferences) : []),
+    [preferences],
+  );
+  const availableMilkTypes = useMemo(
+    () => (preferences ? milkTypesForPreferences(preferences) : []),
+    [preferences],
+  );
+
   useEffect(() => {
-    if (!preferences) return;
-    const enabledModes = preferences.modes.map(entryModeForFeedingMode);
-    if (enabledModes.includes(mode)) return;
-    const nextMode = enabledModes[0];
+    if (!preferences || availableModes.includes(mode)) return;
+    const nextMode = availableModes[0];
     if (!nextMode) return;
     setMode(nextMode);
     setBottleUsed(nextMode === 'feed');
-  }, [mode, preferences]);
+  }, [availableModes, mode, preferences]);
 
-  const availableModes = useMemo(
-    () => preferences?.modes.map(entryModeForFeedingMode) ?? [],
-    [preferences],
-  );
+  useEffect(() => {
+    if (mode !== 'feed' || availableMilkTypes.includes(milkType)) return;
+    const nextMilkType = availableMilkTypes[0];
+    if (nextMilkType) setMilkType(nextMilkType);
+  }, [availableMilkTypes, milkType, mode]);
+
   const mostRecentFeed = useMemo(() => latestFeed(log), [log]);
   const dirtyBottles = useMemo(() => dirtyBottleCount(log), [log]);
   const lastCleaned = useMemo(() => latestBottleCare(log, 'bottle-clean'), [log]);
@@ -284,18 +320,6 @@ export default function BabyFeedingApp() {
     });
   };
 
-  const handleSavePreferences = async (nextPreferences: FeedingPreferences) => {
-    await AsyncStorage.setItem(FEEDING_PREFERENCES_STORAGE_KEY, JSON.stringify(nextPreferences));
-    setPreferences(nextPreferences);
-    setEditingPreferences(false);
-
-    const enabledModes = nextPreferences.modes.map(entryModeForFeedingMode);
-    if (!enabledModes.includes(mode) && enabledModes[0]) {
-      setMode(enabledModes[0]);
-      setBottleUsed(enabledModes[0] === 'feed');
-    }
-  };
-
   const handleSave = () => {
     const id = recordId();
 
@@ -335,47 +359,20 @@ export default function BabyFeedingApp() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="dark" />
         <View style={styles.loadingState}>
-          <Text style={styles.loadingText}>Loading feeding setup…</Text>
+          <Text style={styles.loadingText}>Loading feeding log…</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (preferences === null || editingPreferences) {
-    return (
-      <FeedingModeSetup
-        initialPreferences={preferences}
-        onCancel={preferences ? () => setEditingPreferences(false) : undefined}
-        onSave={handleSavePreferences}
-      />
-    );
-  }
-
-  const modeSummary = preferences.modes.map(feedingModeLabel).join(' · ');
-  const bottleModeEnabled = feedingModeEnabled(preferences, 'bottle');
+  const bottleModeEnabled = availableModes.includes('feed');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.eyebrow}>BABY FEEDING</Text>
-        <Text style={styles.heading}>Record only the feeding workflows you use.</Text>
-        <Text style={styles.subheading}>
-          Your setup controls which record types and bottle-care tools are shown.
-        </Text>
-
-        <View style={styles.setupRow}>
-          <View style={styles.setupCopy}>
-            <Text style={styles.setupLabel}>Current setup</Text>
-            <Text style={styles.setupValue}>{modeSummary}</Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setEditingPreferences(true)}
-            style={({ pressed }) => [styles.changeSetupButton, pressed && styles.pressed]}>
-            <Text style={styles.changeSetupText}>Change setup</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.heading}>Feeding log</Text>
 
         <View style={styles.latestFeed}>
           <Text style={styles.latestLabel}>Last feed</Text>
@@ -388,6 +385,15 @@ export default function BabyFeedingApp() {
             <Text style={styles.latestEmpty}>No feed recorded yet.</Text>
           )}
         </View>
+
+        <Link href="/stats" asChild>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.statsLink, pressed && styles.pressed]}>
+            <Text style={styles.statsLinkTitle}>Stats</Text>
+            <Text style={styles.statsLinkMeta}>Last 7 days ›</Text>
+          </Pressable>
+        </Link>
 
         <View style={styles.composer}>
           <Text style={styles.sectionTitle}>Add record</Text>
@@ -408,20 +414,18 @@ export default function BabyFeedingApp() {
             </>
           ) : null}
 
-          {mode === 'feed' ? (
+          {mode === 'feed' && availableMilkTypes.length > 1 ? (
             <>
               <Text style={styles.controlLabel}>Milk</Text>
               <View style={styles.choiceRow}>
-                <ChoiceButton
-                  label="Breast milk"
-                  selected={milkType === 'breast-milk'}
-                  onPress={() => setMilkType('breast-milk')}
-                />
-                <ChoiceButton
-                  label="Formula"
-                  selected={milkType === 'formula'}
-                  onPress={() => setMilkType('formula')}
-                />
+                {availableMilkTypes.map((availableMilkType) => (
+                  <ChoiceButton
+                    key={availableMilkType}
+                    label={milkLabel(availableMilkType)}
+                    selected={milkType === availableMilkType}
+                    onPress={() => setMilkType(availableMilkType)}
+                  />
+                ))}
               </View>
             </>
           ) : null}
@@ -442,7 +446,7 @@ export default function BabyFeedingApp() {
             </>
           ) : (
             <Text style={styles.breastfeedingHint}>
-              Direct breastfeeding is recorded as a feeding event at the selected date and time.
+              Direct breastfeeding is recorded without inventing a milk volume.
             </Text>
           )}
 
@@ -597,7 +601,7 @@ export default function BabyFeedingApp() {
         )}
 
         <Text style={styles.footer}>
-          Records and feeding setup stay on this device. The app records what happened; it does not make
+          Records and settings stay on this device. The app records what happened; it does not make
           feeding recommendations or set a medical sterilization schedule.
         </Text>
       </ScrollView>
@@ -627,36 +631,16 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     marginTop: 8,
   },
-  subheading: { color: '#776d68', fontSize: 14, lineHeight: 21, marginTop: 10 },
-  setupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-    borderBottomColor: '#ded4ce',
-    borderBottomWidth: 1,
-    marginTop: 20,
-    paddingBottom: 14,
-  },
-  setupCopy: { flex: 1 },
-  setupLabel: { color: '#8a7d76', fontSize: 10, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  setupValue: { color: '#4b403b', fontSize: 13, fontWeight: '700', marginTop: 3 },
-  changeSetupButton: {
-    minHeight: 42,
-    justifyContent: 'center',
-    borderColor: '#c8bbb5',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-  },
-  changeSetupText: { color: '#5f554f', fontSize: 12, fontWeight: '800' },
   latestFeed: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 18,
+    borderTopColor: '#ded4ce',
+    borderTopWidth: 1,
     borderBottomColor: '#ded4ce',
     borderBottomWidth: 1,
+    marginTop: 22,
     paddingVertical: 16,
   },
   latestLabel: {
@@ -670,6 +654,18 @@ const styles = StyleSheet.create({
   latestValue: { color: '#342c29', fontSize: 23, fontWeight: '800', fontVariant: ['tabular-nums'] },
   latestMeta: { color: '#786e69', fontSize: 12, marginTop: 2 },
   latestEmpty: { color: '#918680', fontSize: 13 },
+  statsLink: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderBottomColor: '#ded4ce',
+    borderBottomWidth: 1,
+    paddingVertical: 12,
+  },
+  statsLinkTitle: { color: '#3f5b4d', fontSize: 14, fontWeight: '800' },
+  statsLinkMeta: { color: '#776d68', fontSize: 12, fontWeight: '700' },
   composer: {
     backgroundColor: '#fffdfb',
     borderColor: '#e2d8d2',

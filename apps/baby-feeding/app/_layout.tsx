@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, Stack, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { deserializeFeedingLog } from '../lib/feeding';
 import {
@@ -60,16 +60,44 @@ export default function RootLayout() {
           headerBackVisible: false,
           headerShadowVisible: false,
           headerStyle: { backgroundColor: '#f7f2ee' },
-          headerTitle: '',
+          headerTitle: 'Feeding Log',
+          headerTitleAlign: 'left',
+          headerTitleStyle: { color: '#332c29', fontSize: 22, fontWeight: '800' },
           headerRight: () => (
-            <Link href="/settings" asChild>
-              <Pressable
-                accessibilityLabel="Open settings"
-                accessibilityRole="button"
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 8 })}>
-                <Text style={{ color: '#4b403b', fontSize: 24, lineHeight: 26 }}>⚙</Text>
-              </Pressable>
-            </Link>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 12 }}>
+              <Link href="/stats" asChild>
+                <Pressable
+                  accessibilityLabel="Open stats"
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    width: 42,
+                    height: 42,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 15,
+                    backgroundColor: '#efe5df',
+                    opacity: pressed ? 0.65 : 1,
+                  })}>
+                  <Text style={{ fontSize: 20, lineHeight: 23 }}>📊</Text>
+                </Pressable>
+              </Link>
+              <Link href="/settings" asChild>
+                <Pressable
+                  accessibilityLabel="Open settings"
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    width: 42,
+                    height: 42,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 15,
+                    backgroundColor: '#efe5df',
+                    opacity: pressed ? 0.65 : 1,
+                  })}>
+                  <Text style={{ fontSize: 22, lineHeight: 25 }}>⚙️</Text>
+                </Pressable>
+              </Link>
+            </View>
           ),
         }}
       />

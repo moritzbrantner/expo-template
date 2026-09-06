@@ -10,6 +10,7 @@ import {
   defaultFeedingPreferences,
   deserializeFeedingPreferences,
   FEEDING_PREFERENCES_STORAGE_KEY,
+  type ButtonPresentation,
   type FeedingMode,
   type FeedingPreferences,
 } from '../lib/preferences';
@@ -38,6 +39,12 @@ const OPTIONS: MethodOption[] = [
   },
 ];
 
+const PRESENTATIONS: Array<{ value: ButtonPresentation; label: string; preview: string }> = [
+  { value: 'icons', label: 'Icons', preview: '◉' },
+  { value: 'text', label: 'Text', preview: 'Aa' },
+  { value: 'icons-text', label: 'Icons + text', preview: '◉ Aa' },
+];
+
 export default function SettingsScreen() {
   const router = useRouter();
   const [preferences, setPreferences] = useState<FeedingPreferences>(defaultFeedingPreferences);
@@ -61,23 +68,36 @@ export default function SettingsScreen() {
     };
   }, []);
 
-  const toggleMode = (mode: FeedingMode) => {
-    const selected = preferences.modes.includes(mode)
-      ? preferences.modes.filter((candidate) => candidate !== mode)
-      : [...preferences.modes, mode];
-    const next = createFeedingPreferences(selected);
-
-    if (!next) {
-      setError('Keep at least one feeding method enabled.');
-      return;
-    }
-
+  const persist = (next: FeedingPreferences) => {
     setPreferences(next);
     setError(null);
     void AsyncStorage.setItem(FEEDING_PREFERENCES_STORAGE_KEY, JSON.stringify(next)).catch(() => {
       setError('Could not save this setting. Try again.');
     });
   };
+
+  const toggleMode = (mode: FeedingMode) => {
+    const selected = preferences.modes.includes(mode)
+      ? preferences.modes.filter((candidate) => candidate !== mode)
+      : [...preferences.modes, mode];
+    const next = createFeedingPreferences(selected, preferences.buttonPresentation);
+
+    if (!next) {
+      setError('Keep at least one feeding method enabled.');
+      return;
+    }
+
+    persist(next);
+  };
+
+  const setButtonPresentation = (buttonPresentation: ButtonPresentation) => {
+    const next = createFeedingPreferences(preferences.modes, buttonPresentation);
+    if (next) persist(next);
+  };
+
+  const bottlesEnabled =
+    preferences.modes.includes('breast-milk') || preferences.modes.includes('formula');
+  const pumpingEnabled = preferences.modes.includes('pumping');
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -126,6 +146,70 @@ export default function SettingsScreen() {
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+        <Text style={styles.sectionTitle}>Button style</Text>
+        <Text style={styles.sectionDescription}>
+          Choose whether recording controls show icons, text, or both.
+        </Text>
+        <View style={styles.presentationRow}>
+          {PRESENTATIONS.map((option) => {
+            const selected = preferences.buttonPresentation === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityLabel={`Use ${option.label.toLowerCase()} for buttons`}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                onPress={() => setButtonPresentation(option.value)}
+                style={({ pressed }) => [
+                  styles.presentationButton,
+                  selected && styles.presentationButtonSelected,
+                  pressed && styles.pressed,
+                ]}>
+                <Text style={[styles.presentationPreview, selected && styles.presentationTextSelected]}>
+                  {option.preview}
+                </Text>
+                <Text style={[styles.presentationLabel, selected && styles.presentationTextSelected]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {bottlesEnabled || pumpingEnabled ? (
+          <>
+            <Text style={styles.sectionTitle}>Care</Text>
+            {bottlesEnabled ? (
+              <Link href="/bottles" asChild>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.rowLink, pressed && styles.pressed]}>
+                  <Text style={styles.rowIcon}>🍼</Text>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowTitle}>Bottles</Text>
+                    <Text style={styles.rowDescription}>Track dirty, washed, and sterilized bottles.</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </Pressable>
+              </Link>
+            ) : null}
+            {pumpingEnabled ? (
+              <Link href="/pumping-gear" asChild>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.rowLink, pressed && styles.pressed]}>
+                  <Text style={styles.rowIcon}>💧</Text>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowTitle}>Pumping gear</Text>
+                    <Text style={styles.rowDescription}>Track dirty, washed, and sterilized pump kits.</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </Pressable>
+              </Link>
+            ) : null}
+          </>
+        ) : null}
+
         <Text style={styles.sectionTitle}>Data</Text>
         <Link href="/share" asChild>
           <Pressable
@@ -164,6 +248,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionTitle: { color: '#3b322e', fontSize: 19, fontWeight: '800', marginTop: 28 },
+  sectionDescription: { color: '#847973', fontSize: 12, lineHeight: 18, marginTop: 5 },
   options: { gap: 10, marginTop: 14 },
   option: {
     minHeight: 78,
@@ -194,6 +279,23 @@ const styles = StyleSheet.create({
   optionTitle: { color: '#3b322e', fontSize: 16, fontWeight: '800' },
   optionDescription: { color: '#7c716b', fontSize: 13, lineHeight: 19, marginTop: 3 },
   errorText: { color: '#934a45', fontSize: 12, lineHeight: 18, marginTop: 10 },
+  presentationRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  presentationButton: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: '#d9cec8',
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: '#fffdfb',
+    paddingHorizontal: 5,
+  },
+  presentationButtonSelected: { borderColor: '#684f5b', backgroundColor: '#684f5b' },
+  presentationPreview: { color: '#625852', fontSize: 16, fontWeight: '900' },
+  presentationLabel: { color: '#625852', fontSize: 10, fontWeight: '800', marginTop: 3, textAlign: 'center' },
+  presentationTextSelected: { color: '#fff' },
   rowLink: {
     minHeight: 66,
     flexDirection: 'row',
@@ -206,6 +308,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 12,
   },
+  rowIcon: { fontSize: 22 },
   rowCopy: { flex: 1 },
   rowTitle: { color: '#3d3430', fontSize: 15, fontWeight: '800' },
   rowDescription: { color: '#847973', fontSize: 12, marginTop: 3 },

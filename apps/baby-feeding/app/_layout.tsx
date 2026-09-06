@@ -62,17 +62,19 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: '#f7f2ee' },
           headerTitle: '',
           headerRight: () => (
-            <Link href="/share" asChild>
+            <Link href="/settings" asChild>
               <Pressable
-                accessibilityLabel="Share feeding log"
+                accessibilityLabel="Open settings"
                 accessibilityRole="button"
                 style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 8 })}>
-                <Text style={{ color: '#3f5b4d', fontSize: 14, fontWeight: '800' }}>Share</Text>
+                <Text style={{ color: '#4b403b', fontSize: 24, lineHeight: 26 }}>⚙</Text>
               </Pressable>
             </Link>
           ),
         }}
       />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="stats" options={{ headerShown: false }} />
       <Stack.Screen name="share" options={{ headerShown: false }} />
     </Stack>
   );

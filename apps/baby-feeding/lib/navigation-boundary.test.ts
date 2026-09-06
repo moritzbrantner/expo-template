@@ -81,15 +81,20 @@ test('keeps date controls contextual and centers Now between time directions', (
   );
 });
 
-test('puts the recorder after history in a bottom thumb zone and keeps record types on one row', () => {
+test('keeps history independently scrollable above a viewport-bottom recorder and record types on one row', () => {
   const index = read('app/index.tsx');
-  const historyPosition = index.indexOf('<View style={styles.historyArea}>');
-  const composerPosition = index.indexOf('<View style={styles.composer}>');
+  const historyPosition = index.indexOf('contentContainerStyle={styles.historyContent}');
+  const composerPosition = index.indexOf('contentContainerStyle={styles.composerContent}');
 
   assert.ok(historyPosition >= 0);
   assert.ok(composerPosition > historyPosition);
-  assert.match(index, /content: \{[\s\S]*?flexGrow: 1,[\s\S]*?paddingBottom: 24/);
-  assert.match(index, /historyArea: \{ flexGrow: 1 \}/);
+  assert.match(index, /<View style=\{styles\.screen\}>/);
+  assert.match(index, /historyScroll: \{ flex: 1, minHeight: 0 \}/);
+  assert.match(
+    index,
+    /composerScroll: \{[\s\S]*?flexGrow: 0,[\s\S]*?flexShrink: 1,[\s\S]*?maxHeight: '72%'/,
+  );
+  assert.doesNotMatch(index, /contentContainerStyle=\{styles\.content\}/);
   assert.match(index, /recordTypeRow: \{ flexDirection: 'row', gap: 8 \}/);
   assert.match(index, /<View style=\{styles\.recordTypeRow\}>/);
   assert.doesNotMatch(index, /recordTypeRow:[^\n]*flexWrap/);
@@ -100,7 +105,10 @@ test('keeps bottle-used compact and lets recording buttons use icons, text, or b
   const settings = read('app/settings.tsx');
 
   assert.match(index, /<ChoiceButton\s*compact\s*icon="🍼"\s*label="Bottle used"/);
-  assert.match(index, /choiceButtonCompact: \{[\s\S]*?flexGrow: 0,[\s\S]*?alignSelf: 'flex-start'/);
+  assert.match(
+    index,
+    /choiceButtonCompact: \{[\s\S]*?flexGrow: 0,[\s\S]*?alignSelf: 'flex-start',[\s\S]*?minHeight: 44/,
+  );
   assert.match(index, /presentation=\{buttonPresentation\}/);
   assert.match(settings, /value: 'icons', label: 'Icons'/);
   assert.match(settings, /value: 'text', label: 'Text'/);

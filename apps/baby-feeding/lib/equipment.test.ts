@@ -6,11 +6,10 @@ import {
   deserializeEquipmentState,
   emptyEquipmentState,
   equipmentItems,
-  markEquipmentUsed,
   setEquipmentStatus,
 } from './equipment';
 
-test('tracks bottle and pumping gear through dirty, washed and sterilized states', () => {
+test('tracks bottle and pumping gear through explicit dirty, washed and sterilized states', () => {
   let state = addEquipmentItem(emptyEquipmentState(), {
     id: 'bottle-1',
     kind: 'bottle',
@@ -18,7 +17,7 @@ test('tracks bottle and pumping gear through dirty, washed and sterilized states
   });
   state = addEquipmentItem(state, { id: 'pump-1', kind: 'pump-kit', updatedAt: 2 });
 
-  state = markEquipmentUsed(state, 'bottle', 'fallback-bottle', 3);
+  state = setEquipmentStatus(state, 'bottle-1', 'dirty', 3);
   assert.equal(equipmentItems(state, 'bottle')[0]?.status, 'dirty');
   state = setEquipmentStatus(state, 'bottle-1', 'washed', 4);
   assert.equal(equipmentItems(state, 'bottle')[0]?.status, 'washed');
@@ -27,11 +26,18 @@ test('tracks bottle and pumping gear through dirty, washed and sterilized states
   assert.equal(equipmentItems(state, 'pump-kit')[0]?.status, 'sterilized');
 });
 
-test('creates a dirty fallback item when an untracked item is used', () => {
-  const state = markEquipmentUsed(emptyEquipmentState(), 'pump-kit', 'pump-use-1', 10);
-  assert.deepEqual(state.items, [
-    { id: 'pump-use-1', kind: 'pump-kit', status: 'dirty', updatedAt: 10 },
-  ]);
+test('changes only the explicitly selected equipment item', () => {
+  let state = addEquipmentItem(emptyEquipmentState(), {
+    id: 'bottle-1',
+    kind: 'bottle',
+    updatedAt: 1,
+  });
+  state = addEquipmentItem(state, { id: 'bottle-2', kind: 'bottle', updatedAt: 2 });
+
+  const next = setEquipmentStatus(state, 'bottle-2', 'dirty', 3);
+  assert.equal(equipmentItems(next, 'bottle')[0]?.status, 'sterilized');
+  assert.equal(equipmentItems(next, 'bottle')[1]?.status, 'dirty');
+  assert.equal(setEquipmentStatus(next, 'missing', 'dirty', 4), next);
 });
 
 test('restores only valid unique equipment items', () => {

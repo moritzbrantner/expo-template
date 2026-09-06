@@ -74,27 +74,6 @@ export function setEquipmentStatus(
   return changed ? { items } : state;
 }
 
-export function markEquipmentUsed(
-  state: EquipmentState,
-  kind: EquipmentKind,
-  fallbackId: string,
-  updatedAt: number,
-): EquipmentState {
-  if (!isEquipmentKind(kind) || !fallbackId || !isTimestamp(updatedAt)) return state;
-
-  const available = state.items.find(
-    (item) => item.kind === kind && (item.status === 'sterilized' || item.status === 'washed'),
-  );
-  if (available) return setEquipmentStatus(state, available.id, 'dirty', updatedAt);
-
-  return addEquipmentItem(state, {
-    id: fallbackId,
-    kind,
-    status: 'dirty',
-    updatedAt,
-  });
-}
-
 export function deserializeEquipmentState(value: string | null): EquipmentState {
   if (!value) return emptyEquipmentState();
 

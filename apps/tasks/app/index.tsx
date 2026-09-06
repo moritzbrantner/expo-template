@@ -139,6 +139,7 @@ export default function TasksApp() {
   const draftRef = useRef('');
   const inputRef = useRef<TextInput>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const shouldFinishDictationRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -246,6 +247,7 @@ export default function TasksApp() {
   };
 
   const finishDictation = () => {
+    shouldFinishDictationRef.current = true;
     const recognition = recognitionRef.current;
     if (recognition) {
       setDictationStatus('Finishing dictation…');
@@ -278,6 +280,7 @@ export default function TasksApp() {
   };
 
   const startDictation = () => {
+    shouldFinishDictationRef.current = false;
     setDictationMode(true);
 
     const Recognition = getBrowserSpeechRecognitionConstructor();
@@ -329,11 +332,28 @@ export default function TasksApp() {
         return;
       }
 
+      if (!shouldFinishDictationRef.current) {
+        try {
+          recognitionRef.current = recognition;
+          recognition.start();
+          setIsListening(true);
+          setDictationStatus(
+            `Listening… “${dictationCommands.next}” starts another task. “${dictationCommands.done}” finishes dictation.`,
+          );
+        } catch {
+          recognitionRef.current = null;
+          setDictationStatus('Speech recognition paused. Use the keyboard microphone to keep dictating.');
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }
+        return;
+      }
+
       const remainingTitle = draftRef.current.trim();
       if (remainingTitle) {
         addTaskTitles([remainingTitle]);
       }
       updateDraft('');
+      shouldFinishDictationRef.current = false;
       setDictationMode(false);
       setDictationStatus(null);
     };

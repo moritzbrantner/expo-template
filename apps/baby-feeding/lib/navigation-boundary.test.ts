@@ -57,3 +57,19 @@ test('groups four-step adjustments into decrease and increase flex pairs', () =>
     /styles\.stepGroup\}>\s*<StepButton\s*label="\+1 h"[\s\S]*?<StepButton\s*label="\+5 min"/,
   );
 });
+
+test('keeps date controls contextual and centers Now between time directions', () => {
+  const index = read('app/index.tsx');
+
+  assert.match(index, /isEarlierLocalDay\(occurredAt, Date\.now\(\)\) \? \(/);
+  assert.match(index, /accessibilityLabel="Set time to now"/);
+  assert.match(index, /<Text style=\{styles\.nowButtonText\}>Now<\/Text>/);
+  assert.match(
+    index,
+    /label="−5 min"[\s\S]*?accessibilityLabel="Set time to now"[\s\S]*?label="\+1 h"/,
+  );
+  assert.match(
+    index,
+    /timeStepRow: \{ flexDirection: 'row', alignItems: 'stretch', gap: 7, marginTop: 8 \}/,
+  );
+});

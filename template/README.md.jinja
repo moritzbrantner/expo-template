@@ -24,6 +24,39 @@ bun test
 maestro test .maestro
 ```
 
+`bun run verify` runs the deterministic source-level gate used by release qualification.
+
+## Production release setup
+
+The generated app contains an immutable release lane, but store identity and credentials are deliberately not invented by the template. Complete these once for the real product before the first store build:
+
+1. Keep the generated iOS bundle identifier and Android package identifier permanent. Do not ship with a `com.example.*` identifier.
+2. Run `eas init` for the real Expo account/project and commit the resulting `extra.eas.projectId` in `app.config.ts`.
+3. Create the application records in App Store Connect and Google Play Console.
+4. Add the numeric App Store Connect app ID as `submit.internal.ios.ascAppId` and `submit.production.ios.ascAppId` in `eas.json`.
+5. Configure EAS build/signing credentials and EAS Submit store credentials for the project.
+6. Fill the HTTPS `supportUrl` and `privacyUrl` in `release.config.json` and keep its supported locales accurate.
+7. Add an Expo access token to the GitHub repository as the `EXPO_TOKEN` Actions secret.
+
+`bun run release:preflight` fails closed until those product-owned values are complete and internally consistent.
+
+## Immutable mobile release lane
+
+The repository workflow **Mobile Release** accepts an exact 40-character source SHA. It then:
+
+1. checks out and validates that exact source;
+2. runs `bun run release:qualify`;
+3. builds iOS and Android once through the production EAS Build profile;
+4. downloads the exact `.ipa` and `.aab` from those EAS Build IDs;
+5. writes `mobile-release.json` binding the source SHA, EAS Build IDs, app/build versions, binary paths, and SHA-256 digests;
+6. stores and attests that candidate through the shared release-qualification capability;
+7. promotes the same qualified artifact by immutable reference;
+8. when `deliver=true`, re-verifies the artifact/provenance and binary hashes before submitting those exact file paths with EAS Submit.
+
+Start with `submit_profile=internal`: iOS goes through the configured App Store Connect/TestFlight submission path and Android targets Google Play internal testing. The generated Android `production` submit profile is deliberately `draft`; choosing the production profile does not silently expose a build to users. Final App Store/Play production exposure remains an explicit store lifecycle decision.
+
+Run `deliver=false` when you want to qualify and preserve binaries without sending them to either store yet.
+
 The stopwatch is a small editable reference slice. {% if profile == 'scheduled' %}The scheduled profile also includes a permission-aware local reminder screen.{% endif %}
 
 The generated `app.features.ts` is the capability contract. Keep feature-specific screens in `app/`; move only stable, reusable primitives into shared platform packages.

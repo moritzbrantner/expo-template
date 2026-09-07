@@ -10,6 +10,12 @@ export type FeedEntry = {
   bottleUsed: boolean;
 };
 
+export type BreastfeedingEntry = {
+  id: string;
+  kind: 'breastfeeding';
+  occurredAt: number;
+};
+
 export type PumpingEntry = {
   id: string;
   kind: 'pumping';
@@ -23,7 +29,8 @@ export type BottleCareEntry = {
   occurredAt: number;
 };
 
-export type FeedingEntry = FeedEntry | PumpingEntry | BottleCareEntry;
+export type FeedingEntry = FeedEntry | BreastfeedingEntry | PumpingEntry | BottleCareEntry;
+export type FeedingEventEntry = FeedEntry | BreastfeedingEntry;
 
 export type FeedingLog = {
   entries: FeedingEntry[];
@@ -69,6 +76,14 @@ export function addFeed(
   };
 }
 
+export function addBreastfeeding(
+  log: FeedingLog,
+  entry: Omit<BreastfeedingEntry, 'kind'>,
+): FeedingLog {
+  if (!entry.id || !isValidTimestamp(entry.occurredAt)) return log;
+  return { entries: sortEntries([...log.entries, { ...entry, kind: 'breastfeeding' }]) };
+}
+
 export function addPumping(log: FeedingLog, entry: Omit<PumpingEntry, 'kind'>): FeedingLog {
   if (!entry.id || !isValidAmountMl(entry.amountMl) || !isValidTimestamp(entry.occurredAt)) {
     return log;
@@ -98,10 +113,10 @@ export function removeEntry(log: FeedingLog, id: string): FeedingLog {
   return { entries: log.entries.filter((entry) => entry.id !== id) };
 }
 
-export function latestFeed(log: FeedingLog): FeedEntry | null {
+export function latestFeed(log: FeedingLog): FeedingEventEntry | null {
   for (let index = log.entries.length - 1; index >= 0; index -= 1) {
     const entry = log.entries[index];
-    if (entry.kind === 'feed') return entry;
+    if (entry.kind === 'feed' || entry.kind === 'breastfeeding') return entry;
   }
   return null;
 }
@@ -201,6 +216,10 @@ export function deserializeFeedingLog(value: string | null): FeedingLog {
       const entry = candidate as Record<string, unknown>;
       if (typeof entry.id !== 'string' || !entry.id || !isValidTimestamp(entry.occurredAt)) {
         return [];
+      }
+
+      if (entry.kind === 'breastfeeding') {
+        return [{ id: entry.id, kind: 'breastfeeding', occurredAt: entry.occurredAt }];
       }
 
       if (entry.kind === 'bottle-clean' || entry.kind === 'bottle-sterilize') {

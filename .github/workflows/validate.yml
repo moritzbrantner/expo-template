@@ -9,7 +9,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: moritzbrantner/reusable-workflows/.github/workflows/validate-repo.yml@scaffold-v2-initial
+    uses: moritzbrantner/reusable-workflows/.github/workflows/validate-repo.yml@b11bce847d35b90e5d6e8f69bacd26c709416781
     with:
       test_command: bun test
       lint_command: bun run lint

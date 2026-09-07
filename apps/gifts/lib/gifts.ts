@@ -79,7 +79,9 @@ export function addPerson(state: GiftState, person: GiftPerson): GiftState {
     throw new Error('Person id already exists');
   }
 
-  if (state.people.some((existing) => existing.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+  if (
+    state.people.some((existing) => existing.name.toLowerCase() === name.toLowerCase())
+  ) {
     throw new Error('Person already exists');
   }
 

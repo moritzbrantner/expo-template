@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   addBottleCare,
+  addBreastfeeding,
   addFeed,
   addPumping,
   adjustLocalDays,
@@ -17,7 +18,7 @@ import {
   roundToFiveMinutes,
 } from './feeding';
 
-test('records breast-milk and formula feeds and keeps the latest feed explicit', () => {
+test('records breast-milk and formula bottle feeds and keeps the latest feed explicit', () => {
   let log = addFeed(emptyFeedingLog(), {
     id: 'breast',
     milkType: 'breast-milk',
@@ -40,6 +41,24 @@ test('records breast-milk and formula feeds and keeps the latest feed explicit',
     occurredAt: 20_000,
     bottleUsed: false,
   });
+});
+
+test('records direct breastfeeding separately and treats it as the latest feeding event', () => {
+  let log = addFeed(emptyFeedingLog(), {
+    id: 'bottle',
+    milkType: 'breast-milk',
+    amountMl: 90,
+    occurredAt: 10_000,
+    bottleUsed: true,
+  });
+  log = addBreastfeeding(log, { id: 'nursing', occurredAt: 20_000 });
+
+  assert.deepEqual(latestFeed(log), {
+    id: 'nursing',
+    kind: 'breastfeeding',
+    occurredAt: 20_000,
+  });
+  assert.equal(dirtyBottleCount(log), 1);
 });
 
 test('keeps pumping records separate from feeds while preserving chronology', () => {
@@ -148,15 +167,17 @@ test('recovers safely from malformed local data and upgrades older feed records'
           occurredAt: 2,
           bottleUsed: true,
         },
+        { id: 'nursing', kind: 'breastfeeding', occurredAt: 2.5 },
         { id: 'clean', kind: 'bottle-clean', occurredAt: 3 },
         { id: 'bad', kind: 'feed', milkType: 'unknown', amountMl: 90, occurredAt: 4 },
       ],
     }),
   );
 
-  assert.deepEqual(restored.entries.map((entry) => entry.id), ['old', 'bottle', 'clean']);
+  assert.deepEqual(restored.entries.map((entry) => entry.id), ['old', 'bottle', 'nursing', 'clean']);
   assert.equal(restored.entries[0]?.kind === 'feed' && restored.entries[0].bottleUsed, false);
   assert.equal(restored.entries[1]?.kind === 'feed' && restored.entries[1].bottleUsed, true);
+  assert.equal(restored.entries[2]?.kind, 'breastfeeding');
   assert.equal(dirtyBottleCount(restored), 0);
   assert.deepEqual(deserializeFeedingLog('{broken'), emptyFeedingLog());
 });

@@ -1,68 +1,131 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateTimePickerModal } from '../components/DateTimePickerModal';
 import {
-  addBottleCare,
+  addBreastfeeding,
   addFeed,
   addPumping,
   adjustLocalDays,
   adjustLocalMinutes,
   deserializeFeedingLog,
-  dirtyBottleCount,
   emptyFeedingLog,
   formatDateInput,
-  latestBottleCare,
   latestFeed,
   removeEntry,
   roundToFiveMinutes,
-  type BottleCareKind,
   type FeedingEntry,
+  type FeedingEventEntry,
   type MilkType,
 } from '../lib/feeding';
+import {
+  defaultFeedingPreferences,
+  deserializeFeedingPreferences,
+  FEEDING_PREFERENCES_STORAGE_KEY,
+  feedingModeEnabled,
+  type ButtonPresentation,
+  type FeedingPreferences,
+} from '../lib/preferences';
+import { isEarlierLocalDay } from '../lib/recording-time';
+import { BABY_FEEDING_STORAGE_KEY } from '../lib/sharing';
 
-const STORAGE_KEY = '@expo-template/baby-feeding/log-v1';
-
-type EntryMode = 'feed' | 'pumping';
+type EntryMode = 'breastfeeding' | 'feed' | 'pumping';
 type PickerMode = 'date' | 'time';
 
-type ChoiceButtonProps = {
+type ButtonContentProps = {
+  icon: string;
   label: string;
+  presentation: ButtonPresentation;
+  dense?: boolean;
+  light?: boolean;
+};
+
+type ChoiceButtonProps = ButtonContentProps & {
   selected: boolean;
   onPress: () => void;
+  compact?: boolean;
 };
 
-type StepButtonProps = {
-  label: string;
+type StepButtonProps = ButtonContentProps & {
   onPress: () => void;
 };
 
-function ChoiceButton({ label, selected, onPress }: ChoiceButtonProps) {
+function ButtonContent({ icon, label, presentation, dense = false, light = false }: ButtonContentProps) {
+  const showIcon = presentation !== 'text';
+  const showText = presentation !== 'icons';
+
+  return (
+    <View style={[styles.buttonContent, dense && styles.buttonContentDense]}>
+      {showIcon ? (
+        <Text
+          style={[
+            styles.buttonIcon,
+            dense && styles.buttonIconDense,
+            light && styles.buttonTextLight,
+          ]}>
+          {icon}
+        </Text>
+      ) : null}
+      {showText ? (
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.buttonLabel,
+            dense && styles.buttonLabelDense,
+            light && styles.buttonTextLight,
+          ]}>
+          {label}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function ChoiceButton({
+  icon,
+  label,
+  presentation,
+  selected,
+  onPress,
+  dense = false,
+  compact = false,
+}: ChoiceButtonProps) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.choiceButton,
+        dense && styles.choiceButtonDense,
+        compact && styles.choiceButtonCompact,
         selected && styles.choiceButtonSelected,
         pressed && styles.pressed,
       ]}>
-      <Text style={[styles.choiceButtonText, selected && styles.choiceButtonTextSelected]}>{label}</Text>
+      <ButtonContent
+        dense={dense}
+        icon={icon}
+        label={label}
+        light={selected}
+        presentation={presentation}
+      />
     </Pressable>
   );
 }
 
-function StepButton({ label, onPress }: StepButtonProps) {
+function StepButton({ icon, label, presentation, onPress, dense = true }: StepButtonProps) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.stepButton, pressed && styles.pressed]}>
-      <Text style={styles.stepButtonText}>{label}</Text>
+      <ButtonContent dense={dense} icon={icon} label={label} presentation={presentation} />
     </Pressable>
   );
 }
@@ -94,21 +157,52 @@ function formatDateButton(timestamp: number) {
   }).format(new Date(timestamp));
 }
 
-function formatCareTimestamp(timestamp: number | null) {
-  if (timestamp === null) return 'Not recorded';
-  return new Intl.DateTimeFormat(undefined, {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(timestamp));
-}
-
 function milkLabel(milkType: MilkType) {
   return milkType === 'breast-milk' ? 'Breast milk' : 'Formula';
 }
 
+function entryModesForPreferences(preferences: FeedingPreferences): EntryMode[] {
+  const modes: EntryMode[] = [];
+  const breastMilkEnabled = feedingModeEnabled(preferences, 'breast-milk');
+  const formulaEnabled = feedingModeEnabled(preferences, 'formula');
+
+  if (breastMilkEnabled) modes.push('breastfeeding');
+  if (breastMilkEnabled || formulaEnabled) modes.push('feed');
+  if (feedingModeEnabled(preferences, 'pumping')) modes.push('pumping');
+
+  return modes;
+}
+
+function milkTypesForPreferences(preferences: FeedingPreferences): MilkType[] {
+  const milkTypes: MilkType[] = [];
+  if (feedingModeEnabled(preferences, 'breast-milk')) milkTypes.push('breast-milk');
+  if (feedingModeEnabled(preferences, 'formula')) milkTypes.push('formula');
+  return milkTypes;
+}
+
+function entryModeLabel(mode: EntryMode) {
+  if (mode === 'breastfeeding') return 'Breastfeeding';
+  if (mode === 'feed') return 'Bottle';
+  return 'Pumping';
+}
+
+function entryModeIcon(mode: EntryMode) {
+  if (mode === 'breastfeeding') return '🤱';
+  if (mode === 'feed') return '🍼';
+  return '💧';
+}
+
+function milkIcon(milkType: MilkType) {
+  return milkType === 'breast-milk' ? '💧' : '🍼';
+}
+
+function latestFeedMeta(entry: FeedingEventEntry) {
+  if (entry.kind === 'breastfeeding') return 'Direct breastfeeding';
+  return `${milkLabel(entry.milkType)} · ${entry.amountMl} ml`;
+}
+
 function entryTitle(entry: FeedingEntry) {
+  if (entry.kind === 'breastfeeding') return 'Breastfeeding';
   if (entry.kind === 'feed') return milkLabel(entry.milkType);
   if (entry.kind === 'pumping') return 'Pumping';
   if (entry.kind === 'bottle-clean') return 'Bottles cleaned';
@@ -116,6 +210,7 @@ function entryTitle(entry: FeedingEntry) {
 }
 
 function entryMeta(entry: FeedingEntry) {
+  if (entry.kind === 'breastfeeding') return 'Direct breastfeeding';
   if (entry.kind === 'feed') {
     return `${entry.amountMl} ml${entry.bottleUsed ? ' · bottle used' : ''}`;
   }
@@ -125,33 +220,51 @@ function entryMeta(entry: FeedingEntry) {
 }
 
 function entryDeleteLabel(entry: FeedingEntry) {
-  if (entry.kind === 'feed') return 'feed';
+  if (entry.kind === 'breastfeeding') return 'breastfeeding';
+  if (entry.kind === 'feed') return 'bottle feed';
   if (entry.kind === 'pumping') return 'pumping';
   if (entry.kind === 'bottle-clean') return 'bottle cleaning';
   return 'bottle sterilization';
 }
 
+function saveButtonLabel(mode: EntryMode) {
+  if (mode === 'breastfeeding') return 'Save breastfeeding';
+  if (mode === 'feed') return 'Save bottle feed';
+  return 'Save pumping';
+}
+
 export default function BabyFeedingApp() {
   const [log, setLog] = useState(emptyFeedingLog);
   const [hydrated, setHydrated] = useState(false);
+  const [preferences, setPreferences] = useState<FeedingPreferences | undefined>(undefined);
   const [mode, setMode] = useState<EntryMode>('feed');
   const [milkType, setMilkType] = useState<MilkType>('breast-milk');
   const [amountMl, setAmountMl] = useState(100);
   const [occurredAt, setOccurredAt] = useState(() => roundToFiveMinutes(Date.now()));
-  const [bottleUsed, setBottleUsed] = useState(false);
+  const [bottleUsed, setBottleUsed] = useState(true);
   const [pickerMode, setPickerMode] = useState<PickerMode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
-        if (active) setLog(deserializeFeedingLog(stored));
+    void Promise.all([
+      AsyncStorage.getItem(BABY_FEEDING_STORAGE_KEY),
+      AsyncStorage.getItem(FEEDING_PREFERENCES_STORAGE_KEY),
+    ])
+      .then(([storedLog, storedPreferences]) => {
+        if (!active) return;
+        setLog(deserializeFeedingLog(storedLog));
+        setPreferences(
+          deserializeFeedingPreferences(storedPreferences) ?? defaultFeedingPreferences(),
+        );
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active) setPreferences(defaultFeedingPreferences());
+      })
       .finally(() => {
         if (active) setHydrated(true);
       });
+
     return () => {
       active = false;
     };
@@ -160,19 +273,54 @@ export default function BabyFeedingApp() {
   useEffect(() => {
     if (!hydrated) return;
     const timer = setTimeout(() => {
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+      void AsyncStorage.setItem(BABY_FEEDING_STORAGE_KEY, JSON.stringify(log));
     }, 100);
     return () => clearTimeout(timer);
   }, [hydrated, log]);
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void AsyncStorage.getItem(FEEDING_PREFERENCES_STORAGE_KEY)
+        .then((stored) => {
+          if (active) {
+            setPreferences(deserializeFeedingPreferences(stored) ?? defaultFeedingPreferences());
+          }
+        })
+        .catch(() => {
+          if (active) setPreferences(defaultFeedingPreferences());
+        });
+
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const availableModes = useMemo(
+    () => (preferences ? entryModesForPreferences(preferences) : []),
+    [preferences],
+  );
+  const availableMilkTypes = useMemo(
+    () => (preferences ? milkTypesForPreferences(preferences) : []),
+    [preferences],
+  );
+
+  useEffect(() => {
+    if (!preferences || availableModes.includes(mode)) return;
+    const nextMode = availableModes[0];
+    if (!nextMode) return;
+    setMode(nextMode);
+    setBottleUsed(nextMode === 'feed');
+  }, [availableModes, mode, preferences]);
+
+  useEffect(() => {
+    if (mode !== 'feed' || availableMilkTypes.includes(milkType)) return;
+    const nextMilkType = availableMilkTypes[0];
+    if (nextMilkType) setMilkType(nextMilkType);
+  }, [availableMilkTypes, milkType, mode]);
+
   const mostRecentFeed = useMemo(() => latestFeed(log), [log]);
-  const dirtyBottles = useMemo(() => dirtyBottleCount(log), [log]);
-  const lastCleaned = useMemo(() => latestBottleCare(log, 'bottle-clean'), [log]);
-  const lastSterilized = useMemo(() => latestBottleCare(log, 'bottle-sterilize'), [log]);
-  const sterilizedSinceLastClean =
-    lastCleaned === null
-      ? null
-      : lastSterilized !== null && lastSterilized.occurredAt >= lastCleaned.occurredAt;
 
   const groupedEntries = useMemo(() => {
     const groups: Array<{ key: string; label: string; entries: FeedingEntry[] }> = [];
@@ -195,8 +343,14 @@ export default function BabyFeedingApp() {
 
   const resetComposer = () => {
     setAmountMl(100);
-    setBottleUsed(false);
+    setBottleUsed(mode === 'feed');
     setOccurredAt(roundToFiveMinutes(Date.now()));
+  };
+
+  const selectMode = (nextMode: EntryMode) => {
+    setMode(nextMode);
+    setBottleUsed(nextMode === 'feed');
+    setError(null);
   };
 
   const adjustAmount = (delta: number) => {
@@ -213,13 +367,28 @@ export default function BabyFeedingApp() {
     });
   };
 
+  const setTimeToNow = () => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    setOccurredAt(now.getTime());
+    setError(null);
+  };
+
   const handleSave = () => {
+    const id = recordId();
+
+    if (mode === 'breastfeeding') {
+      setLog((current) => addBreastfeeding(current, { id, occurredAt }));
+      setError(null);
+      resetComposer();
+      return;
+    }
+
     if (!Number.isSafeInteger(amountMl) || amountMl <= 0) {
       setError('Amount must be greater than zero.');
       return;
     }
 
-    const id = recordId();
     setLog((current) =>
       mode === 'feed'
         ? addFeed(current, { id, milkType, amountMl, occurredAt, bottleUsed })
@@ -229,237 +398,279 @@ export default function BabyFeedingApp() {
     resetComposer();
   };
 
-  const handleBottleCare = (kind: BottleCareKind) => {
-    setLog((current) =>
-      addBottleCare(current, {
-        id: recordId(),
-        kind,
-        occurredAt: Date.now(),
-      }),
+  if (preferences === undefined) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.loadingState}>
+          <Text style={styles.loadingText}>Loading feeding log…</Text>
+        </View>
+      </SafeAreaView>
     );
-  };
+  }
+
+  const buttonPresentation = preferences.buttonPresentation;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.eyebrow}>BABY FEEDING</Text>
-        <Text style={styles.heading}>Bottle feeds and pumping, written down properly.</Text>
-        <Text style={styles.subheading}>
-          Tap the common adjustments instead of typing. Date and time open a dedicated picker only when
-          selected directly.
-        </Text>
-
-        <View style={styles.latestFeed}>
-          <Text style={styles.latestLabel}>Last feed</Text>
-          {mostRecentFeed ? (
-            <View style={styles.latestCopy}>
-              <Text style={styles.latestValue}>{formatClock(mostRecentFeed.occurredAt)}</Text>
-              <Text style={styles.latestMeta}>
-                {milkLabel(mostRecentFeed.milkType)} · {mostRecentFeed.amountMl} ml
-              </Text>
+      <View style={styles.screen}>
+        <ScrollView
+          contentContainerStyle={styles.historyContent}
+          keyboardShouldPersistTaps="handled"
+          style={styles.historyScroll}>
+          <View style={styles.historyArea}>
+            <View style={styles.latestFeed}>
+              <Text style={styles.latestLabel}>Last feed</Text>
+              {mostRecentFeed ? (
+                <View style={styles.latestCopy}>
+                  <Text style={styles.latestValue}>{formatClock(mostRecentFeed.occurredAt)}</Text>
+                  <Text style={styles.latestMeta}>{latestFeedMeta(mostRecentFeed)}</Text>
+                </View>
+              ) : (
+                <Text style={styles.latestEmpty}>No feed recorded yet.</Text>
+              )}
             </View>
-          ) : (
-            <Text style={styles.latestEmpty}>No feed recorded yet.</Text>
-          )}
-        </View>
 
-        <View style={styles.composer}>
-          <Text style={styles.sectionTitle}>Add record</Text>
+            <Text style={styles.timelineTitle}>Log</Text>
+            {groupedEntries.length === 0 ? (
+              <Text style={styles.emptyText}>Your feeding log will appear here.</Text>
+            ) : (
+              groupedEntries.map((group) => (
+                <View key={group.key} style={styles.dayGroup}>
+                  <Text style={styles.dayHeading}>{group.label}</Text>
+                  {group.entries.map((entry) => (
+                    <View key={entry.id} style={styles.entryRow}>
+                      <Text style={styles.entryTime}>{formatClock(entry.occurredAt)}</Text>
+                      <View style={styles.entryCopy}>
+                        <Text style={styles.entryTitle}>{entryTitle(entry)}</Text>
+                        <Text style={styles.entryMeta}>{entryMeta(entry)}</Text>
+                      </View>
+                      <Pressable
+                        accessibilityLabel={`Delete ${entryDeleteLabel(entry)} record`}
+                        onPress={() => setLog((current) => removeEntry(current, entry.id))}
+                        style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              ))
+            )}
 
-          <Text style={styles.controlLabel}>Record type</Text>
-          <View style={styles.choiceRow}>
-            <ChoiceButton label="Feed" selected={mode === 'feed'} onPress={() => setMode('feed')} />
-            <ChoiceButton
-              label="Pumping"
-              selected={mode === 'pumping'}
-              onPress={() => setMode('pumping')}
-            />
+            <Text style={styles.footer}>
+              Records and settings stay on this device. The app records what happened; it does not make
+              feeding recommendations or set a medical sterilization schedule.
+            </Text>
           </View>
+        </ScrollView>
 
-          {mode === 'feed' ? (
-            <>
-              <Text style={styles.controlLabel}>Milk</Text>
-              <View style={styles.choiceRow}>
-                <ChoiceButton
-                  label="Breast milk"
-                  selected={milkType === 'breast-milk'}
-                  onPress={() => setMilkType('breast-milk')}
+        <ScrollView
+          contentContainerStyle={styles.composerContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={styles.composerScroll}>
+          <View style={styles.composer}>
+            <Text style={styles.sectionTitle}>Add record</Text>
+
+            {availableModes.length > 1 ? (
+              <>
+                <Text style={styles.controlLabel}>Record type</Text>
+                <View style={styles.recordTypeRow}>
+                  {availableModes.map((availableMode) => (
+                    <ChoiceButton
+                      key={availableMode}
+                      dense
+                      icon={entryModeIcon(availableMode)}
+                      label={entryModeLabel(availableMode)}
+                      presentation={buttonPresentation}
+                      selected={mode === availableMode}
+                      onPress={() => selectMode(availableMode)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            {mode === 'feed' && availableMilkTypes.length > 1 ? (
+              <>
+                <Text style={styles.controlLabel}>Milk</Text>
+                <View style={styles.choiceRow}>
+                  {availableMilkTypes.map((availableMilkType) => (
+                    <ChoiceButton
+                      key={availableMilkType}
+                      icon={milkIcon(availableMilkType)}
+                      label={milkLabel(availableMilkType)}
+                      presentation={buttonPresentation}
+                      selected={milkType === availableMilkType}
+                      onPress={() => setMilkType(availableMilkType)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            {mode !== 'breastfeeding' ? (
+              <>
+                <Text style={styles.controlLabel}>Amount</Text>
+                <View style={styles.amountDisplay}>
+                  <Text style={styles.amountValue}>{amountMl}</Text>
+                  <Text style={styles.unit}>ml</Text>
+                </View>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepGroup}>
+                    <StepButton
+                      icon="−−"
+                      label="−10 ml"
+                      presentation={buttonPresentation}
+                      onPress={() => adjustAmount(-10)}
+                    />
+                    <StepButton
+                      icon="−"
+                      label="−5 ml"
+                      presentation={buttonPresentation}
+                      onPress={() => adjustAmount(-5)}
+                    />
+                  </View>
+                  <View style={styles.stepGroup}>
+                    <StepButton
+                      icon="++"
+                      label="+10 ml"
+                      presentation={buttonPresentation}
+                      onPress={() => adjustAmount(10)}
+                    />
+                    <StepButton
+                      icon="+"
+                      label="+5 ml"
+                      presentation={buttonPresentation}
+                      onPress={() => adjustAmount(5)}
+                    />
+                  </View>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.breastfeedingHint}>
+                Direct breastfeeding is recorded without inventing a milk volume.
+              </Text>
+            )}
+
+            {isEarlierLocalDay(occurredAt, Date.now()) ? (
+              <>
+                <Text style={styles.controlLabel}>Date</Text>
+                <Pressable
+                  accessibilityLabel="Select date"
+                  accessibilityRole="button"
+                  onPress={() => setPickerMode('date')}
+                  style={({ pressed }) => [styles.directPicker, pressed && styles.pressed]}>
+                  <Text style={styles.directPickerValue}>{formatDateButton(occurredAt)}</Text>
+                  <Text style={styles.directPickerHint}>Tap to choose</Text>
+                </Pressable>
+                <View style={styles.stepRowThree}>
+                  <StepButton
+                    icon="←"
+                    label="−1 day"
+                    presentation={buttonPresentation}
+                    onPress={() => setOccurredAt((current) => adjustLocalDays(current, -1))}
+                  />
+                  <StepButton
+                    icon="●"
+                    label="Today"
+                    presentation={buttonPresentation}
+                    onPress={setDateToToday}
+                  />
+                  <StepButton
+                    icon="→"
+                    label="+1 day"
+                    presentation={buttonPresentation}
+                    onPress={() => setOccurredAt((current) => adjustLocalDays(current, 1))}
+                  />
+                </View>
+              </>
+            ) : null}
+
+            <Text style={styles.controlLabel}>Time</Text>
+            <Pressable
+              accessibilityLabel="Select time"
+              accessibilityRole="button"
+              onPress={() => setPickerMode('time')}
+              style={({ pressed }) => [styles.directPicker, pressed && styles.pressed]}>
+              <Text style={[styles.directPickerValue, styles.timeDigits]}>{formatClock(occurredAt)}</Text>
+              <Text style={styles.directPickerHint}>Tap to choose</Text>
+            </Pressable>
+            <View style={styles.timeStepRow}>
+              <View style={styles.stepGroup}>
+                <StepButton
+                  icon="↞"
+                  label="−1 h"
+                  presentation={buttonPresentation}
+                  onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -60))}
                 />
-                <ChoiceButton
-                  label="Formula"
-                  selected={milkType === 'formula'}
-                  onPress={() => setMilkType('formula')}
+                <StepButton
+                  icon="‹"
+                  label="−5 min"
+                  presentation={buttonPresentation}
+                  onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -5))}
                 />
               </View>
-            </>
-          ) : null}
+              <Pressable
+                accessibilityLabel="Set time to now"
+                accessibilityRole="button"
+                onPress={setTimeToNow}
+                style={({ pressed }) => [styles.nowButton, pressed && styles.pressed]}>
+                <ButtonContent
+                  dense
+                  icon="◎"
+                  label="Now"
+                  presentation={buttonPresentation}
+                />
+              </Pressable>
+              <View style={styles.stepGroup}>
+                <StepButton
+                  icon="↠"
+                  label="+1 h"
+                  presentation={buttonPresentation}
+                  onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 60))}
+                />
+                <StepButton
+                  icon="›"
+                  label="+5 min"
+                  presentation={buttonPresentation}
+                  onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 5))}
+                />
+              </View>
+            </View>
 
-          <Text style={styles.controlLabel}>Amount</Text>
-          <View style={styles.amountDisplay}>
-            <Text style={styles.amountValue}>{amountMl}</Text>
-            <Text style={styles.unit}>ml</Text>
-          </View>
-          <View style={styles.stepRow}>
-            <StepButton label="−10 ml" onPress={() => adjustAmount(-10)} />
-            <StepButton label="−5 ml" onPress={() => adjustAmount(-5)} />
-            <StepButton label="+5 ml" onPress={() => adjustAmount(5)} />
-            <StepButton label="+10 ml" onPress={() => adjustAmount(10)} />
-          </View>
+            {mode === 'feed' ? (
+              <>
+                <Text style={styles.controlLabel}>Bottle</Text>
+                <ChoiceButton
+                  compact
+                  icon="🍼"
+                  label="Bottle used"
+                  presentation={buttonPresentation}
+                  selected={bottleUsed}
+                  onPress={() => setBottleUsed((current) => !current)}
+                />
+              </>
+            ) : null}
 
-          <Text style={styles.controlLabel}>Date</Text>
-          <Pressable
-            accessibilityLabel="Select date"
-            accessibilityRole="button"
-            onPress={() => setPickerMode('date')}
-            style={({ pressed }) => [styles.directPicker, pressed && styles.pressed]}>
-            <Text style={styles.directPickerValue}>{formatDateButton(occurredAt)}</Text>
-            <Text style={styles.directPickerHint}>Tap to choose</Text>
-          </Pressable>
-          <View style={styles.stepRowThree}>
-            <StepButton
-              label="−1 day"
-              onPress={() => setOccurredAt((current) => adjustLocalDays(current, -1))}
-            />
-            <StepButton label="Today" onPress={setDateToToday} />
-            <StepButton
-              label="+1 day"
-              onPress={() => setOccurredAt((current) => adjustLocalDays(current, 1))}
-            />
-          </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <Text style={styles.controlLabel}>Time</Text>
-          <Pressable
-            accessibilityLabel="Select time"
-            accessibilityRole="button"
-            onPress={() => setPickerMode('time')}
-            style={({ pressed }) => [styles.directPicker, pressed && styles.pressed]}>
-            <Text style={[styles.directPickerValue, styles.timeDigits]}>{formatClock(occurredAt)}</Text>
-            <Text style={styles.directPickerHint}>Tap to choose</Text>
-          </Pressable>
-          <View style={styles.stepRow}>
-            <StepButton
-              label="−1 h"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -60))}
-            />
-            <StepButton
-              label="−5 min"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, -5))}
-            />
-            <StepButton
-              label="+5 min"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 5))}
-            />
-            <StepButton
-              label="+1 h"
-              onPress={() => setOccurredAt((current) => adjustLocalMinutes(current, 60))}
-            />
-          </View>
-
-          {mode === 'feed' ? (
-            <>
-              <Text style={styles.controlLabel}>Bottle</Text>
-              <ChoiceButton
-                label="Bottle used"
-                selected={bottleUsed}
-                onPress={() => setBottleUsed((current) => !current)}
+            <Pressable
+              accessibilityLabel={saveButtonLabel(mode)}
+              accessibilityRole="button"
+              onPress={handleSave}
+              style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}>
+              <ButtonContent
+                icon="✓"
+                label={saveButtonLabel(mode)}
+                light
+                presentation={buttonPresentation}
               />
-            </>
-          ) : null}
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleSave}
-            style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}>
-            <Text style={styles.saveButtonText}>{mode === 'feed' ? 'Save feed' : 'Save pumping'}</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.bottleCare}>
-          <Text style={styles.sectionTitle}>Bottle care</Text>
-          <View style={styles.bottleStatusRow}>
-            <View style={styles.bottleStatusCopy}>
-              <Text style={styles.bottleStatusLabel}>Dirty bottles</Text>
-              <Text style={styles.bottleStatusHint}>
-                {dirtyBottles > 0
-                  ? 'These recorded bottle uses have not been marked cleaned yet.'
-                  : 'No dirty bottles are currently recorded.'}
-              </Text>
-            </View>
-            <Text style={styles.bottleCount}>{dirtyBottles}</Text>
-          </View>
-
-          <View style={styles.careActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: dirtyBottles === 0 }}
-              disabled={dirtyBottles === 0}
-              onPress={() => handleBottleCare('bottle-clean')}
-              style={({ pressed }) => [
-                styles.careButton,
-                dirtyBottles === 0 && styles.careButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              <Text style={styles.careButtonText}>Mark all cleaned</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleBottleCare('bottle-sterilize')}
-              style={({ pressed }) => [styles.careButton, pressed && styles.pressed]}>
-              <Text style={styles.careButtonText}>Mark sterilized</Text>
             </Pressable>
           </View>
-
-          <View style={styles.careHistory}>
-            <Text style={styles.careHistoryText}>
-              Last cleaned: {formatCareTimestamp(lastCleaned?.occurredAt ?? null)}
-            </Text>
-            <Text style={styles.careHistoryText}>
-              Last sterilized: {formatCareTimestamp(lastSterilized?.occurredAt ?? null)}
-            </Text>
-            <Text style={styles.careStateText}>
-              {sterilizedSinceLastClean === null
-                ? 'No cleaning cycle recorded yet.'
-                : sterilizedSinceLastClean
-                  ? 'Sterilization has been recorded since the last cleaning.'
-                  : 'Sterilization has not been recorded since the last cleaning.'}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.timelineTitle}>Log</Text>
-        {groupedEntries.length === 0 ? (
-          <Text style={styles.emptyText}>Your feeding log will appear here.</Text>
-        ) : (
-          groupedEntries.map((group) => (
-            <View key={group.key} style={styles.dayGroup}>
-              <Text style={styles.dayHeading}>{group.label}</Text>
-              {group.entries.map((entry) => (
-                <View key={entry.id} style={styles.entryRow}>
-                  <Text style={styles.entryTime}>{formatClock(entry.occurredAt)}</Text>
-                  <View style={styles.entryCopy}>
-                    <Text style={styles.entryTitle}>{entryTitle(entry)}</Text>
-                    <Text style={styles.entryMeta}>{entryMeta(entry)}</Text>
-                  </View>
-                  <Pressable
-                    accessibilityLabel={`Delete ${entryDeleteLabel(entry)} record`}
-                    onPress={() => setLog((current) => removeEntry(current, entry.id))}
-                    style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                    <Text style={styles.deleteText}>Delete</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          ))
-        )}
-
-        <Text style={styles.footer}>
-          Records stay on this device. Bottle care records what has been cleaned or sterilized; it does
-          not set a medical sterilization schedule or make feeding recommendations.
-        </Text>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       <DateTimePickerModal
         mode={pickerMode ?? 'time'}
@@ -474,17 +685,27 @@ export default function BabyFeedingApp() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f7f2ee' },
-  content: { width: '100%', maxWidth: 680, alignSelf: 'center', padding: 20, paddingBottom: 48 },
-  eyebrow: { color: '#78685f', fontSize: 12, fontWeight: '800', letterSpacing: 1.4 },
-  heading: {
-    color: '#332c29',
-    fontSize: 34,
-    fontWeight: '800',
-    lineHeight: 39,
-    letterSpacing: -1,
-    marginTop: 8,
+  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  loadingText: { color: '#776d68', fontSize: 14 },
+  screen: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
-  subheading: { color: '#776d68', fontSize: 14, lineHeight: 21, marginTop: 10 },
+  historyScroll: { flex: 1, minHeight: 0 },
+  historyContent: { paddingBottom: 16 },
+  historyArea: { paddingBottom: 4 },
+  composerScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    maxHeight: '72%',
+    marginTop: 12,
+  },
+  composerContent: { paddingBottom: 8 },
   latestFeed: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -494,7 +715,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomColor: '#ded4ce',
     borderBottomWidth: 1,
-    marginTop: 24,
     paddingVertical: 16,
   },
   latestLabel: {
@@ -513,7 +733,6 @@ const styles = StyleSheet.create({
     borderColor: '#e2d8d2',
     borderWidth: 1,
     borderRadius: 22,
-    marginTop: 22,
     padding: 18,
   },
   sectionTitle: { color: '#3b322e', fontSize: 19, fontWeight: '800' },
@@ -526,9 +745,11 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     textTransform: 'uppercase',
   },
+  recordTypeRow: { flexDirection: 'row', gap: 8 },
   choiceRow: { flexDirection: 'row', gap: 8 },
   choiceButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
     minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
@@ -536,11 +757,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
+  },
+  choiceButtonDense: {
+    flexGrow: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    minHeight: 56,
+    paddingHorizontal: 4,
+    paddingVertical: 5,
+  },
+  choiceButtonCompact: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   choiceButtonSelected: { backgroundColor: '#684f5b', borderColor: '#684f5b' },
-  choiceButtonText: { color: '#625852', fontSize: 13, fontWeight: '700' },
-  choiceButtonTextSelected: { color: '#fffaf7' },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  buttonContentDense: { flexDirection: 'column', gap: 1 },
+  buttonIcon: { color: '#625852', fontSize: 16, fontWeight: '900', lineHeight: 19 },
+  buttonIconDense: { fontSize: 17, lineHeight: 19 },
+  buttonLabel: { color: '#625852', fontSize: 12, fontWeight: '800', flexShrink: 1 },
+  buttonLabelDense: { fontSize: 10, lineHeight: 13, textAlign: 'center' },
+  buttonTextLight: { color: '#fffaf7' },
   amountDisplay: {
     minHeight: 62,
     flexDirection: 'row',
@@ -555,20 +804,39 @@ const styles = StyleSheet.create({
   },
   amountValue: { color: '#332c29', fontSize: 30, fontWeight: '800', fontVariant: ['tabular-nums'] },
   unit: { color: '#6e625c', fontSize: 14, fontWeight: '800' },
-  stepRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
-  stepRowThree: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
+  breastfeedingHint: {
+    color: '#6e625c',
+    fontSize: 13,
+    lineHeight: 20,
+    borderBottomColor: '#e2d8d2',
+    borderBottomWidth: 1,
+    paddingVertical: 16,
+  },
+  stepRow: { flexDirection: 'row', gap: 7, marginTop: 8 },
+  timeStepRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginTop: 8 },
+  stepGroup: { flex: 1, flexDirection: 'row', gap: 7, minWidth: 0 },
+  stepRowThree: { flexDirection: 'row', gap: 7, marginTop: 8 },
   stepButton: {
-    flexGrow: 1,
-    flexBasis: 108,
+    flex: 1,
+    minWidth: 0,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderColor: '#d9cec8',
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
   },
-  stepButtonText: { color: '#5f554f', fontSize: 12, fontWeight: '800' },
+  nowButton: {
+    minWidth: 58,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: '#b9aaa3',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+  },
   directPicker: {
     minHeight: 55,
     flexDirection: 'row',
@@ -587,49 +855,15 @@ const styles = StyleSheet.create({
   timeDigits: { fontVariant: ['tabular-nums'], fontSize: 20 },
   errorText: { color: '#934a45', fontSize: 12, lineHeight: 18, marginTop: 12 },
   saveButton: {
+    minHeight: 48,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#3f5b4d',
     borderRadius: 15,
     marginTop: 18,
-    paddingVertical: 15,
-  },
-  saveButtonText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  bottleCare: {
-    borderTopColor: '#ded4ce',
-    borderTopWidth: 1,
-    borderBottomColor: '#ded4ce',
-    borderBottomWidth: 1,
-    marginTop: 26,
-    paddingVertical: 20,
-  },
-  bottleStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-    marginTop: 14,
-  },
-  bottleStatusCopy: { flex: 1 },
-  bottleStatusLabel: { color: '#4c413c', fontSize: 14, fontWeight: '800' },
-  bottleStatusHint: { color: '#847973', fontSize: 12, lineHeight: 18, marginTop: 3 },
-  bottleCount: { color: '#3d3430', fontSize: 30, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  careActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 15 },
-  careButton: {
-    flexGrow: 1,
-    flexBasis: 180,
-    minHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderColor: '#bcb0aa',
-    borderWidth: 1,
-    borderRadius: 13,
     paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  careButtonDisabled: { opacity: 0.4 },
-  careButtonText: { color: '#544943', fontSize: 13, fontWeight: '800' },
-  careHistory: { gap: 4, marginTop: 14 },
-  careHistoryText: { color: '#776d68', fontSize: 12, lineHeight: 18 },
-  careStateText: { color: '#5e524d', fontSize: 12, fontWeight: '700', lineHeight: 18, marginTop: 3 },
   timelineTitle: { color: '#3b322e', fontSize: 19, fontWeight: '800', marginTop: 28 },
   dayGroup: { marginTop: 17 },
   dayHeading: {

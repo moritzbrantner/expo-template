@@ -139,6 +139,7 @@ export default function TasksApp() {
   const draftRef = useRef('');
   const inputRef = useRef<TextInput>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const shouldFinishDictationRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -246,6 +247,7 @@ export default function TasksApp() {
   };
 
   const finishDictation = () => {
+    shouldFinishDictationRef.current = true;
     const recognition = recognitionRef.current;
     if (recognition) {
       setDictationStatus('Finishing dictation…');
@@ -278,6 +280,7 @@ export default function TasksApp() {
   };
 
   const startDictation = () => {
+    shouldFinishDictationRef.current = false;
     setDictationMode(true);
 
     const Recognition = getBrowserSpeechRecognitionConstructor();
@@ -329,11 +332,28 @@ export default function TasksApp() {
         return;
       }
 
+      if (!shouldFinishDictationRef.current) {
+        try {
+          recognitionRef.current = recognition;
+          recognition.start();
+          setIsListening(true);
+          setDictationStatus(
+            `Listening… “${dictationCommands.next}” starts another task. “${dictationCommands.done}” finishes dictation.`,
+          );
+        } catch {
+          recognitionRef.current = null;
+          setDictationStatus('Speech recognition paused. Use the keyboard microphone to keep dictating.');
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }
+        return;
+      }
+
       const remainingTitle = draftRef.current.trim();
       if (remainingTitle) {
         addTaskTitles([remainingTitle]);
       }
       updateDraft('');
+      shouldFinishDictationRef.current = false;
       setDictationMode(false);
       setDictationStatus(null);
     };
@@ -507,9 +527,21 @@ export default function TasksApp() {
             </Pressable>
           ) : null}
 
-          <Text style={styles.footer}>
-            Tasks stay stored on this device. Speech recognition is handled by your browser or keyboard provider.
-          </Text>
+          <View style={styles.footerRow}>
+            <Text style={styles.footer}>
+              Tasks stay stored on this device. Speech recognition is handled by your browser or
+              keyboard provider.
+            </Text>
+            <Link href="/about" asChild>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="About"
+                hitSlop={8}
+                style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}>
+                <Text style={styles.aboutText}>About</Text>
+              </Pressable>
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -702,11 +734,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   clearText: { color: '#675d57', fontSize: 13, fontWeight: '700' },
+  footerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    gap: 10,
+    marginTop: 28,
+  },
   footer: {
     color: '#868b86',
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 28,
+  },
+  aboutLink: {
+    paddingVertical: 2,
+  },
+  aboutText: {
+    color: '#737a74',
+    fontSize: 12,
+    lineHeight: 18,
+    textDecorationLine: 'underline',
   },
   pressed: { opacity: 0.68 },
 });

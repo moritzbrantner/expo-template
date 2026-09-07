@@ -1,4 +1,5 @@
 .expo/
+.artifacts/
 node_modules/
 dist/
 web-build/

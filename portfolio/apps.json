@@ -66,6 +66,14 @@
       "source": "apps/baby-feeding"
     },
     {
+      "slug": "gifts",
+      "name": "Gift Tracker",
+      "description": "A private local-first record of gifts received, given, and planned, with explicit regift provenance warnings.",
+      "category": "Relationships",
+      "status": "preview",
+      "source": "apps/gifts"
+    },
+    {
       "slug": "flashlight",
       "name": "Flashlight",
       "description": "A deliberately tiny flashlight utility with no unnecessary account or tracking.",

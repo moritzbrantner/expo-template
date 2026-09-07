@@ -15,13 +15,11 @@ import {
   addPerson,
   emptyGiftState,
   GIFT_DIRECTIONS,
-  GiftDirection,
-  GiftRecord,
-  GiftState,
   personName,
   returnToGiverWarning,
   upcomingPlannedGifts,
 } from '../lib/gifts';
+import type { GiftDirection, GiftRecord, GiftState } from '../lib/gifts';
 import { loadGiftState, saveGiftState } from '../lib/storage';
 
 type HistoryFilter = 'all' | GiftDirection;
@@ -410,7 +408,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 19,
     lineHeight: 24,
-    fontWeight: '750',
+    fontWeight: '700',
     color: '#201f1b',
   },
   muted: {
@@ -446,7 +444,7 @@ const styles = StyleSheet.create({
   },
   choiceText: {
     fontSize: 14,
-    fontWeight: '650',
+    fontWeight: '600',
     color: '#4a463f',
   },
   choiceTextSelected: {

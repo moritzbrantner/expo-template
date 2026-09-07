@@ -65,6 +65,23 @@ export default function RootLayout() {
           headerTitleStyle: { color: '#332c29', fontSize: 22, fontWeight: '800' },
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 12 }}>
+              <Link href="/share" asChild>
+                <Pressable
+                  accessibilityLabel="Share feeding log"
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    minWidth: 62,
+                    height: 42,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 15,
+                    backgroundColor: '#3f5b4d',
+                    paddingHorizontal: 12,
+                    opacity: pressed ? 0.65 : 1,
+                  })}>
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Share</Text>
+                </Pressable>
+              </Link>
               <Link href="/stats" asChild>
                 <Pressable
                   accessibilityLabel="Open stats"

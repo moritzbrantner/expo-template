@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "appSlug": "{{ app_slug }}",
+  "appSlug": "habits",
   "supportedLocales": ["en", "de", "es"],
   "supportUrl": "",
   "privacyUrl": "",

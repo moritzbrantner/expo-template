@@ -23,7 +23,7 @@ app_slug:
 bundle_prefix:
   type: str
   help: Reverse-DNS prefix for native application identifiers.
-  default: com.example
+  default: io.github.moritzbrantner
 
 url_scheme:
   type: str

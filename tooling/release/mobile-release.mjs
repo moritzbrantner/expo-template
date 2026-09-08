@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 const TOOL_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOL_DIR, '../..');
 const EAS_CLI_VERSION = '23.2.0';
+const BUN_VERSION = '1.3.12';
 const PLATFORMS = new Set(['android', 'ios', 'all']);
 const STORE_PROFILES = new Set(['internal', 'production']);
 
@@ -91,6 +92,13 @@ function platformList(platform) {
   return platform === 'all' ? ['ios', 'android'] : [platform];
 }
 
+function requirePinnedBuildProfile(eas, profile, label) {
+  const build = eas.build?.[profile];
+  if (!build) fail(`${label} build profile is missing`);
+  if (build.bun !== BUN_VERSION) fail(`${label} build profile must pin Bun ${BUN_VERSION}`);
+  return build;
+}
+
 async function resolvedExpoConfig(appDirectory) {
   const output = await run('bunx', ['expo', 'config', '--json'], { cwd: appDirectory });
   return JSON.parse(output);
@@ -122,7 +130,9 @@ function checkCommon({ expo, eas, release }) {
 function checkAndroidStore({ expo, eas, release }) {
   requirePermanentIdentifier(expo.android?.package, 'Android package');
   const buildProfile = release.release?.buildProfile;
-  if (buildProfile !== 'production' || eas.build?.[buildProfile]?.autoIncrement !== true) {
+  if (buildProfile !== 'production') fail('the store build profile must be production');
+  const productionBuild = requirePinnedBuildProfile(eas, buildProfile, 'production');
+  if (productionBuild.autoIncrement !== true) {
     fail('the production Android build profile must autoIncrement native versions');
   }
   const internal = eas.submit?.[release.release?.internalSubmitProfile]?.android;
@@ -138,7 +148,9 @@ function checkAndroidStore({ expo, eas, release }) {
 function checkIosStore({ expo, eas, release }) {
   requirePermanentIdentifier(expo.ios?.bundleIdentifier, 'iOS bundleIdentifier');
   const buildProfile = release.release?.buildProfile;
-  if (buildProfile !== 'production' || eas.build?.[buildProfile]?.autoIncrement !== true) {
+  if (buildProfile !== 'production') fail('the store build profile must be production');
+  const productionBuild = requirePinnedBuildProfile(eas, buildProfile, 'production');
+  if (productionBuild.autoIncrement !== true) {
     fail('the production iOS build profile must autoIncrement native versions');
   }
   const internalId = eas.submit?.[release.release?.internalSubmitProfile]?.ios?.ascAppId;
@@ -151,12 +163,23 @@ function checkIosStore({ expo, eas, release }) {
   }
 }
 
-function checkStoreReadiness(release) {
+async function checkStoreReadiness({ expo, release }, appDirectory) {
   if (!Array.isArray(release.supportedLocales) || release.supportedLocales.length === 0) {
     fail('release.config.json must declare at least one supported locale');
   }
   requireHttps(release.supportUrl, 'supportUrl');
   requireHttps(release.privacyUrl, 'privacyUrl');
+
+  const icon = requireValue(expo.icon, 'Expo icon');
+  if (/^https?:\/\//i.test(icon)) {
+    fail('Expo icon must be a committed local file for store qualification');
+  }
+  try {
+    await access(path.resolve(appDirectory, icon));
+  } catch {
+    fail(`Expo icon does not exist: ${icon}`);
+  }
+
   if (release.storeReadiness?.listingAssetsReady !== true) {
     fail('storeReadiness.listingAssetsReady must be true after icons/screenshots/listing assets are reviewed');
   }
@@ -168,7 +191,7 @@ function checkStoreReadiness(release) {
 async function preflight(appDirectory, platform) {
   const state = await loadReleaseState(appDirectory);
   checkCommon(state);
-  checkStoreReadiness(state.release);
+  await checkStoreReadiness(state, appDirectory);
   for (const target of platformList(platform)) {
     if (target === 'android') checkAndroidStore(state);
     if (target === 'ios') checkIosStore(state);
@@ -180,8 +203,8 @@ async function directPreflight(appDirectory) {
   const state = await loadReleaseState(appDirectory);
   checkCommon(state);
   requirePermanentIdentifier(state.expo.android?.package, 'Android package');
-  const direct = state.eas.build?.direct;
-  if (direct?.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
+  const direct = requirePinnedBuildProfile(state.eas, 'direct', 'direct');
+  if (direct.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
     fail('eas.json build.direct must produce an internally distributed Android APK');
   }
   return state;
@@ -286,6 +309,7 @@ async function buildStore(appDirectory, platform) {
     sourceSha,
     buildProfile,
     easCliVersion: EAS_CLI_VERSION,
+    bunVersion: BUN_VERSION,
   };
 
   for (const target of targets) {
@@ -352,6 +376,7 @@ async function buildDirectAndroid(appDirectory) {
         sourceSha,
         buildProfile: 'direct',
         easCliVersion: EAS_CLI_VERSION,
+        bunVersion: BUN_VERSION,
         android: {
           buildId: build.id,
           path: 'app.apk',
@@ -395,6 +420,7 @@ async function fleetCheck() {
   const entries = await readdir(appsRoot, { withFileTypes: true });
   const failures = [];
   let appCount = 0;
+
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     if (!entry.isDirectory()) continue;
     const appDirectory = path.join(appsRoot, entry.name);
@@ -406,6 +432,7 @@ async function fleetCheck() {
     }
     if (!app.expo?.slug) continue;
     appCount += 1;
+
     try {
       const [eas, release, expo] = await Promise.all([
         readJson(path.join(appDirectory, 'eas.json')),
@@ -418,11 +445,10 @@ async function fleetCheck() {
       if (eas.cli?.version !== EAS_CLI_VERSION || eas.cli?.requireCommit !== true) {
         fail('EAS CLI/source policy is not pinned');
       }
-      if (eas.build?.production?.autoIncrement !== true) fail('production build must autoIncrement');
-      if (
-        eas.build?.direct?.distribution !== 'internal' ||
-        eas.build?.direct?.android?.buildType !== 'apk'
-      ) {
+      const production = requirePinnedBuildProfile(eas, 'production', 'production');
+      if (production.autoIncrement !== true) fail('production build must autoIncrement');
+      const direct = requirePinnedBuildProfile(eas, 'direct', 'direct');
+      if (direct.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
         fail('direct Android APK profile is missing');
       }
       requirePermanentIdentifier(expo.ios?.bundleIdentifier, 'iOS bundleIdentifier');
@@ -440,6 +466,7 @@ async function fleetCheck() {
       failures.push(`${entry.name}: ${error.message}`);
     }
   }
+
   if (appCount === 0) fail('no Expo apps found below apps/');
   if (failures.length) fail(`mobile release scaffold drift:\n${failures.join('\n')}`);
   console.log(`Mobile release scaffold is present for ${appCount} Expo apps.`);

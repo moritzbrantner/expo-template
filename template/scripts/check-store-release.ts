@@ -8,6 +8,7 @@ type EasConfig = {
     string,
     {
       autoIncrement?: boolean;
+      bun?: string;
       distribution?: string;
       android?: { buildType?: string };
     }
@@ -37,6 +38,8 @@ type ReleaseConfig = {
     productionSubmitProfile: string;
   };
 };
+
+const BUN_VERSION = '1.3.12';
 
 function requireValue(value: unknown, label: string): asserts value {
   if (value === undefined || value === null || value === '') {
@@ -68,6 +71,13 @@ function platforms(platform: StorePlatform) {
   throw new Error('release platform must be android, ios, or all');
 }
 
+function requirePinnedBuildProfile(eas: EasConfig, profile: string, label: string) {
+  const build = eas.build?.[profile];
+  if (!build) throw new Error(`${label} build profile is missing`);
+  if (build.bun !== BUN_VERSION) throw new Error(`${label} build profile must pin Bun ${BUN_VERSION}`);
+  return build;
+}
+
 function checkCommon(eas: EasConfig, release: ReleaseConfig) {
   if (release.schemaVersion !== 1) {
     throw new Error('release.config.json must use schemaVersion 1');
@@ -84,12 +94,22 @@ function checkCommon(eas: EasConfig, release: ReleaseConfig) {
   }
 }
 
-function checkStoreReadiness(release: ReleaseConfig) {
+async function checkStoreReadiness(release: ReleaseConfig) {
   if (!Array.isArray(release.supportedLocales) || release.supportedLocales.length === 0) {
     throw new Error('release.config.json must declare at least one supported locale');
   }
   requireHttps(release.supportUrl, 'supportUrl');
   requireHttps(release.privacyUrl, 'privacyUrl');
+
+  const icon = config.icon;
+  requireValue(icon, 'Expo icon');
+  if (/^https?:\/\//i.test(icon)) {
+    throw new Error('Expo icon must be a committed local file for store qualification');
+  }
+  if (!(await Bun.file(icon).exists())) {
+    throw new Error(`Expo icon does not exist: ${icon}`);
+  }
+
   if (release.storeReadiness?.listingAssetsReady !== true) {
     throw new Error('storeReadiness.listingAssetsReady must be true after listing assets are reviewed');
   }
@@ -101,6 +121,10 @@ function checkStoreReadiness(release: ReleaseConfig) {
 function checkAndroid(eas: EasConfig, release: ReleaseConfig) {
   if (!config.android?.package || config.android.package.startsWith('com.example.')) {
     throw new Error('configure a permanent Android package before an Android store release');
+  }
+  const build = requirePinnedBuildProfile(eas, release.release.buildProfile, 'production');
+  if (build.autoIncrement !== true) {
+    throw new Error('the production EAS build profile must autoIncrement native build versions');
   }
   const internal = eas.submit?.[release.release.internalSubmitProfile]?.android;
   if (internal?.track !== 'internal' || internal.releaseStatus !== 'completed') {
@@ -115,6 +139,10 @@ function checkAndroid(eas: EasConfig, release: ReleaseConfig) {
 function checkIos(eas: EasConfig, release: ReleaseConfig) {
   if (!config.ios?.bundleIdentifier || config.ios.bundleIdentifier.startsWith('com.example.')) {
     throw new Error('configure a permanent iOS bundleIdentifier before an iOS store release');
+  }
+  const build = requirePinnedBuildProfile(eas, release.release.buildProfile, 'production');
+  if (build.autoIncrement !== true) {
+    throw new Error('the production EAS build profile must autoIncrement native build versions');
   }
   const internalId = eas.submit?.[release.release.internalSubmitProfile]?.ios?.ascAppId;
   requireValue(internalId, 'submit.internal.ios.ascAppId');
@@ -133,12 +161,9 @@ export async function checkStoreRelease(platform: StorePlatform = 'all') {
   const release = (await Bun.file('release.config.json').json()) as ReleaseConfig;
 
   checkCommon(eas, release);
-  checkStoreReadiness(release);
+  await checkStoreReadiness(release);
   if (release.release.buildProfile !== 'production') {
     throw new Error('release.config.json buildProfile must be production for immutable store qualification');
-  }
-  if (eas.build?.[release.release.buildProfile]?.autoIncrement !== true) {
-    throw new Error('the production EAS build profile must autoIncrement native build versions');
   }
 
   for (const target of platforms(platform)) {
@@ -155,8 +180,8 @@ export async function checkDirectAndroidRelease() {
   if (!config.android?.package || config.android.package.startsWith('com.example.')) {
     throw new Error('configure a permanent Android package before a direct APK release');
   }
-  const direct = eas.build?.direct;
-  if (direct?.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
+  const direct = requirePinnedBuildProfile(eas, 'direct', 'direct');
+  if (direct.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
     throw new Error('eas.json build.direct must produce an internally distributed Android APK');
   }
 }

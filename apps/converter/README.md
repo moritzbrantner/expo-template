@@ -25,16 +25,20 @@ bun run verify
 
 `bun run verify` runs the converter tests, typecheck, and web build.
 
-## Store release canary
+## Store and direct release
 
-The converter has an immutable source-to-binary release lane, but permanent product/store identity is intentionally not invented in source control. `bun run release:preflight` remains fail-closed until the app owner supplies:
+Converter now uses the repository-wide mobile release contract. Its stable native identity is derived from `io.github.moritzbrantner.converter`; review that identifier before creating the first store record.
 
-- a permanent iOS bundle identifier;
-- a permanent Android package identifier;
+Product/store-owned setup remains fail-closed until the owner supplies:
+
 - the linked Expo/EAS project ID;
-- the App Store Connect application ID in both iOS submit profiles;
-- configured EAS build and store submission credentials;
 - HTTPS support and privacy-policy URLs;
-- the repository `EXPO_TOKEN` Actions secret.
+- reviewed listing assets and privacy/data declarations;
+- EAS build/signing credentials;
+- Google Play credentials when Android store delivery is enabled;
+- the App Store Connect application ID and Apple credentials only when iOS delivery is enabled;
+- the repository `EXPO_TOKEN` Actions secret for CI builds.
 
-Once those values are configured, run the repository workflow **Converter Mobile Release** against an exact commit SHA with `submit_profile=internal` and `deliver=true`. The canary target is TestFlight plus Google Play internal testing only. Android production submission remains `draft`, and public App Store/Play exposure is outside the workflow.
+Use **Mobile App Release** to qualify an exact Converter source SHA for Android, iOS, or both. Android-only qualification does not require Apple setup. Use **Android Direct Build** for an exact-source signed APK that can be distributed without a Google Play account.
+
+The Android production submit profile remains `draft`, and public App Store/Play exposure is outside the qualification workflow.

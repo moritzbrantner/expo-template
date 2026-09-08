@@ -7,8 +7,17 @@ on:
         description: Exact 40-character commit SHA to qualify and build.
         required: true
         type: string
+      platform:
+        description: Store platform(s) to qualify. Android does not require Apple credentials.
+        required: true
+        default: android
+        type: choice
+        options:
+          - android
+          - ios
+          - all
       submit_profile:
-        description: EAS Submit profile used only when delivery is requested.
+        description: EAS Submit profile used only when delivery is requested for both platforms.
         required: true
         default: internal
         type: choice
@@ -16,18 +25,29 @@ on:
           - internal
           - production
       deliver:
-        description: Submit the promoted exact binaries after qualification.
+        description: Submit promoted binaries. Delivery currently requires platform=all.
         required: true
         default: false
         type: boolean
 
 concurrency:
-  group: mobile-release-${{ inputs.source_sha }}-${{ inputs.submit_profile }}
+  group: mobile-release-${{ inputs.source_sha }}-${{ inputs.platform }}-${{ inputs.submit_profile }}
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate release request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject unsupported partial delivery
+        if: ${{ inputs.deliver && inputs.platform != 'all' }}
+        run: |
+          echo "Store delivery currently requires platform=all; Android/iOS-only qualification is still supported." >&2
+          exit 2
+
   qualify:
     name: Qualify exact mobile binaries
+    needs: validate
     permissions:
       actions: read
       attestations: write
@@ -37,8 +57,8 @@ jobs:
     with:
       source_sha: ${{ inputs.source_sha }}
       setup_command: npm install --global bun@1.3.12 eas-cli@23.2.0 && bun install --frozen-lockfile
-      qualification_command: bun run release:qualify
-      build_command: bun run release:build
+      qualification_command: bun run release:qualify:${{ inputs.platform }}
+      build_command: bun run release:build:${{ inputs.platform }}
       artifact_paths: .artifacts/mobile-release
       timeout_minutes: 90
       artifact_retention_days: 30
@@ -60,7 +80,7 @@ jobs:
 
   deliver:
     name: Deliver exact mobile binaries
-    if: ${{ inputs.deliver }}
+    if: ${{ inputs.deliver && inputs.platform == 'all' }}
     needs:
       - qualify
       - promote

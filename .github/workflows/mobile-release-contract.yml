@@ -8,6 +8,8 @@ on:
       - apps/**/eas.json
       - apps/**/release.config.json
       - tooling/release/**
+      - .github/workflows/mobile-app-release.yml
+      - .github/workflows/android-direct-build.yml
       - .github/workflows/mobile-release-contract.yml
   push:
     branches:
@@ -18,6 +20,8 @@ on:
       - apps/**/eas.json
       - apps/**/release.config.json
       - tooling/release/**
+      - .github/workflows/mobile-app-release.yml
+      - .github/workflows/android-direct-build.yml
       - .github/workflows/mobile-release-contract.yml
 
 permissions:
@@ -37,3 +41,7 @@ jobs:
         run: node --check tooling/release/mobile-release.mjs
       - name: Check every Expo app release scaffold
         run: bun tooling/release/mobile-release.mjs fleet-check
+      - name: Check release workflows validate app source first
+        run: |
+          grep -F 'qualification_command: bun run test && bun run typecheck && bun run build && bun ../../tooling/release/mobile-release.mjs preflight ' .github/workflows/mobile-app-release.yml
+          grep -F 'qualification_command: bun run test && bun run typecheck && bun run build && bun ../../tooling/release/mobile-release.mjs preflight-direct ' .github/workflows/android-direct-build.yml

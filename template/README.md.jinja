@@ -28,34 +28,51 @@ maestro test .maestro
 
 ## Production release setup
 
-The generated app contains an immutable release lane, but store identity and credentials are deliberately not invented by the template. Complete these once for the real product before the first store build:
+The generated app contains immutable release lanes, but store accounts and credentials are deliberately not invented by the template. Complete these once for the real product before the first remote release:
 
 1. Keep the generated iOS bundle identifier and Android package identifier permanent. Do not ship with a `com.example.*` identifier.
 2. Run `eas init` for the real Expo account/project and commit the resulting `extra.eas.projectId` in `app.config.ts`.
-3. Create the application records in App Store Connect and Google Play Console.
-4. Add the numeric App Store Connect app ID as `submit.internal.ios.ascAppId` and `submit.production.ios.ascAppId` in `eas.json`.
-5. Configure EAS build/signing credentials and EAS Submit store credentials for the project.
-6. Fill the HTTPS `supportUrl` and `privacyUrl` in `release.config.json` and keep its supported locales accurate.
-7. Add an Expo access token to the GitHub repository as the `EXPO_TOKEN` Actions secret.
+3. Configure EAS build/signing credentials.
+4. Fill the HTTPS `supportUrl` and `privacyUrl` in `release.config.json` and keep its supported locales accurate.
+5. Create and review product-specific icons, screenshots, listing copy, and privacy/data declarations; then set the two `storeReadiness` flags to `true`.
+6. Add an Expo access token to the GitHub repository as the `EXPO_TOKEN` Actions secret when CI builds are desired.
 
-`bun run release:preflight` fails closed until those product-owned values are complete and internally consistent.
+For Google Play, create the Play app and configure its EAS Submit service-account credentials. For iOS only, create the App Store Connect app, add its numeric app ID as `submit.internal.ios.ascAppId` and `submit.production.ios.ascAppId`, and configure the Apple submission credentials.
 
-## Immutable mobile release lane
+The preflight is platform-aware. Missing Apple setup does not block `bun run release:preflight:android`.
 
-The repository workflow **Mobile Release** accepts an exact 40-character source SHA. It then:
+## Store qualification
 
-1. checks out and validates that exact source;
-2. runs `bun run release:qualify`;
-3. builds iOS and Android once through the production EAS Build profile;
-4. downloads the exact `.ipa` and `.aab` from those EAS Build IDs;
-5. writes `mobile-release.json` binding the source SHA, EAS Build IDs, app/build versions, binary paths, and SHA-256 digests;
-6. stores and attests that candidate through the shared release-qualification capability;
-7. promotes the same qualified artifact by immutable reference;
-8. when `deliver=true`, re-verifies the artifact/provenance and binary hashes before submitting those exact file paths with EAS Submit.
+Use one target at a time when desired:
 
-Start with `submit_profile=internal`: iOS goes through the configured App Store Connect/TestFlight submission path and Android targets Google Play internal testing. The generated Android `production` submit profile is deliberately `draft`; choosing the production profile does not silently expose a build to users. Final App Store/Play production exposure remains an explicit store lifecycle decision.
+```sh
+bun run release:qualify:android
+bun run release:build:android
 
-Run `deliver=false` when you want to qualify and preserve binaries without sending them to either store yet.
+bun run release:qualify:ios
+bun run release:build:ios
+```
+
+`bun run release:qualify` and `bun run release:build` retain the previous all-platform behavior.
+
+The repository workflow **Mobile Release** accepts an exact 40-character source SHA plus `platform=android`, `ios`, or `all`. It checks out the exact source, qualifies it, builds each selected platform once, downloads the exact EAS binary, writes `mobile-release.json` with source/build IDs and SHA-256 digests, and preserves/attests the artifact through the shared qualification pipeline.
+
+Automatic store delivery through that workflow remains available only for `platform=all`, because the shared terminal delivery capability currently verifies both qualified binaries together. Android-only and iOS-only qualification therefore do not depend on credentials for the other store.
+
+Start store delivery with `submit_profile=internal`. Android production submission remains `draft`; selecting the production profile does not silently expose a build to users. Final App Store/Play production exposure remains an explicit store lifecycle decision.
+
+## Direct Android APK
+
+The generated `direct` EAS profile produces a signed installable APK without requiring a Google Play developer account. After linking the app to EAS and configuring Android signing credentials:
+
+```sh
+bun run release:qualify:direct
+bun run release:build:direct
+```
+
+The **Android Direct Build** workflow provides the same exact-source qualification and preserves the APK as an attested artifact. It can later be distributed through a project site, GitHub Releases, an internal channel, or another Android catalog that accepts externally built APKs.
+
+F-Droid should be treated as a separate source-build/reproducibility integration rather than as an APK upload target.
 
 The stopwatch is a small editable reference slice. {% if profile == 'scheduled' %}The scheduled profile also includes a permission-aware local reminder screen.{% endif %}
 

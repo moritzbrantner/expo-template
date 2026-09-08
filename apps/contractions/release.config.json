@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "appSlug": "converter",
+  "appSlug": "contractions",
   "supportedLocales": ["en", "de", "es"],
   "supportUrl": "",
   "privacyUrl": "",

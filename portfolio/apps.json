@@ -85,21 +85,24 @@
       "name": "Timer & Stopwatch",
       "description": "Timers and stopwatch tools designed for quick use and immediate exit.",
       "category": "Utility",
-      "status": "planned"
+      "status": "preview",
+      "source": "apps/timer"
     },
     {
       "slug": "shopping-list",
       "name": "Shopping List",
       "description": "A quick local-first list for ordinary shopping and household errands.",
       "category": "Everyday",
-      "status": "planned"
+      "status": "preview",
+      "source": "apps/shopping-list"
     },
     {
       "slug": "notes",
       "name": "Notes",
       "description": "Plain notes with user control, portability, and a calm editing experience.",
       "category": "Everyday",
-      "status": "planned"
+      "status": "preview",
+      "source": "apps/notes"
     },
     {
       "slug": "books",

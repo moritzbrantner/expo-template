@@ -77,9 +77,19 @@ export default function TimerApp() {
   }, [timer, stopwatch, hydrated]);
 
   useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 100);
+    const timerActive = timer.startedAtMs !== null && timerRemainingMs(timer, Date.now()) > 0;
+    const stopwatchActive = stopwatch.startedAtMs !== null;
+    if (!timerActive && !stopwatchActive) return;
+
+    const tick = setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (!stopwatchActive && timer.startedAtMs !== null && timerRemainingMs(timer, current) === 0) {
+        clearInterval(tick);
+      }
+    }, 100);
     return () => clearInterval(tick);
-  }, []);
+  }, [timer, stopwatch]);
 
   const remaining = timerRemainingMs(timer, now);
   const timerRunning = timer.startedAtMs !== null && remaining > 0;

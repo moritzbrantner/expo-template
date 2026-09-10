@@ -15,8 +15,11 @@ on:
           - gifts
           - habits
           - money
+          - notes
           - photos
+          - shopping-list
           - tasks
+          - timer
           - wardrobe
       source_sha:
         description: Exact 40-character commit SHA to qualify and build.

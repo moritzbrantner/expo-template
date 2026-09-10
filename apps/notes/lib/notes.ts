@@ -55,7 +55,9 @@ export function deserializeNotes(value: string | null): Note[] {
         typeof note.title === 'string' &&
         typeof note.body === 'string' &&
         typeof note.createdAt === 'string' &&
-        typeof note.updatedAt === 'string'
+        Number.isFinite(Date.parse(note.createdAt)) &&
+        typeof note.updatedAt === 'string' &&
+        Number.isFinite(Date.parse(note.updatedAt))
       );
     });
   } catch {

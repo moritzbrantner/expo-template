@@ -25,4 +25,16 @@ test('updates notes without changing their creation timestamp', () => {
 test('rejects malformed persisted data', () => {
   assert.deepEqual(deserializeNotes('{broken'), []);
   assert.deepEqual(deserializeNotes('[{"title":"Missing fields"}]'), []);
+  assert.deepEqual(
+    deserializeNotes(
+      '[{"id":"note-1","title":"Broken date","body":"Body","createdAt":"not-a-date","updatedAt":"2026-09-09T06:00:00.000Z"}]',
+    ),
+    [],
+  );
+  assert.deepEqual(
+    deserializeNotes(
+      '[{"id":"note-1","title":"Broken date","body":"Body","createdAt":"2026-09-09T05:00:00.000Z","updatedAt":"not-a-date"}]',
+    ),
+    [],
+  );
 });

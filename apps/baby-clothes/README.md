@@ -20,6 +20,7 @@ Metadata assistance is deliberately advisory.
 - Native builds can inspect local photo pixels and suggest one coarse color such as blue, beige, pink, or gray. The suggestion is deterministic, stays on-device, and is never applied unless the user taps the explicit **Use** action.
 - Printed labels such as `50/56`, `62`, `0–3M`, or `6–9 months` can produce a normalized centimetre-range suggestion. The original printed label remains untouched. Month-based conversions are explicitly presented as rough, brand-dependent guidance.
 - The web preview keeps manual color entry and size-label suggestions but does not pretend that browser photo analysis is the native workflow.
+- On an empty web preview, four clearly synthetic SVG garments are seeded once into browser-local storage so photos, fit ranges, grouping, colors, and lifecycle states can be compared visually. Native builds never receive these examples, and no remote images are loaded.
 
 This slice does **not** guess garment category or brand, and it does not run OCR. Adding a weak generic classifier or uploading family photos to a recognition backend would be a worse boundary than leaving those fields manual. A later on-device recognizer can extend the same user-confirmed suggestion contract when there is trustworthy evidence for it.
 

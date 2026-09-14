@@ -38,6 +38,11 @@ describe('parseCreateAppArgs', () => {
     );
   });
 
+  test('preserves punctuation in human-readable app names', () => {
+    const options = parseCreateAppArgs(['reader-list', '--name', "Reader's List"]);
+    assert.equal(options.appName, "Reader's List");
+  });
+
   test('rejects speculative presets instead of silently broadening the contract', () => {
     assert.throws(
       () => parseCreateAppArgs(['demo', '--preset', 'native']),
@@ -45,8 +50,8 @@ describe('parseCreateAppArgs', () => {
     );
   });
 
-  test('rejects unsafe or ambiguous workspace slugs', () => {
-    for (const slug of ['BadName', 'two--hyphens', '../escape', 'trailing-']) {
+  test('rejects unsafe, ambiguous, or Android-invalid workspace slugs', () => {
+    for (const slug of ['BadName', '123-notes', 'two--hyphens', '../escape', 'trailing-']) {
       assert.throws(() => parseCreateAppArgs([slug]), /Invalid app slug/);
     }
   });

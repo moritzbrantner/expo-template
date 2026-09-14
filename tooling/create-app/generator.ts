@@ -30,7 +30,7 @@ const runtimeDependencies = [
   'react-native-web',
 ] as const;
 
-const developmentDependencies = ['@types/bun', '@types/react', 'typescript'] as const;
+const developmentDependencies = ['@types/node', '@types/react', 'typescript'] as const;
 
 export function validateSlug(slug: string) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
@@ -147,7 +147,7 @@ export function buildUtilityAppFiles(slug: string, rootPackage: PackageJson): Ma
     ],
     [
       'tests/app-info.test.ts',
-      `import { expect, test } from 'bun:test';\n\nimport { APP_INFO } from '../lib/app-info';\n\ntest('generated app identity is stable', () => {\n  expect(APP_INFO.slug).toBe(${JSON.stringify(slug)});\n  expect(APP_INFO.name).toBe(${JSON.stringify(title)});\n});\n`,
+      `import assert from 'node:assert/strict';\nimport test from 'node:test';\n\nimport { APP_INFO } from '../lib/app-info';\n\ntest('generated app identity is stable', () => {\n  assert.equal(APP_INFO.slug, ${JSON.stringify(slug)});\n  assert.equal(APP_INFO.name, ${JSON.stringify(title)});\n});\n`,
     ],
   ];
 

@@ -1,7 +1,8 @@
-import { describe, expect, test } from 'bun:test';
+import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { describe, test } from 'node:test';
 
 import {
   buildUtilityAppFiles,
@@ -20,13 +21,14 @@ describe('create-app utility preset', () => {
     const first = [...buildUtilityAppFiles('field-notes', rootPackage)];
     const second = [...buildUtilityAppFiles('field-notes', rootPackage)];
 
-    expect(first).toEqual(second);
+    assert.deepEqual(first, second);
     const packageJson = JSON.parse(
       first.find(([path]) => path === 'package.json')?.[1] ?? '{}',
     ) as { name?: string; dependencies?: Record<string, string> };
-    expect(packageJson.name).toBe('@expo-template/field-notes');
-    expect(packageJson.dependencies?.expo).toBe(rootPackage.dependencies.expo);
-    expect(packageJson.dependencies?.['expo-router']).toBe(
+    assert.equal(packageJson.name, '@expo-template/field-notes');
+    assert.equal(packageJson.dependencies?.expo, rootPackage.dependencies.expo);
+    assert.equal(
+      packageJson.dependencies?.['expo-router'],
       rootPackage.dependencies['expo-router'],
     );
   });
@@ -35,13 +37,14 @@ describe('create-app utility preset', () => {
     const outputRoot = mkdtempSync(join(tmpdir(), 'create-app-'));
     generateApp({ slug: 'field-notes', preset: 'utility', outputRoot });
 
-    expect(() =>
-      generateApp({ slug: 'field-notes', preset: 'utility', outputRoot }),
-    ).toThrow('Refusing to overwrite');
+    assert.throws(
+      () => generateApp({ slug: 'field-notes', preset: 'utility', outputRoot }),
+      /Refusing to overwrite/,
+    );
   });
 
   test('rejects invalid slugs and unsupported presets', () => {
-    expect(() => validateSlug('Field Notes')).toThrow('Invalid app slug');
-    expect(() => parsePreset('standard')).toThrow('Unsupported preset');
+    assert.throws(() => validateSlug('Field Notes'), /Invalid app slug/);
+    assert.throws(() => parsePreset('standard'), /Unsupported preset/);
   });
 });

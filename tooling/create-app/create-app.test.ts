@@ -65,16 +65,26 @@ describe('createAppPlan', () => {
     assert.equal(standard.workspacePath, 'apps/standard-fixture');
   });
 
-  test('passes package identity through Copier rather than rewriting generated files', () => {
+  test('passes durable source identity through Copier rather than rewriting answers later', () => {
     const plan = createAppPlan(
       parseCreateAppArgs(['fixture', '--name', 'Fixture', '--navigation', 'tabs']),
     );
-    const args = buildCopierArgs(plan, '/repo', '/repo/apps/.create-fixture');
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+    const args = buildCopierArgs(
+      plan,
+      'https://github.com/moritzbrantner/expo-template',
+      '/repo/apps/.create-fixture',
+      sha,
+    );
 
     assert(args.includes('package_name=@expo-template/fixture'));
     assert(args.includes('profile=minimal'));
     assert(args.includes('navigation=tabs'));
-    assert.deepEqual(args.slice(-2), ['/repo', '/repo/apps/.create-fixture']);
+    assert.deepEqual(args.slice(0, 6), ['copy', '--trust', '--defaults', '--vcs-ref', sha, '--data']);
+    assert.deepEqual(args.slice(-2), [
+      'https://github.com/moritzbrantner/expo-template',
+      '/repo/apps/.create-fixture',
+    ]);
   });
 });
 

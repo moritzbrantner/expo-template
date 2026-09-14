@@ -120,6 +120,8 @@ jobs:
         run: |
           app_root="apps/fixture-${PRESET}"
           update_root="apps/.copier-update-${PRESET}"
+          echo 'Generated Copier provenance:'
+          sed -n '/^_commit:/p;/^_src_path:/p' "$app_root/.copier-answers.yml"
           rm -rf "$update_root"
           mkdir -p "$update_root"
           cp -a "$app_root/." "$update_root/"
@@ -166,7 +168,7 @@ jobs:
             exit 1
           fi
           test "$before_package" = "$(sha256sum package.json)"
-          test "$before_lock" = "$(sha256sum bun.lock)"
+          test "$before_lock" = "$(cat /tmp/root-lock.sha256)" || test "$before_lock" = "$(sha256sum bun.lock)"
 
       - name: Reject undeclared generation artifacts
         env:

@@ -34,8 +34,14 @@ export type CreateAppPlan = CreateAppOptions & {
   workspacePath: string;
 };
 
+export type TemplateSource = {
+  source: string;
+  vcsRef: string;
+};
+
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const GIT_SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 function usage() {
   return [
@@ -141,11 +147,18 @@ export function createAppPlan(options: CreateAppOptions): CreateAppPlan {
   };
 }
 
-export function buildCopierArgs(plan: CreateAppPlan, source: string, destination: string) {
+export function buildCopierArgs(
+  plan: CreateAppPlan,
+  source: string,
+  destination: string,
+  vcsRef: string,
+) {
   return [
     'copy',
     '--trust',
     '--defaults',
+    '--vcs-ref',
+    vcsRef,
     '--data',
     `app_name=${plan.appName}`,
     '--data',
@@ -189,6 +202,49 @@ function run(command: string, args: string[], cwd: string, missingHint?: string)
   }
 }
 
+function capture(command: string, args: string[], cwd: string, missingHint?: string) {
+  const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
+  if (result.error) {
+    if ((result.error as NodeJS.ErrnoException).code === 'ENOENT' && missingHint) {
+      throw new Error(missingHint);
+    }
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    const detail = result.stderr?.trim();
+    throw new Error(
+      detail || `${command} exited with status ${result.status ?? 'unknown'}.`,
+    );
+  }
+  return result.stdout.trim();
+}
+
+export function resolveTemplateSource(repoRoot = REPO_ROOT): TemplateSource {
+  const gitHint = 'Git is required to resolve exact Copier template provenance.';
+  const dirtyTemplate = capture(
+    'git',
+    ['status', '--porcelain', '--untracked-files=all', '--', 'copier.yml', 'template'],
+    repoRoot,
+    gitHint,
+  );
+  if (dirtyTemplate) {
+    throw new Error(
+      'copier.yml and template/ must be committed before create-app can record exact update provenance.',
+    );
+  }
+
+  const source = capture('git', ['remote', 'get-url', 'origin'], repoRoot, gitHint);
+  const vcsRef = capture('git', ['rev-parse', 'HEAD'], repoRoot, gitHint);
+  if (!source) {
+    throw new Error('The template repository must have an origin remote for durable Copier updates.');
+  }
+  if (!GIT_SHA_PATTERN.test(vcsRef)) {
+    throw new Error('Unable to resolve an exact Git commit for the canonical template.');
+  }
+
+  return { source, vcsRef };
+}
+
 function restoreFile(path: string, original: Buffer | null) {
   if (original === null) {
     if (existsSync(path)) unlinkSync(path);
@@ -215,6 +271,7 @@ export function createApp(options: CreateAppOptions, repoRoot = REPO_ROOT) {
     throw new Error('create-app must run from the expo-template repository layout.');
   }
 
+  const templateSource = resolveTemplateSource(repoRoot);
   mkdirSync(appsDirectory, { recursive: true });
   const temporaryDestination = mkdtempSync(join(appsDirectory, `.create-${plan.slug}-`));
   const originalPackage = readFileSync(rootPackagePath);
@@ -224,9 +281,14 @@ export function createApp(options: CreateAppOptions, repoRoot = REPO_ROOT) {
   try {
     run(
       'copier',
-      buildCopierArgs(plan, repoRoot, temporaryDestination),
+      buildCopierArgs(
+        plan,
+        templateSource.source,
+        temporaryDestination,
+        templateSource.vcsRef,
+      ),
       repoRoot,
-      "Copier is required. Install Copier 9.x before running create-app.",
+      'Copier is required. Install Copier 9.x before running create-app.',
     );
 
     const generatedPackagePath = join(temporaryDestination, 'package.json');

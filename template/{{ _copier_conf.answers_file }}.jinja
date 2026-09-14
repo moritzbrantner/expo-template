@@ -1,2 +1,2 @@
 # Changes here will be overwritten by Copier.
-{{ _copier_answers | to_nice_yaml -}}
+{{ dict(_copier_answers, _commit=_copier_conf.vcs_ref_hash) | to_nice_yaml -}}

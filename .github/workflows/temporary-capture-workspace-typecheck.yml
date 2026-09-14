@@ -1,4 +1,4 @@
-name: Temporary capture workspace typecheck
+name: Temporary refresh storage workspace lock
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  capture:
-    if: "${{ github.event.head_commit.message == 'chore: capture workspace typecheck failure' }}"
+  refresh:
+    if: "${{ github.event.head_commit.message == 'chore: refresh storage workspace lock' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -19,17 +19,21 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.12
-      - run: bun install --frozen-lockfile
-      - name: Capture TypeScript output
+      - name: Refresh root workspace lock
+        run: bun install
+      - name: Verify clean-workspace contract
         run: |
-          set +e
-          bunx tsc --noEmit > scripts/temporary-workspace-typecheck.log 2>&1
-          status=$?
-          cat scripts/temporary-workspace-typecheck.log
-          printf '\nexit_status=%s\n' "$status" >> scripts/temporary-workspace-typecheck.log
+          bun install --frozen-lockfile
+          bun run lint
+          bunx tsc --noEmit
+          bun test
+          bun run build
+          bunx expo-doctor
+          git diff --check
+      - name: Preserve generated lockfile
+        run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/temporary-workspace-typecheck.log
-          git commit -m 'chore: preserve workspace typecheck failure'
+          git add bun.lock
+          git commit -m 'fix: record storage package Bun types'
           git push origin HEAD:${{ github.ref_name }}
-          exit "$status"

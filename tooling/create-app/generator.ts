@@ -119,7 +119,7 @@ export function buildUtilityAppFiles(slug: string, rootPackage: PackageJson): Ma
     ['app.json', `${JSON.stringify(appJson, null, 2)}\n`],
     [
       'tsconfig.json',
-      `${JSON.stringify({ extends: 'expo/tsconfig.base', compilerOptions: { strict: true } }, null, 2)}\n`,
+      `${JSON.stringify({ extends: 'expo/tsconfig.base', compilerOptions: { strict: true, types: ['node'] } }, null, 2)}\n`,
     ],
     [
       'app/_layout.tsx',

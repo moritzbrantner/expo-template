@@ -119,7 +119,9 @@ jobs:
           PRESET: ${{ matrix.preset }}
         run: |
           app_root="apps/fixture-${PRESET}"
-          update_root="$(mktemp -d)"
+          update_root="apps/.copier-update-${PRESET}"
+          rm -rf "$update_root"
+          mkdir -p "$update_root"
           cp -a "$app_root/." "$update_root/"
           rm -rf "$update_root/node_modules" "$update_root/.expo" "$update_root/.conformance-web"
           git -C "$update_root" init -q
@@ -133,6 +135,7 @@ jobs:
             git diff --check
             test -z "$(git status --porcelain)"
           )
+          rm -rf "$update_root"
 
       - name: Verify repeatable generation
         env:
@@ -187,8 +190,8 @@ jobs:
             throw new Error(`undeclared generation artifacts: ${unexpected.join(', ')}`);
           }
           NODE
-          if find apps -maxdepth 1 -type d -name '.create-*' -print -quit | grep -q .; then
-            echo 'temporary create-app directory leaked into the workspace' >&2
+          if find apps -maxdepth 1 -type d \( -name '.create-*' -o -name '.copier-update-*' \) -print -quit | grep -q .; then
+            echo 'temporary create-app/conformance directory leaked into the workspace' >&2
             exit 1
           fi
           git diff --check

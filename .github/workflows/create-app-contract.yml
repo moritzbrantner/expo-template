@@ -51,7 +51,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Test create-app tooling
-        run: bun test tooling/create-app/create-app.test.ts
+        run: bun test ./tooling/create-app/create-app.test.ts
 
       - name: Create portfolio fixture
         run: |

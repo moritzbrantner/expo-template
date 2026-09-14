@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   migrate:
-    if: "${{ github.event.head_commit.message == 'chore: repair storage migration runner' }}"
+    if: "${{ github.event.head_commit.message == 'chore: isolate storage foundation validation' }}"
     runs-on: ubuntu-latest
     steps:
       - name: Check out branch
@@ -29,14 +29,23 @@ jobs:
       - name: Refresh dependency graph
         run: bun install
 
-      - name: Validate repository contract
-        run: |
-          bun run lint
-          bunx tsc --noEmit
-          bun test
-          bun run build
-          bunx expo-doctor
-          git diff --check
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Tests
+        run: bun test
+
+      - name: Build
+        run: bun run build
+
+      - name: Expo Doctor
+        run: bunx expo-doctor
+
+      - name: Diff check
+        run: git diff --check
 
       - name: Commit generated implementation and lockfile
         run: |

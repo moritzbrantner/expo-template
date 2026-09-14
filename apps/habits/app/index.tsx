@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createLocalJsonStore } from '@expo-template/local-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -25,6 +25,11 @@ import {
 } from '../lib/habits';
 
 const STORAGE_KEY = '@expo-template/habits/list-v1';
+const habitStorage = createLocalJsonStore<Habit[]>({
+  key: STORAGE_KEY,
+  deserialize: deserializeHabits,
+  fallback: () => [],
+});
 const TARGETS = [3, 5, 7] as const;
 
 function habitId() {
@@ -106,11 +111,10 @@ export default function HabitsApp() {
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
-        if (active) setHabits(deserializeHabits(stored));
+    void habitStorage.load()
+      .then((storedHabits) => {
+        if (active) setHabits(storedHabits);
       })
-      .catch(() => {})
       .finally(() => {
         if (active) setHydrated(true);
       });
@@ -122,7 +126,7 @@ export default function HabitsApp() {
   useEffect(() => {
     if (!hydrated) return;
     const timer = setTimeout(() => {
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+      void habitStorage.save(habits);
     }, 150);
     return () => clearTimeout(timer);
   }, [habits, hydrated]);

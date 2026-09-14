@@ -45,7 +45,7 @@ jobs:
           bun-version: 1.3.12
 
       - name: Install Copier
-        run: python -m pip install 'copier>=9.10,<10'
+        run: python -m pip install 'copier==9.18.2'
 
       - name: Install repository dependencies
         run: bun install --frozen-lockfile
@@ -72,15 +72,32 @@ jobs:
           const appRoot = `apps/${slug}`;
           const rootPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const appPackage = JSON.parse(fs.readFileSync(`${appRoot}/package.json`, 'utf8'));
+          const conventions = JSON.parse(fs.readFileSync(`${appRoot}/conventions.json`, 'utf8'));
+          const tooling = JSON.parse(fs.readFileSync(`${appRoot}/.coding-tooling.json`, 'utf8'));
           const features = fs.readFileSync(`${appRoot}/app.features.ts`, 'utf8');
+          const answers = fs.readFileSync(`${appRoot}/.copier-answers.yml`, 'utf8');
 
           if (!rootPackage.workspaces?.includes(appRoot)) throw new Error('generated app is not registered in the root workspace');
           if (rootPackage.workspaces.filter((candidate) => candidate === appRoot).length !== 1) throw new Error('generated workspace registration is duplicated');
           if (appPackage.name !== `@expo-template/${slug}`) throw new Error('generated package identity is not workspace-scoped');
           if (appPackage.packageManager !== 'bun@1.3.12') throw new Error('generated Bun version is not exact');
+          if (conventions.registry !== 'coding-agent-conventions') throw new Error('generated convention registry is missing');
+          if (tooling.profile !== 'repository-foundation-v1') throw new Error('generated tooling profile is missing');
+          if (!tooling.tiers?.fast?.includes('typecheck')) throw new Error('generated fast tier must include typecheck');
           if (!features.includes(`profile: '${expectedProfile}'`)) throw new Error('public preset mapped to the wrong Copier profile');
-          if (!fs.existsSync(`${appRoot}/.copier-answers.yml`)) throw new Error('generated app lost Copier provenance');
+          if (!/^_src_path:/m.test(answers) || !/^_commit:/m.test(answers)) throw new Error('generated app lost Copier source provenance');
           NODE
+
+      - name: Capture first generation fingerprint
+        env:
+          PRESET: ${{ matrix.preset }}
+        run: |
+          app_root="apps/fixture-${PRESET}"
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            --exclude='./node_modules' --exclude='./.expo' \
+            -C "$app_root" -cf - . | sha256sum | cut -d' ' -f1 > /tmp/generated-tree.sha256
+          sha256sum package.json | cut -d' ' -f1 > /tmp/root-package.sha256
+          sha256sum bun.lock | cut -d' ' -f1 > /tmp/root-lock.sha256
 
       - name: Verify generated app
         working-directory: apps/fixture-${{ matrix.preset }}
@@ -89,9 +106,56 @@ jobs:
           bun run typecheck
           bun test
           bun run doctor
+          bunx expo export --platform web --output-dir .conformance-web
+          rm -rf .conformance-web .expo
 
-      - name: Verify root lock after workspace registration
-        run: bun install --frozen-lockfile
+      - name: Verify frozen cached install
+        run: |
+          bun install --frozen-lockfile
+          bun install --frozen-lockfile --offline
+
+      - name: Verify Copier update provenance
+        env:
+          PRESET: ${{ matrix.preset }}
+        run: |
+          app_root="apps/fixture-${PRESET}"
+          update_root="apps/.copier-update-${PRESET}"
+          echo 'Generated Copier provenance:'
+          sed -n '/^_commit:/p;/^_src_path:/p' "$app_root/.copier-answers.yml"
+          rm -rf "$update_root"
+          mkdir -p "$update_root"
+          cp -a "$app_root/." "$update_root/"
+          rm -rf "$update_root/node_modules" "$update_root/.expo" "$update_root/.conformance-web"
+          git -C "$update_root" init -q
+          git -C "$update_root" config user.name 'create-app-contract'
+          git -C "$update_root" config user.email 'create-app-contract@example.invalid'
+          git -C "$update_root" add -A
+          git -C "$update_root" commit -qm 'Initial generated app'
+          (
+            cd "$update_root"
+            copier update --trust --defaults --vcs-ref=HEAD
+            git diff --check
+            test -z "$(git status --porcelain)"
+          )
+          rm -rf "$update_root"
+
+      - name: Verify repeatable generation
+        env:
+          PRESET: ${{ matrix.preset }}
+        run: |
+          app_root="apps/fixture-${PRESET}"
+          rm -rf "$app_root"
+          git checkout -- package.json bun.lock
+          bun run create-app -- "fixture-${PRESET}" \
+            --name "Fixture ${PRESET}" \
+            --preset "${PRESET}"
+
+          second_tree="$(tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            --exclude='./node_modules' --exclude='./.expo' \
+            -C "$app_root" -cf - . | sha256sum | cut -d' ' -f1)"
+          test "$second_tree" = "$(cat /tmp/generated-tree.sha256)"
+          test "$(sha256sum package.json | cut -d' ' -f1)" = "$(cat /tmp/root-package.sha256)"
+          test "$(sha256sum bun.lock | cut -d' ' -f1)" = "$(cat /tmp/root-lock.sha256)"
 
       - name: Refuse destructive duplicate creation
         env:
@@ -106,5 +170,30 @@ jobs:
           test "$before_package" = "$(sha256sum package.json)"
           test "$before_lock" = "$(sha256sum bun.lock)"
 
-      - name: Check generated diff hygiene
-        run: git diff --check
+      - name: Reject undeclared generation artifacts
+        env:
+          PRESET: ${{ matrix.preset }}
+        run: |
+          node - <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const preset = process.env.PRESET;
+          const appRoot = `apps/fixture-${preset}/`;
+          const status = execFileSync(
+            'git',
+            ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+            { encoding: 'utf8' },
+          );
+          const unexpected = status
+            .split('\0')
+            .filter(Boolean)
+            .map((record) => record.slice(3))
+            .filter((path) => path !== 'package.json' && path !== 'bun.lock' && !path.startsWith(appRoot));
+          if (unexpected.length > 0) {
+            throw new Error(`undeclared generation artifacts: ${unexpected.join(', ')}`);
+          }
+          NODE
+          if find apps -maxdepth 1 -type d \( -name '.create-*' -o -name '.copier-update-*' \) -print -quit | grep -q .; then
+            echo 'temporary create-app/conformance directory leaked into the workspace' >&2
+            exit 1
+          fi
+          git diff --check

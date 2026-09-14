@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 import { createVersionedJsonStorage, versionedStorageKey } from './index';
 
@@ -28,7 +29,8 @@ function decodeStrings(value: unknown): string[] | null {
 
 describe('versionedStorageKey', () => {
   test('keeps the schema version in the storage key', () => {
-    expect(versionedStorageKey('@expo-template/tasks/list', 2)).toBe(
+    assert.equal(
+      versionedStorageKey('@expo-template/tasks/list', 2),
       '@expo-template/tasks/list-v2',
     );
   });
@@ -46,9 +48,9 @@ describe('createVersionedJsonStorage', () => {
       fallback: () => [],
     });
 
-    expect(await store.load()).toEqual(['one']);
+    assert.deepEqual(await store.load(), ['one']);
     await store.save(['one', 'two']);
-    expect(storage.values.get('@example/items-v1')).toBe(JSON.stringify(['one', 'two']));
+    assert.equal(storage.values.get('@example/items-v1'), JSON.stringify(['one', 'two']));
   });
 
   test('fails closed on malformed current data instead of resurrecting an older version', async () => {
@@ -64,8 +66,8 @@ describe('createVersionedJsonStorage', () => {
       migrations: { 1: (value) => value },
     });
 
-    expect(await store.load()).toEqual(['fallback']);
-    expect(storage.writes).toEqual([]);
+    assert.deepEqual(await store.load(), ['fallback']);
+    assert.deepEqual(storage.writes, []);
   });
 
   test('migrates the nearest older version through every declared step and persists it once', async () => {
@@ -86,8 +88,8 @@ describe('createVersionedJsonStorage', () => {
       },
     });
 
-    expect(await store.load()).toEqual(['one']);
-    expect(storage.writes).toEqual([
+    assert.deepEqual(await store.load(), ['one']);
+    assert.deepEqual(storage.writes, [
       { key: '@example/items-v3', value: JSON.stringify(['one']) },
     ]);
   });
@@ -104,8 +106,8 @@ describe('createVersionedJsonStorage', () => {
       migrations: { 2: (value) => value },
     });
 
-    expect(await store.load()).toEqual(['fallback']);
-    expect(storage.writes).toEqual([]);
+    assert.deepEqual(await store.load(), ['fallback']);
+    assert.deepEqual(storage.writes, []);
   });
 
   test('uses the app-owned encoder before writing generic JSON', async () => {
@@ -120,6 +122,6 @@ describe('createVersionedJsonStorage', () => {
     });
 
     await store.save(['two', 'one']);
-    expect(storage.values.get('@example/items-v1')).toBe(JSON.stringify(['one', 'two']));
+    assert.equal(storage.values.get('@example/items-v1'), JSON.stringify(['one', 'two']));
   });
 });

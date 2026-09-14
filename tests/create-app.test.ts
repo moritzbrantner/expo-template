@@ -43,8 +43,12 @@ describe('create-app utility preset', () => {
     );
   });
 
-  test('rejects invalid slugs and unsupported presets', () => {
+  test('rejects slugs that are invalid package identities or URL schemes', () => {
     assert.throws(() => validateSlug('Field Notes'), /Invalid app slug/);
+    assert.throws(() => validateSlug('123-notes'), /Invalid app slug/);
+  });
+
+  test('rejects unsupported presets', () => {
     assert.throws(() => parsePreset('standard'), /Unsupported preset/);
   });
 });

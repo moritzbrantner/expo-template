@@ -12,6 +12,7 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "bun ./scripts/reset-project.ts",
+    "create-app": "bun tooling/create-app/create-app.ts",
     "android": "expo start --android",
     "ios": "expo start --ios --port 4002",
     "web": "expo start --web --port 4002",
@@ -24,7 +25,7 @@
     "dev:auth:down": "docker compose stop auth-api mailpit",
     "build": "expo export --platform web",
     "test": "bun test ./tests",
-    "test:unit": "bun test ./tests/unit.test.ts ./packages/storage/src/index.test.ts",
+    "test:unit": "bun test ./tests/unit.test.ts ./packages/storage/src/index.test.ts ./tooling/create-app/create-app.test.ts",
     "test:integration": "bun test ./tests/integration.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:services:up": "docker compose up -d",

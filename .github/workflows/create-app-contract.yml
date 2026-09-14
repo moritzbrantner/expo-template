@@ -168,7 +168,7 @@ jobs:
             exit 1
           fi
           test "$before_package" = "$(sha256sum package.json)"
-          test "$before_lock" = "$(cat /tmp/root-lock.sha256)" || test "$before_lock" = "$(sha256sum bun.lock)"
+          test "$before_lock" = "$(sha256sum bun.lock)"
 
       - name: Reject undeclared generation artifacts
         env:

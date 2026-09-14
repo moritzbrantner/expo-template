@@ -1,5 +1,5 @@
 {
-  "name": "books-app",
+  "name": "@expo-template/books",
   "version": "1.0.0",
   "private": true,
   "main": "expo-router/entry",
@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "~57.0.20",
+    "expo": "~57.0.22",
     "expo-camera": "~57.0.4",
-    "expo-router": "~57.0.19",
+    "expo-router": "~57.0.21",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",

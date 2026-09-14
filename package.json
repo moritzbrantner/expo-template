@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "packageManager": "bun@1.3.12",
   "workspaces": [
+    "apps/*",
+    "packages/*",
     "services/auth-api"
   ],
   "scripts": {
@@ -20,7 +22,8 @@
     "dev:auth:up": "bun ./scripts/start-local-auth.ts",
     "dev:auth:down": "docker compose stop auth-api mailpit",
     "build": "expo export --platform web",
-    "test": "bun test ./tests",
+    "workspace:check": "bun ./scripts/check-mobile-workspace.ts",
+    "test": "bun run workspace:check && bun test ./tests",
     "test:unit": "bun test ./tests/unit.test.ts",
     "test:integration": "bun test ./tests/integration.test.ts",
     "test:e2e": "playwright test",

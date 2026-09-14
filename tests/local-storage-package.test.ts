@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 import {
   createLocalJsonStore,
@@ -32,8 +33,8 @@ describe('local storage package', () => {
 
     await store.save(['one', 'two']);
 
-    expect(storage.values.get('@example/list-v1')).toBe('["one","two"]');
-    expect(await store.load()).toEqual(['one', 'two']);
+    assert.equal(storage.values.get('@example/list-v1'), '["one","two"]');
+    assert.deepEqual(await store.load(), ['one', 'two']);
   });
 
   test('fails closed to the consumer fallback when storage is unavailable', async () => {
@@ -52,7 +53,7 @@ describe('local storage package', () => {
       storage,
     });
 
-    expect(await store.load()).toEqual(['fallback']);
+    assert.deepEqual(await store.load(), ['fallback']);
   });
 
   test('applies an explicit migration boundary before domain deserialization', async () => {
@@ -69,6 +70,6 @@ describe('local storage package', () => {
       storage,
     });
 
-    expect(await store.load()).toEqual(['old']);
+    assert.deepEqual(await store.load(), ['old']);
   });
 });

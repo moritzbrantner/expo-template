@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createVersionedJsonStorage } from '@expo-template/storage';
 import { Link, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -24,14 +25,20 @@ import { parseDictationInput } from '../lib/dictation';
 import {
   clearCompleted,
   createTask,
-  deserializeTasks,
+  parseTasks,
   filterTasks,
   toggleTask,
   type Task,
   type TaskFilter,
 } from '../lib/tasks';
 
-const STORAGE_KEY = '@expo-template/tasks/list-v1';
+const tasksStorage = createVersionedJsonStorage<Task[]>({
+  storage: AsyncStorage,
+  keyPrefix: '@expo-template/tasks/list',
+  version: 1,
+  decode: parseTasks,
+  fallback: () => [],
+});
 const FILTERS: { value: TaskFilter; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'all', label: 'All' },
@@ -144,14 +151,12 @@ export default function TasksApp() {
   useEffect(() => {
     let active = true;
 
-    void AsyncStorage.getItem(STORAGE_KEY)
+    void tasksStorage
+      .load()
       .then((stored) => {
         if (active) {
-          setTasks(deserializeTasks(stored));
+          setTasks(stored);
         }
-      })
-      .catch(() => {
-        // A damaged or unavailable local cache should not prevent the task list from opening.
       })
       .finally(() => {
         if (active) {
@@ -170,7 +175,7 @@ export default function TasksApp() {
     }
 
     const timer = setTimeout(() => {
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      void tasksStorage.save(tasks).catch(() => {});
     }, 150);
 
     return () => clearTimeout(timer);

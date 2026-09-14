@@ -59,27 +59,31 @@ export function previousDayKeys(days: number, now = new Date()): string[] {
   });
 }
 
+function isHabit(candidate: unknown): candidate is Habit {
+  if (!candidate || typeof candidate !== 'object') return false;
+  const habit = candidate as Partial<Habit>;
+  return (
+    typeof habit.id === 'string' &&
+    typeof habit.name === 'string' &&
+    Number.isInteger(habit.targetPerWeek) &&
+    Number(habit.targetPerWeek) >= 1 &&
+    Number(habit.targetPerWeek) <= 7 &&
+    Array.isArray(habit.completions) &&
+    habit.completions.every((day) => typeof day === 'string') &&
+    typeof habit.createdAt === 'string'
+  );
+}
+
+export function parseHabits(value: unknown): Habit[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.filter(isHabit);
+}
+
 export function deserializeHabits(value: string | null): Habit[] {
   if (!value) return [];
 
   try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter((candidate): candidate is Habit => {
-      if (!candidate || typeof candidate !== 'object') return false;
-      const habit = candidate as Partial<Habit>;
-      return (
-        typeof habit.id === 'string' &&
-        typeof habit.name === 'string' &&
-        Number.isInteger(habit.targetPerWeek) &&
-        Number(habit.targetPerWeek) >= 1 &&
-        Number(habit.targetPerWeek) <= 7 &&
-        Array.isArray(habit.completions) &&
-        habit.completions.every((day) => typeof day === 'string') &&
-        typeof habit.createdAt === 'string'
-      );
-    });
+    return parseHabits(JSON.parse(value) as unknown) ?? [];
   } catch {
     return [];
   }

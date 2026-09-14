@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createVersionedJsonStorage } from '@expo-template/storage';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -16,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   countCompletedDays,
   createHabit,
-  deserializeHabits,
+  parseHabits,
   isHabitDone,
   localDateKey,
   previousDayKeys,
@@ -24,7 +25,13 @@ import {
   type Habit,
 } from '../lib/habits';
 
-const STORAGE_KEY = '@expo-template/habits/list-v1';
+const habitsStorage = createVersionedJsonStorage<Habit[]>({
+  storage: AsyncStorage,
+  keyPrefix: '@expo-template/habits/list',
+  version: 1,
+  decode: parseHabits,
+  fallback: () => [],
+});
 const TARGETS = [3, 5, 7] as const;
 
 function habitId() {
@@ -106,11 +113,11 @@ export default function HabitsApp() {
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(STORAGE_KEY)
+    void habitsStorage
+      .load()
       .then((stored) => {
-        if (active) setHabits(deserializeHabits(stored));
+        if (active) setHabits(stored);
       })
-      .catch(() => {})
       .finally(() => {
         if (active) setHydrated(true);
       });
@@ -122,7 +129,7 @@ export default function HabitsApp() {
   useEffect(() => {
     if (!hydrated) return;
     const timer = setTimeout(() => {
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+      void habitsStorage.save(habits).catch(() => {});
     }, 150);
     return () => clearTimeout(timer);
   }, [habits, hydrated]);

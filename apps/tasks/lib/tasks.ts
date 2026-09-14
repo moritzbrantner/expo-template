@@ -70,20 +70,23 @@ function isTask(value: unknown): value is Task {
   );
 }
 
+export function parseTasks(value: unknown): Task[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value
+    .filter(isTask)
+    .map((task) => ({ ...task, title: normalizeTaskTitle(task.title) }));
+}
+
 export function deserializeTasks(value: string | null): Task[] {
   if (!value) {
     return [];
   }
 
   try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .filter(isTask)
-      .map((task) => ({ ...task, title: normalizeTaskTitle(task.title) }));
+    return parseTasks(JSON.parse(value) as unknown) ?? [];
   } catch {
     return [];
   }

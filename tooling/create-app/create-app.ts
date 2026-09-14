@@ -40,7 +40,7 @@ export type TemplateSource = {
 };
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SLUG_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const GIT_SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 function usage() {
@@ -125,7 +125,7 @@ export function parseCreateAppArgs(args: string[]): CreateAppOptions {
   }
   if (!SLUG_PATTERN.test(slug)) {
     throw new Error(
-      `Invalid app slug "${slug}". Use lowercase letters, digits, and single hyphens.`,
+      `Invalid app slug "${slug}". Start with a lowercase letter and use only lowercase letters, digits, and single hyphens.`,
     );
   }
 

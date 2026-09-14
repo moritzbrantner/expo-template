@@ -1,0 +1,136 @@
+
+$ bun install --frozen-lockfile
+bun install v1.3.12 (700fc117)
+
+Checked 882 installs across 850 packages (no changes) [21.00ms]
+exit_status=0
+
+$ bun run lint
+$ expo lint
+exit_status=0
+
+$ bunx tsc --noEmit
+packages/storage/src/index.test.ts(1,40): error TS2307: Cannot find module 'bun:test' or its corresponding type declarations.
+exit_status=2
+
+$ bun test
+bun test v1.3.12 (700fc117)
+
+::group::tests/privacy-config.test.ts:
+(pass) root image picker only declares the photo-library capability it uses [1.00ms]
+(pass) root avatar flow stays on photo-library selection rather than camera capture
+
+::endgroup::
+
+::group::tests/unit.test.ts:
+(pass) app manifest exposes the full scaffold-v2 contract keys for the standalone repo
+(pass) smoke e2e suite is explicitly named and the old example suite is removed
+(pass) theme mode helpers normalize persisted values
+(pass) theme mode helpers load and persist saved preference [1.00ms]
+(pass) auth storage persists only the bearer token
+(pass) searchProfilesRequest injects the bearer token
+(pass) fetchProfileRequest surfaces auth-api errors with status information [1.00ms]
+(pass) updateMyAvatarRequest posts the cropped avatar payload to /me/avatar
+(pass) fetchSessionRequest triggers the unauthorized handler on 401 [1.00ms]
+
+::endgroup::
+
+::group::tests/local-auth-setup.test.ts:
+(pass) starter bootstrap URL stays host-local when the Expo client uses an emulator URL
+(pass) local auth starter reuses an existing login without signing up again [1.00ms]
+(pass) local auth starter creates and verifies a missing login
+(pass) local auth starter fails closed on conflicting credentials
+
+::endgroup::
+
+::group::tests/integration.test.ts:
+(pass) navigation surface exposes the social app shell and username profile route [1.00ms]
+(pass) manifest metadata advertises the expanded navigation and authz surface
+(pass) auth API migrates legacy users, resolves public profiles by username, and protects avatar updates [12.00ms]
+Failed to send welcome email. warn: connect ECONNREFUSED 127.0.0.1:2525
+   errno: -111,
+ syscall: "connect",
+    port: 2525,
+ address: "127.0.0.1",
+ command: "CONN",
+    code: "ESOCKET"
+
+      at afterConnect (node:net:1155:39)
+      at connectError (node:net:352:48)
+
+(pass) auth API enforces signup uniqueness, persists sessions, follow edges, activity, and admin role changes [149.00ms]
+
+::endgroup::
+
+::group::tests/gifts.test.ts:
+(pass) tracks people and rejects duplicate names independent of case
+(pass) warns when a planned regift would go back to the original giver
+(pass) orders upcoming planned gifts and excludes past or distant entries
+(pass) malformed stored data fails closed while valid local data hydrates
+
+::endgroup::
+
+::group::tests/touch-interactions.test.ts:
+(pass) touch targets and gesture thresholds have conservative defaults
+(pass) snapValue clamps and snaps without floating point drift [1.00ms]
+(pass) track positions map deterministically into snapped values
+(pass) precision scrubber uses vertical distance for fine and coarse control
+(pass) repeat interval accelerates but stays bounded
+(pass) radial menu honors its dead zone and divides actions by direction
+(pass) flick detection uses velocity magnitude
+(pass) reach overlays open away from the initiating finger
+(pass) selection geometry normalizes any drag direction
+(pass) root layout installs the gesture-handler ownership boundary
+(pass) press-only interactions expose atomic accessibility activation
+(pass) touch layer exports every interaction family and documents visible fallbacks [1.00ms]
+
+::endgroup::
+
+ 35 pass
+ 0 fail
+Ran 35 tests across 6 files. [218.00ms]
+exit_status=0
+
+$ bun run build
+$ expo export --platform web
+React Compiler enabled
+Starting Metro Bundler
+
+Web Bundled 17976ms node_modules/expo-router/entry.js (1415 modules)
+
+› Assets (19):
+node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.4e85bc9ebe07e0340c9c4fc2f6c38908.ttf (357KB)
+node_modules/expo-router/assets/arrow_down.017bc6ba3fc25503e5eb5e53826d48a8.png (9.5KB)
+node_modules/expo-router/assets/error.d1ea1496f9057eb392d5bbf3732a61b7.png (469B)
+node_modules/expo-router/assets/file.19eeb73b9593a38f8e9f418337fc7d10.png (138B)
+node_modules/expo-router/assets/forward.d8b800c443b8972542883e0b9de2bdc6.png (188B)
+node_modules/expo-router/assets/pkg.ab19f4cbc543357183a20571f68380a3.png (364B)
+node_modules/expo-router/assets/react-navigation/elements/back-icon-mask.0a328cd9c1afd0afe8e3b1ec5165b1b4.png (653B)
+node_modules/expo-router/assets/react-navigation/elements/back-icon.35ba0eaec5a4f5ed12ca16fabeae451d.png (207B)
+node_modules/expo-router/assets/react-navigation/elements/clear-icon.c94f6478e7ae0cdd9f15de1fcb9e5e55.png (4 variations | 425B)
+node_modules/expo-router/assets/react-navigation/elements/close-icon.808e1b1b9b53114ec2838071a7e6daa7.png (4 variations | 235B)
+node_modules/expo-router/assets/react-navigation/elements/search-icon.286d67d3f74808a60a78d3ebf1a5fb57.png (928B)
+node_modules/expo-router/assets/sitemap.412dd9275b6b48ad28f5e3d81bb1f626.png (465B)
+node_modules/expo-router/assets/unmatched.20e71bdf79e3a97bf55fd9e164041578.png (4.8KB)
+
+› web bundles (1):
+_expo/static/js/web/entry-3d244ad3a2fa7988eb5a4ee9c1f4b1c9.js (2.5MB)
+
+› Files (3):
+favicon.ico (15KB)
+index.html (1.2KB)
+metadata.json (49B)
+
+Exported: dist
+exit_status=0
+
+$ bunx expo-doctor
+Resolving dependencies
+Resolved, downloaded and extracted [4]
+Saved lockfile
+Running 21 checks on your project...
+21/21 checks passed. No issues detected!
+exit_status=0
+
+$ git diff --check
+exit_status=0

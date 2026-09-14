@@ -74,8 +74,8 @@ jobs:
               "void habitStorage.save(habits);",
           )
           habits_path.write_text(habits)
-      - name: Regenerate authoritative lockfile
-        run: bun install --lockfile-only
+      - name: Regenerate and install authoritative graph
+        run: bun install
       - name: Verify package contract
         run: bun test ./tests/local-storage-package.test.ts
       - name: Commit migration when needed

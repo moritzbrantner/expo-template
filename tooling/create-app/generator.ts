@@ -33,9 +33,9 @@ const runtimeDependencies = [
 const developmentDependencies = ['@types/node', '@types/react', 'typescript'] as const;
 
 export function validateSlug(slug: string) {
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(slug)) {
     throw new Error(
-      `Invalid app slug "${slug}". Use lower-case letters, numbers, and single hyphens only.`,
+      `Invalid app slug "${slug}". Start with a lower-case letter and use only lower-case letters, numbers, and single hyphens.`,
     );
   }
 }

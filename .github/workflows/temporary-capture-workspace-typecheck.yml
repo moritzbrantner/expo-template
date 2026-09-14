@@ -1,0 +1,35 @@
+name: Temporary capture workspace typecheck
+
+on:
+  push:
+    branches:
+      - codex/mobile-storage-workspace-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    if: "${{ github.event.head_commit.message == 'chore: capture workspace typecheck failure' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+      - run: bun install --frozen-lockfile
+      - name: Capture TypeScript output
+        run: |
+          set +e
+          bunx tsc --noEmit > scripts/temporary-workspace-typecheck.log 2>&1
+          status=$?
+          cat scripts/temporary-workspace-typecheck.log
+          printf '\nexit_status=%s\n' "$status" >> scripts/temporary-workspace-typecheck.log
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/temporary-workspace-typecheck.log
+          git commit -m 'chore: preserve workspace typecheck failure'
+          git push origin HEAD:${{ github.ref_name }}
+          exit "$status"

@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 import {
   buildCopierArgs,
@@ -9,7 +10,7 @@ import {
 
 describe('parseCreateAppArgs', () => {
   test('defaults to the smallest utility preset', () => {
-    expect(parseCreateAppArgs(['reading-list'])).toEqual({
+    assert.deepEqual(parseCreateAppArgs(['reading-list']), {
       slug: 'reading-list',
       appName: 'Reading List',
       preset: 'utility',
@@ -19,7 +20,7 @@ describe('parseCreateAppArgs', () => {
   });
 
   test('maps standard to the local-first navigation baseline', () => {
-    expect(
+    assert.deepEqual(
       parseCreateAppArgs([
         'field-notes',
         '--name',
@@ -27,24 +28,26 @@ describe('parseCreateAppArgs', () => {
         '--preset',
         'standard',
       ]),
-    ).toEqual({
-      slug: 'field-notes',
-      appName: 'Field Notes',
-      preset: 'standard',
-      navigation: 'tabs',
-      dryRun: false,
-    });
+      {
+        slug: 'field-notes',
+        appName: 'Field Notes',
+        preset: 'standard',
+        navigation: 'tabs',
+        dryRun: false,
+      },
+    );
   });
 
   test('rejects speculative presets instead of silently broadening the contract', () => {
-    expect(() => parseCreateAppArgs(['demo', '--preset', 'native'])).toThrow(
-      'Use utility or standard',
+    assert.throws(
+      () => parseCreateAppArgs(['demo', '--preset', 'native']),
+      /Use utility or standard/,
     );
   });
 
   test('rejects unsafe or ambiguous workspace slugs', () => {
     for (const slug of ['BadName', 'two--hyphens', '../escape', 'trailing-']) {
-      expect(() => parseCreateAppArgs([slug])).toThrow('Invalid app slug');
+      assert.throws(() => parseCreateAppArgs([slug]), /Invalid app slug/);
     }
   });
 });
@@ -56,10 +59,10 @@ describe('createAppPlan', () => {
       parseCreateAppArgs(['standard-fixture', '--preset', 'standard']),
     );
 
-    expect(utility.profile).toBe('minimal');
-    expect(standard.profile).toBe('local-first');
-    expect(utility.packageName).toBe('@expo-template/utility-fixture');
-    expect(standard.workspacePath).toBe('apps/standard-fixture');
+    assert.equal(utility.profile, 'minimal');
+    assert.equal(standard.profile, 'local-first');
+    assert.equal(utility.packageName, '@expo-template/utility-fixture');
+    assert.equal(standard.workspacePath, 'apps/standard-fixture');
   });
 
   test('passes package identity through Copier rather than rewriting generated files', () => {
@@ -68,10 +71,10 @@ describe('createAppPlan', () => {
     );
     const args = buildCopierArgs(plan, '/repo', '/repo/apps/.create-fixture');
 
-    expect(args).toContain('package_name=@expo-template/fixture');
-    expect(args).toContain('profile=minimal');
-    expect(args).toContain('navigation=tabs');
-    expect(args.slice(-2)).toEqual(['/repo', '/repo/apps/.create-fixture']);
+    assert(args.includes('package_name=@expo-template/fixture'));
+    assert(args.includes('profile=minimal'));
+    assert(args.includes('navigation=tabs'));
+    assert.deepEqual(args.slice(-2), ['/repo', '/repo/apps/.create-fixture']);
   });
 });
 
@@ -91,7 +94,7 @@ describe('registerWorkspace', () => {
     const twice = registerWorkspace(once, 'apps/habits');
     const parsed = JSON.parse(twice) as { workspaces: string[] };
 
-    expect(parsed.workspaces).toEqual(['apps/habits', 'apps/tasks', 'services/auth-api']);
-    expect(twice).toBe(once);
+    assert.deepEqual(parsed.workspaces, ['apps/habits', 'apps/tasks', 'services/auth-api']);
+    assert.equal(twice, once);
   });
 });

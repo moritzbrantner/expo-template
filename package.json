@@ -22,6 +22,7 @@
     "dev:auth:up": "bun ./scripts/start-local-auth.ts",
     "dev:auth:down": "docker compose stop auth-api mailpit",
     "build": "expo export --platform web",
+    "create-app": "bun ./tooling/create-app/index.ts",
     "workspace:check": "bun ./scripts/check-mobile-workspace.ts",
     "test": "bun run workspace:check && bun test ./tests",
     "test:unit": "bun test ./tests/unit.test.ts",

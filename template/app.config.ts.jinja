@@ -10,7 +10,7 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
 const githubPagesBaseUrl = process.env.EXPO_PUBLIC_GITHUB_PAGES_BASE_URL;
 
 const config: ExpoConfig = {
-  name: '{{ app_name }}',
+  name: {{ app_name | tojson }},
   slug: '{{ app_slug }}',
   version: '0.1.0',
   orientation: 'portrait',

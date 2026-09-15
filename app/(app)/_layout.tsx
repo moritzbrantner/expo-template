@@ -1,9 +1,22 @@
 import { Redirect, Stack } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function ProtectedLayout() {
-  const { currentUser } = useAuth();
+  const { currentUser, isHydrating } = useAuth();
+
+  if (isHydrating) {
+    return (
+      <ThemedView style={styles.centered}>
+        <View style={styles.loadingCard}>
+          <ThemedText>Restoring your session...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
 
   if (!currentUser) {
     return <Redirect href="/auth/sign-in" />;
@@ -18,3 +31,17 @@ export default function ProtectedLayout() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  loadingCard: {
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+});

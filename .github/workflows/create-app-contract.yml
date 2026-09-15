@@ -132,6 +132,7 @@ jobs:
         run: |
           app_root="apps/fixture-${PRESET}"
           update_root="apps/.copier-update-${PRESET}"
+          template_revision="$(git rev-parse HEAD)"
           rm -rf "$update_root"
           mkdir -p "$update_root"
           cp -a "$app_root/." "$update_root/"
@@ -143,7 +144,7 @@ jobs:
           git -C "$update_root" commit -qm 'Initial generated app'
           (
             cd "$update_root"
-            copier update --trust --defaults --vcs-ref=HEAD
+            copier update --trust --defaults --vcs-ref="$template_revision"
             git diff --check
             test -z "$(git status --porcelain)"
           )

@@ -7,7 +7,7 @@ export default function PublicLayout() {
   const { currentUser } = useAuth();
 
   if (currentUser && !pathname.startsWith('/u/')) {
-    return <Redirect href={'/(app)' as Href} />;
+    return <Redirect href={'/home' as Href} />;
   }
 
   return (

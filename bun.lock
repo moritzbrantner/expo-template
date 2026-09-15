@@ -149,6 +149,7 @@
       "name": "@expo-template/habits",
       "version": "0.1.0",
       "dependencies": {
+        "@expo-template/local-storage": "workspace:*",
         "@react-native-async-storage/async-storage": "2.2.0",
         "expo": "~57.0.22",
         "expo-router": "~57.0.21",
@@ -212,6 +213,7 @@
       "name": "@expo-template/tasks",
       "version": "0.1.0",
       "dependencies": {
+        "@expo-template/local-storage": "workspace:*",
         "@react-native-async-storage/async-storage": "2.2.0",
         "expo": "~57.0.22",
         "expo-router": "~57.0.21",
@@ -246,6 +248,13 @@
       "devDependencies": {
         "@types/react": "~19.2.14",
         "typescript": "~6.0.3",
+      },
+    },
+    "packages/local-storage": {
+      "name": "@expo-template/local-storage",
+      "version": "0.1.0",
+      "dependencies": {
+        "@react-native-async-storage/async-storage": "2.2.0",
       },
     },
     "services/auth-api": {
@@ -443,6 +452,8 @@
     "@expo-template/gifts": ["@expo-template/gifts@workspace:apps/gifts"],
 
     "@expo-template/habits": ["@expo-template/habits@workspace:apps/habits"],
+
+    "@expo-template/local-storage": ["@expo-template/local-storage@workspace:packages/local-storage"],
 
     "@expo-template/money": ["@expo-template/money@workspace:apps/money"],
 

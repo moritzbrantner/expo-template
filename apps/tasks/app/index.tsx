@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createLocalJsonStore } from '@expo-template/local-storage';
 import { Link, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +33,11 @@ import {
 } from '../lib/tasks';
 
 const STORAGE_KEY = '@expo-template/tasks/list-v1';
+const taskStorage = createLocalJsonStore<Task[]>({
+  key: STORAGE_KEY,
+  deserialize: deserializeTasks,
+  fallback: () => [],
+});
 const FILTERS: { value: TaskFilter; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'all', label: 'All' },
@@ -144,14 +150,11 @@ export default function TasksApp() {
   useEffect(() => {
     let active = true;
 
-    void AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
+    void taskStorage.load()
+      .then((storedTasks) => {
         if (active) {
-          setTasks(deserializeTasks(stored));
+          setTasks(storedTasks);
         }
-      })
-      .catch(() => {
-        // A damaged or unavailable local cache should not prevent the task list from opening.
       })
       .finally(() => {
         if (active) {
@@ -170,7 +173,7 @@ export default function TasksApp() {
     }
 
     const timer = setTimeout(() => {
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      void taskStorage.save(tasks);
     }, 150);
 
     return () => clearTimeout(timer);

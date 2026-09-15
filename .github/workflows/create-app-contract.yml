@@ -152,7 +152,7 @@ jobs:
             'git',
             ['status', '--porcelain=v1', '--untracked-files=all'],
             { encoding: 'utf8' },
-          ).trim();
+          ).trimEnd();
 
           for (const line of status ? status.split('\n') : []) {
             const path = line.slice(3);

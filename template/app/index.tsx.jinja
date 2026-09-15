@@ -11,7 +11,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.eyebrow}>{{ profile | replace('-', ' ') | title }}</Text>
-      <Text style={styles.title}>{{ app_name }}</Text>
+      <Text style={styles.title}>{ {{ app_name | tojson }} }</Text>
       <Text style={styles.body}>{t('appReady')}</Text>
       <Text style={styles.body}>{t('buildWorkflow')}</Text>
       <View style={styles.actions}>

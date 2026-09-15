@@ -61,7 +61,6 @@ jobs:
               """          <Text style={styles.subtitle}>\n            Remember what came from whom, what you gave, and what you plan to give next.\n          </Text>\n          {!loaded ? <Text style={styles.muted}>Loading saved gifts…</Text> : null}\n""",
           )
 
-          replace('apps/photos/app/index.tsx', '  ActivityIndicator,\n', '')
           replace(
               'apps/photos/app/index.tsx',
               """  const commit = useCallback(async (next: PhotoLibraryState) => {\n    setLibrary(next);\n    await saveLibraryState(next);\n  }, []);""",

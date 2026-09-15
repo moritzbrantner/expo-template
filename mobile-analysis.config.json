@@ -5,6 +5,7 @@
   },
   "routes": [
     "./",
+    "scaffold/",
     "tasks/",
     "converter/",
     "habits/",

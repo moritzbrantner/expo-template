@@ -13,6 +13,7 @@ on:
       - apps/**
       - portfolio/**
       - scripts/build-pages.mjs
+      - mobile-analysis.config.json
       - app.config.ts
       - app.json
       - package.json
@@ -33,6 +34,7 @@ on:
       - apps/**
       - portfolio/**
       - scripts/build-pages.mjs
+      - mobile-analysis.config.json
       - app.config.ts
       - app.json
       - package.json
@@ -59,11 +61,47 @@ jobs:
         with:
           bun-version: 1.3.12
 
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Build portfolio and Expo web apps
         run: node scripts/build-pages.mjs
+
+      - name: Start Pages-compatible preview
+        run: |
+          mkdir -p .mobile-preview
+          ln -s "$GITHUB_WORKSPACE/_site" .mobile-preview/expo-template
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory .mobile-preview > /tmp/expo-template-preview.log 2>&1 &
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:4173/expo-template/ > /dev/null; then
+              exit 0
+            fi
+            sleep 0.25
+          done
+          cat /tmp/expo-template-preview.log
+          exit 1
+
+      - name: Analyze exact Pages artifact on mobile
+        uses: moritzbrantner/mobile-analysis@c4c4d31d20589ef7e352dcd355f86f03a0d3db92
+        with:
+          target_url: http://127.0.0.1:4173/expo-template/
+          config_path: mobile-analysis.config.json
+          output_dir: mobile-analysis-output
+          run_unlighthouse: 'true'
+
+      - name: Upload mobile analysis evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-analysis-pages
+          path: mobile-analysis-output
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'

@@ -1,15 +1,6 @@
 name: Mobile analysis
 
 on:
-  pull_request:
-    paths:
-      - app/**
-      - apps/**
-      - components/**
-      - portfolio/**
-      - scripts/build-pages.mjs
-      - mobile-analysis.config.json
-      - .github/workflows/mobile-analysis.yml
   workflow_dispatch:
   workflow_run:
     workflows:

@@ -1,23 +1,10 @@
 import { Redirect, Stack, usePathname, type Href } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function PublicLayout() {
   const pathname = usePathname();
-  const { currentUser, isHydrating } = useAuth();
-
-  if (isHydrating) {
-    return (
-      <ThemedView style={styles.centered}>
-        <View style={styles.loadingCard}>
-          <ThemedText testID="auth-hydrating-message">Restoring your session...</ThemedText>
-        </View>
-      </ThemedView>
-    );
-  }
+  const { currentUser } = useAuth();
 
   if (currentUser && !pathname.startsWith('/u/')) {
     return <Redirect href={'/(app)' as Href} />;
@@ -31,17 +18,3 @@ export default function PublicLayout() {
     </Stack>
   );
 }
-
-const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  loadingCard: {
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-  },
-});

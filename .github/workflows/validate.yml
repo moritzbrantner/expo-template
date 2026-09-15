@@ -15,4 +15,4 @@ jobs:
       lint_command: bun run lint
       typecheck_command: bunx tsc --noEmit
       build_command: bun run build
-      post_validate_command: bunx expo-doctor
+      post_validate_command: EXPO_OFFLINE=1 bunx expo-doctor

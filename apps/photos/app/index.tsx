@@ -308,12 +308,15 @@ export default function PhotosApp() {
   }, []);
 
   const commit = useCallback(async (next: PhotoLibraryState) => {
+    if (!hydrated) {
+      return;
+    }
     setLibrary(next);
     await saveLibraryState(next);
-  }, []);
+  }, [hydrated]);
 
   const scanLibrary = useCallback(async () => {
-    if (scanning) {
+    if (!hydrated || scanning) {
       return;
     }
 
@@ -370,7 +373,7 @@ export default function PhotosApp() {
     } finally {
       setScanning(false);
     }
-  }, [commit, library, scanning]);
+  }, [commit, hydrated, library, scanning]);
 
   useEffect(() => {
     if (hydrated && Platform.OS === 'web' && library.photos.length === 0 && !scanning) {
@@ -429,18 +432,6 @@ export default function PhotosApp() {
     setNewAlbumName('');
     await commit(next);
   };
-
-  if (!hydrated) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
-        <View style={styles.loading}>
-          <ActivityIndicator />
-          <Text style={styles.loadingText}>Opening your local library…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   if (selectedPerson) {
     const occurrences = selectedPerson.faceIds
@@ -585,6 +576,10 @@ export default function PhotosApp() {
             <Text style={styles.countLabel}>indexed</Text>
           </View>
         </View>
+
+        {!hydrated ? (
+          <Text style={styles.loadingText}>Opening your local library…</Text>
+        ) : null}
 
         <View
           style={[

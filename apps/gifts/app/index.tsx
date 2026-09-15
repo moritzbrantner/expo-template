@@ -108,6 +108,10 @@ export default function GiftsApp() {
   });
 
   const handleAddPerson = () => {
+    if (!loaded) {
+      return;
+    }
+
     setError('');
     try {
       const id = makeId('person');
@@ -121,6 +125,10 @@ export default function GiftsApp() {
   };
 
   const handleSaveGift = () => {
+    if (!loaded) {
+      return;
+    }
+
     setError('');
     try {
       const next = addGift(state, {
@@ -145,16 +153,6 @@ export default function GiftsApp() {
     }
   };
 
-  if (!loaded) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loading}>
-          <Text style={styles.muted}>Loading gifts…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -164,6 +162,7 @@ export default function GiftsApp() {
           <Text style={styles.subtitle}>
             Remember what came from whom, what you gave, and what you plan to give next.
           </Text>
+          {!loaded ? <Text style={styles.muted}>Loading saved gifts…</Text> : null}
         </View>
 
         <View style={styles.section}>

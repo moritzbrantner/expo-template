@@ -59,7 +59,7 @@ async function signInThroughUi(page: Page, email: string) {
   await page.getByTestId('signin-email-input').fill(email);
   await page.getByTestId('signin-password-input').fill('password123');
   await page.getByTestId('signin-submit-button').click();
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/home');
 }
 
 test.describe('scaffold smoke/auth contract', () => {

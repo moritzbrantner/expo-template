@@ -22,6 +22,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name,
     slug: config.slug,
+    web: {
+      ...config.web,
+      ...(githubPagesBaseUrl ? { output: 'static' as const } : {}),
+    },
     ios: {
       ...config.ios,
       bundleIdentifier: config.ios?.bundleIdentifier ?? identifier,

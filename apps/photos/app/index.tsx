@@ -91,7 +91,13 @@ function PhotoTile({
 }) {
   const content = (
     <View style={[styles.photoTile, selected && styles.photoTileSelected]}>
-      <Image source={{ uri: photo.uri }} style={styles.photoImage} contentFit="cover" transition={120} />
+      <Image
+        accessibilityLabel={`Photo ${photo.filename}`}
+        source={{ uri: photo.uri }}
+        style={styles.photoImage}
+        contentFit="cover"
+        transition={120}
+      />
       {badge ? (
         <View style={styles.photoBadge}>
           <Text style={styles.photoBadgeText}>{badge}</Text>
@@ -153,6 +159,7 @@ function PersonCard({
       <View style={styles.personPreview}>
         {photo ? (
           <Image
+            accessibilityLabel={`Photo of ${person.name ?? 'unnamed person'}`}
             source={{ uri: photo.uri }}
             style={styles.personImage}
             contentFit="cover"
@@ -194,7 +201,12 @@ function FaceOccurrence({
   return (
     <View style={styles.occurrenceCard}>
       <View style={styles.occurrenceImageWrap}>
-        <Image source={{ uri: photo.uri }} style={styles.occurrenceImage} contentFit="cover" />
+        <Image
+          accessibilityLabel={`Photo ${photo.filename}`}
+          source={{ uri: photo.uri }}
+          style={styles.occurrenceImage}
+          contentFit="cover"
+        />
         <View pointerEvents="none" style={[styles.faceBox, boxStyle]} />
       </View>
       <View style={styles.occurrenceFooter}>
@@ -237,7 +249,12 @@ function AlbumCard({
       style={({ pressed }) => [styles.albumCard, pressed && styles.pressed]}>
       <View style={styles.albumCover}>
         {cover ? (
-          <Image source={{ uri: cover.uri }} style={styles.albumCoverImage} contentFit="cover" />
+          <Image
+            accessibilityLabel={`Album cover for ${album.name}`}
+            source={{ uri: cover.uri }}
+            style={styles.albumCoverImage}
+            contentFit="cover"
+          />
         ) : (
           <View style={styles.albumCoverPlaceholder}>
             <Text style={styles.albumCoverPlaceholderText}>Album</Text>
@@ -291,12 +308,15 @@ export default function PhotosApp() {
   }, []);
 
   const commit = useCallback(async (next: PhotoLibraryState) => {
+    if (!hydrated) {
+      return;
+    }
     setLibrary(next);
     await saveLibraryState(next);
-  }, []);
+  }, [hydrated]);
 
   const scanLibrary = useCallback(async () => {
-    if (scanning) {
+    if (!hydrated || scanning) {
       return;
     }
 
@@ -353,7 +373,7 @@ export default function PhotosApp() {
     } finally {
       setScanning(false);
     }
-  }, [commit, library, scanning]);
+  }, [commit, hydrated, library, scanning]);
 
   useEffect(() => {
     if (hydrated && Platform.OS === 'web' && library.photos.length === 0 && !scanning) {
@@ -412,18 +432,6 @@ export default function PhotosApp() {
     setNewAlbumName('');
     await commit(next);
   };
-
-  if (!hydrated) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
-        <View style={styles.loading}>
-          <ActivityIndicator />
-          <Text style={styles.loadingText}>Opening your local library…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   if (selectedPerson) {
     const occurrences = selectedPerson.faceIds
@@ -568,6 +576,10 @@ export default function PhotosApp() {
             <Text style={styles.countLabel}>indexed</Text>
           </View>
         </View>
+
+        {!hydrated ? (
+          <Text style={styles.loadingText}>Opening your local library…</Text>
+        ) : null}
 
         <View
           style={[
@@ -802,7 +814,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   countNumber: { color: '#2d4835', fontSize: 20, fontWeight: '800' },
-  countLabel: { color: '#647066', fontSize: 11, fontWeight: '700' },
+  countLabel: { color: '#59645b', fontSize: 11, fontWeight: '700' },
   capabilityCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -828,7 +840,7 @@ const styles = StyleSheet.create({
   tabBar: { flexDirection: 'row', gap: 6, borderRadius: 16, backgroundColor: '#eae8e2', padding: 5 },
   tab: { flex: 1, alignItems: 'center', borderRadius: 12, paddingVertical: 10 },
   tabActive: { backgroundColor: '#ffffff' },
-  tabText: { color: '#6c726c', fontSize: 14, fontWeight: '700' },
+  tabText: { color: '#59645b', fontSize: 14, fontWeight: '700' },
   tabTextActive: { color: '#263329' },
   scanPanel: {
     flexDirection: 'row',
@@ -857,7 +869,7 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, borderRadius: 16, backgroundColor: '#ecebe5', padding: 14 },
   statValue: { color: '#28322a', fontSize: 22, fontWeight: '800' },
-  statLabel: { marginTop: 2, color: '#777d76', fontSize: 12, fontWeight: '700' },
+  statLabel: { marginTop: 2, color: '#59645b', fontSize: 12, fontWeight: '700' },
   emptyState: {
     borderWidth: 1,
     borderColor: '#deddd7',

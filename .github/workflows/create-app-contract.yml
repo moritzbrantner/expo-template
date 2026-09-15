@@ -55,11 +55,52 @@ jobs:
       - name: Test create-app tooling
         run: bun test ./tooling/create-app/create-app.test.ts
 
-      - name: Create portfolio fixture
+      - name: Prove repeatable portfolio generation
+        env:
+          PRESET: ${{ matrix.preset }}
         run: |
-          bun run create-app -- "fixture-${{ matrix.preset }}" \
-            --name "Fixture's ${{ matrix.preset }}" \
-            --preset "${{ matrix.preset }}"
+          set -euo pipefail
+          slug="fixture-${PRESET}"
+          app_root="apps/${slug}"
+          original_package="$RUNNER_TEMP/create-app-package-before.json"
+          original_lock="$RUNNER_TEMP/create-app-lock-before.lock"
+
+          cp package.json "$original_package"
+          cp bun.lock "$original_lock"
+
+          fixture_fingerprint() {
+            find "$1" \
+              -type d \( -name node_modules -o -name .expo -o -name dist \) -prune -o \
+              -type f -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 sha256sum \
+              | sha256sum \
+              | cut -d' ' -f1
+          }
+
+          generate_fixture() {
+            bun run create-app -- "$slug" \
+              --name "Fixture's ${PRESET}" \
+              --preset "$PRESET"
+          }
+
+          generate_fixture
+          first_app="$(fixture_fingerprint "$app_root")"
+          first_package="$(sha256sum package.json | cut -d' ' -f1)"
+          first_lock="$(sha256sum bun.lock | cut -d' ' -f1)"
+
+          rm -rf "$app_root"
+          cp "$original_package" package.json
+          cp "$original_lock" bun.lock
+
+          generate_fixture
+          second_app="$(fixture_fingerprint "$app_root")"
+          second_package="$(sha256sum package.json | cut -d' ' -f1)"
+          second_lock="$(sha256sum bun.lock | cut -d' ' -f1)"
+
+          test "$first_app" = "$second_app"
+          test "$first_package" = "$second_package"
+          test "$first_lock" = "$second_lock"
 
       - name: Verify workspace and generated contract
         env:
@@ -87,6 +128,8 @@ jobs:
           if (rootPackage.workspaces.filter((candidate) => candidate === appRoot).length !== 1) throw new Error('generated workspace registration is duplicated');
           if (appPackage.name !== expectedPackageName) throw new Error('generated package identity is not workspace-scoped');
           if (appPackage.packageManager !== 'bun@1.3.12') throw new Error('generated Bun version is not exact');
+          if (appPackage.scripts?.build !== 'expo export --platform web') throw new Error('generated app has no canonical web build command');
+          if (appPackage.devDependencies?.['expo-doctor'] !== '1.20.4') throw new Error('generated Expo Doctor dependency is not pinned');
           if (!nameLiteral || JSON.parse(nameLiteral) !== expectedAppName) throw new Error('human-readable app name was not rendered safely');
           if (!features.includes(`profile: '${expectedProfile}'`)) throw new Error('public preset mapped to the wrong Copier profile');
           if (!/^package_name:/m.test(answers) || !answers.includes(expectedPackageName)) throw new Error('workspace package identity is not persisted in Copier answers');
@@ -95,13 +138,48 @@ jobs:
           if (/^_src_path:\s*["']?\/tmp\//m.test(answers)) throw new Error('generated Copier source points at an ephemeral temporary clone');
           NODE
 
-      - name: Verify generated app
+      - name: Verify generation write scope
+        env:
+          PRESET: ${{ matrix.preset }}
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+          const preset = process.env.PRESET;
+          const appRoot = `apps/fixture-${preset}`;
+          const allowedRoots = new Set(['package.json', 'bun.lock']);
+          const status = execFileSync(
+            'git',
+            ['status', '--porcelain=v1', '--untracked-files=all'],
+            { encoding: 'utf8' },
+          ).trimEnd();
+
+          for (const line of status ? status.split('\n') : []) {
+            const path = line.slice(3);
+            if (allowedRoots.has(path) || path.startsWith(`${appRoot}/`)) continue;
+            throw new Error(`create-app wrote outside its declared scope: ${path}`);
+          }
+
+          const leaked = fs
+            .readdirSync('apps')
+            .filter((name) => name.startsWith(`.create-fixture-${preset}-`));
+          if (leaked.length > 0) {
+            throw new Error(`create-app left temporary directories behind: ${leaked.join(', ')}`);
+          }
+          NODE
+
+      - name: Verify generated app offline
         working-directory: apps/fixture-${{ matrix.preset }}
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_OFFLINE: '1'
         run: |
           bun run lint
           bun run typecheck
           bun test
           bun run doctor
+          bun run build
 
       - name: Verify root lock after workspace registration
         run: bun install --frozen-lockfile
@@ -110,14 +188,55 @@ jobs:
         env:
           PRESET: ${{ matrix.preset }}
         run: |
+          set -euo pipefail
+          app_root="apps/fixture-${PRESET}"
+
+          fixture_fingerprint() {
+            find "$1" \
+              -type d \( -name node_modules -o -name .expo -o -name dist \) -prune -o \
+              -type f -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 sha256sum \
+              | sha256sum \
+              | cut -d' ' -f1
+          }
+
+          before_app="$(fixture_fingerprint "$app_root")"
           before_package="$(sha256sum package.json)"
           before_lock="$(sha256sum bun.lock)"
-          if bun run create-app -- "fixture-${PRESET}" --preset "${PRESET}"; then
+
+          if bun run create-app -- "fixture-${PRESET}" --preset "$PRESET"; then
             echo 'create-app unexpectedly overwrote an existing app' >&2
             exit 1
           fi
+
+          test "$before_app" = "$(fixture_fingerprint "$app_root")"
           test "$before_package" = "$(sha256sum package.json)"
           test "$before_lock" = "$(sha256sum bun.lock)"
 
+      - name: Verify Copier update provenance
+        env:
+          PRESET: ${{ matrix.preset }}
+        run: |
+          set -euo pipefail
+          app_root="apps/fixture-${PRESET}"
+          template_head="$(git rev-parse HEAD)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json bun.lock "$app_root"
+          git commit -m "test: stage ${PRESET} create-app fixture"
+
+          (
+            cd "$app_root"
+            copier update --trust --defaults --vcs-ref "$template_head"
+          )
+
+          if test -n "$(git status --porcelain=v1 --untracked-files=all)"; then
+            git status --short
+            echo 'copier update changed a freshly generated app at the same template revision' >&2
+            exit 1
+          fi
+
       - name: Check generated diff hygiene
-        run: git diff --check
+        run: git diff --check HEAD^ HEAD

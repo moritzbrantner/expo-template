@@ -69,6 +69,17 @@
         { "action": "expectText", "target": { "selector": "[aria-label=\"Converted value\"]" }, "text": "2" },
         { "action": "screenshot", "name": "converter-swapped" }
       ]
+    },
+    {
+      "id": "photos-hydrates",
+      "name": "Hydrate the Photos library preview",
+      "path": "photos/",
+      "steps": [
+        { "action": "expectVisible", "target": { "text": "Photos" } },
+        { "action": "expectVisible", "target": { "text": "Device library" } },
+        { "action": "expectVisible", "target": { "role": "tab", "name": "Library" } },
+        { "action": "screenshot", "name": "photos-hydrated" }
+      ]
     }
   ],
   "native": {

@@ -22,7 +22,7 @@ on:
 jobs:
   analyze:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@main
+    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@aa8be6fbaf2f748e8366f26117f1f60d66af5a27
     with:
       target_url: https://moritzbrantner.github.io/expo-template/
       config_path: mobile-analysis.config.json

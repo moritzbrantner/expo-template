@@ -17,8 +17,13 @@ app_name:
 
 app_slug:
   type: str
-  help: Lowercase project slug used by Expo and package.json.
+  help: Lowercase project slug used by Expo and release metadata.
   default: "{{ app_name | lower | replace(' ', '-') | replace('_', '-') }}"
+
+package_name:
+  type: str
+  help: JavaScript package identity. Workspace creation may scope this independently from the Expo slug.
+  default: "{{ app_slug }}"
 
 bundle_prefix:
   type: str

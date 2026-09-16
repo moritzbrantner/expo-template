@@ -20,6 +20,7 @@ on:
       - bun.lock
       - tsconfig.json
       - .github/workflows/pages.yml
+      - .github/workflows/mobile-analysis.yml
   push:
     branches:
       - main
@@ -41,6 +42,7 @@ on:
       - bun.lock
       - tsconfig.json
       - .github/workflows/pages.yml
+      - .github/workflows/mobile-analysis.yml
   workflow_dispatch:
 
 concurrency:

@@ -10,11 +10,69 @@ on:
     branches:
       - main
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   analyze:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@c80a2a8cf7d9611c34c047d0fc1555a0fbb6409a
+    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@4a9e5b24d8acd9753830b45f82968341b56d8d41
     with:
       target_url: https://moritzbrantner.github.io/expo-template/
       config_path: mobile-analysis.config.json
       run_unlighthouse: true
+      revision: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+  prioritize:
+    needs: analyze
+    if: ${{ github.event_name == 'workflow_run' && needs.analyze.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout analyzed revision
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Download mobile evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: mobile-analysis
+          path: mobile-analysis-output
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+      - name: Verify mobile evidence provenance
+        env:
+          MOBILE_ANALYSIS_EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const expected = process.env.MOBILE_ANALYSIS_EXPECTED_REVISION?.toLowerCase();
+          if (!expected || !/^[0-9a-f]{40}$/.test(expected)) {
+            throw new Error("expected mobile-analysis revision must be an exact Git SHA");
+          }
+          const report = JSON.parse(
+            readFileSync("mobile-analysis-output/agent-findings.json", "utf8"),
+          );
+          if (report.producer !== "mobile-analysis" || report.revision !== expected) {
+            throw new Error(
+              "mobile-analysis artifact revision mismatch: expected " +
+                expected +
+                ", received " +
+                String(report.revision),
+            );
+          }
+          NODE
+      - name: Plan mobile remediation
+        uses: moritzbrantner/coding-tooling@1bb73191e4a7e62ef5a228e7066dba649cc14073
+        with:
+          operation: remediation-plan
+          report-path: .artifacts/coding-tooling/mobile-remediation-plan.json
+      - name: Upload mobile remediation plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: coding-tooling-mobile-remediation
+          path: .artifacts/coding-tooling/mobile-remediation-plan.json
+          if-no-files-found: error
+          retention-days: 14

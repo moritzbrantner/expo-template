@@ -566,19 +566,6 @@ export default function WardrobeApp() {
     () => (selectedId ? rankRelatedItems(items, selectedId, 3) : []),
     [items, selectedId],
   );
-  const categoryCount = new Set(items.map((item) => item.category)).size;
-  const attributeSignalCount = items.reduce(
-    (sum, item) =>
-      sum +
-      item.materials.length +
-      item.seasons.length +
-      item.occasions.length +
-      item.tags.length +
-      (item.formality ? 1 : 0) +
-      (item.fit ? 1 : 0),
-    0,
-  );
-
   const openItem = (item: WardrobeItem) => {
     setSelectedId(item.id);
     setEditDraft(draftFromItem(item));
@@ -725,14 +712,15 @@ export default function WardrobeApp() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.heroRow}>
-            <View style={styles.heroCopy}>
-              <Text style={styles.eyebrow}>WARDROBE</Text>
-              <Text style={styles.heading}>Know what you own.</Text>
-              <Text style={styles.subtitle}>
-                Catalog clothes with useful attributes and local photos, then see which pieces are meaningfully close.
-              </Text>
-            </View>
+          <View style={styles.toolbar}>
+            <TextInput
+              accessibilityLabel="Search wardrobe"
+              onChangeText={setQuery}
+              placeholder="Search material, season, occasion, fit, tags…"
+              placeholderTextColor="#7b817b"
+              style={styles.searchInput}
+              value={query}
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={adding ? 'Close add clothing form' : 'Add clothing item'}
@@ -742,27 +730,10 @@ export default function WardrobeApp() {
             </Pressable>
           </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{items.length}</Text>
-              <Text style={styles.statLabel}>Pieces</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{categoryCount}</Text>
-              <Text style={styles.statLabel}>Categories</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{attributeSignalCount}</Text>
-              <Text style={styles.statLabel}>Attribute signals</Text>
-            </View>
-          </View>
-
           {adding ? (
             <View style={styles.formCard}>
               <Text style={styles.sectionHeading}>Add a piece</Text>
-              <Text style={styles.formHint}>
-                Structured attributes improve similarity without requiring a model. Leave unknown fields unset.
-              </Text>
+              <Text style={styles.formHint}>Add any details you know. Unknown fields can stay unset.</Text>
               <DraftFields draft={newDraft} onChange={setNewDraft} labelPrefix="Clothing" />
               <Pressable
                 accessibilityRole="button"
@@ -804,9 +775,7 @@ export default function WardrobeApp() {
 
               <View style={styles.photoSection}>
                 <Text style={styles.editTitle}>Photo</Text>
-                <Text style={styles.photoHelp}>
-                  One primary photo is stored locally. It is not uploaded or used for semantic scoring yet.
-                </Text>
+                <Text style={styles.photoHelp}>Stored on this device.</Text>
                 <View style={styles.photoActions}>
                   <Pressable
                     accessibilityRole="button"
@@ -859,9 +828,7 @@ export default function WardrobeApp() {
               </View>
 
               <Text style={styles.relatedTitle}>Closest pieces</Text>
-              <Text style={styles.relatedIntro}>
-                Only structured evidence known for both pieces enters the normalized score; photos are presentation-only in this slice.
-              </Text>
+              <Text style={styles.relatedIntro}>Based on attributes known for both pieces.</Text>
               {related.length > 0 ? (
                 <View style={styles.relatedList}>
                   {related.map((candidate) => (
@@ -881,15 +848,6 @@ export default function WardrobeApp() {
               </Pressable>
             </View>
           ) : null}
-
-          <TextInput
-            accessibilityLabel="Search wardrobe"
-            onChangeText={setQuery}
-            placeholder="Search material, season, occasion, fit, tags…"
-            placeholderTextColor="#7b817b"
-            style={styles.searchInput}
-            value={query}
-          />
 
           <ScrollView
             horizontal
@@ -928,16 +886,13 @@ export default function WardrobeApp() {
                 </Text>
                 <Text style={styles.emptyBody}>
                   {items.length === 0
-                    ? 'Add a few pieces with simple attributes. The catalog stays on this device.'
+                    ? 'Add your first piece to start the catalog.'
                     : 'Try another search term or category.'}
                 </Text>
               </View>
             )}
           </View>
 
-          <Text style={styles.footer}>
-            Wardrobe data and photos stay local to this app. Similarity remains deterministic clothing policy, not a shopping feed or remote model.
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -955,17 +910,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 56,
   },
-  heroRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
-  heroCopy: { flex: 1 },
-  eyebrow: { color: '#667067', fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
-  heading: {
-    color: '#202922',
-    fontSize: 36,
-    fontWeight: '800',
-    letterSpacing: -1.2,
-    marginTop: 6,
-  },
-  subtitle: { color: '#59615b', fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 560 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   primaryButton: {
     backgroundColor: '#294333',
     borderRadius: 999,
@@ -976,18 +921,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
   pressed: { opacity: 0.68 },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 28 },
-  statCard: {
-    flexGrow: 1,
-    minWidth: 112,
-    backgroundColor: '#faf9f5',
-    borderColor: '#dcddd7',
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 15,
-  },
-  statValue: { color: '#294333', fontSize: 24, fontWeight: '800' },
-  statLabel: { color: '#717771', fontSize: 12, marginTop: 3 },
   formCard: {
     backgroundColor: '#faf9f5',
     borderColor: '#d8dad4',
@@ -1131,13 +1064,14 @@ const styles = StyleSheet.create({
   deleteButton: { alignSelf: 'flex-start', marginTop: 18, paddingVertical: 7 },
   deleteButtonText: { color: '#8b3f3f', fontSize: 13, fontWeight: '800' },
   searchInput: {
+    flex: 1,
+    minWidth: 0,
     backgroundColor: '#ffffff',
     borderColor: '#d8dad4',
     borderWidth: 1,
     borderRadius: 15,
     color: '#202922',
     fontSize: 15,
-    marginTop: 22,
     paddingHorizontal: 15,
     paddingVertical: 12,
   },
@@ -1178,5 +1112,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: '#263028', fontSize: 19, fontWeight: '800' },
   emptyBody: { color: '#687069', fontSize: 14, lineHeight: 21, marginTop: 7 },
-  footer: { color: '#858a85', fontSize: 11, lineHeight: 17, marginTop: 24 },
 });

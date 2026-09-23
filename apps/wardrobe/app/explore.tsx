@@ -74,27 +74,6 @@ export default function WardrobeExplore() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>WARDROBE · EXPLORE</Text>
-        <Text style={styles.heading}>See the shape of what you own.</Text>
-        <Text style={styles.subtitle}>
-          These diagnostics use the same deterministic structured similarity as the catalog. Photos are not semantic input yet.
-        </Text>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{items.length}</Text>
-            <Text style={styles.statLabel}>Pieces</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{exploration.clusters.length}</Text>
-            <Text style={styles.statLabel}>Style groups</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{exploration.outliers.length}</Text>
-            <Text style={styles.statLabel}>Isolated</Text>
-          </View>
-        </View>
-
         {storageMessage ? <Text style={styles.warning}>{storageMessage}</Text> : null}
 
         {!loaded ? (
@@ -105,7 +84,7 @@ export default function WardrobeExplore() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>Add at least two pieces.</Text>
             <Text style={styles.emptyBody}>
-              Exploration becomes useful once there is enough local evidence to compare items.
+              Add another piece in Wardrobe to compare items.
             </Text>
           </View>
         ) : (
@@ -113,7 +92,7 @@ export default function WardrobeExplore() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Style groups</Text>
               <Text style={styles.sectionIntro}>
-                Connected groups whose pairwise neighborhoods cross the similarity threshold. A representative is chosen deterministically from the group.
+                Pieces with strong mutual similarity.
               </Text>
               {exploration.clusters.length > 0 ? (
                 <View style={styles.list}>
@@ -129,7 +108,7 @@ export default function WardrobeExplore() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Potential overlap</Text>
               <Text style={styles.sectionIntro}>
-                Near-duplicate groups require both a high score and enough rich comparable evidence. Matching only category and color is deliberately not enough.
+                Near-duplicates with enough shared attributes to compare reliably.
               </Text>
               {exploration.redundancyGroups.length > 0 ? (
                 <View style={styles.list}>
@@ -145,7 +124,7 @@ export default function WardrobeExplore() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Isolated pieces</Text>
               <Text style={styles.sectionIntro}>
-                Pieces whose strongest semantic neighbor is still weak. Isolation can be useful; this is a diagnostic, not a recommendation to buy anything.
+                Pieces without a strong neighbor in your current wardrobe.
               </Text>
               {exploration.outliers.length > 0 ? (
                 <View style={styles.list}>
@@ -165,9 +144,6 @@ export default function WardrobeExplore() {
           </>
         )}
 
-        <Text style={styles.footer}>
-          Exploration is local and deterministic. It describes your existing wardrobe; it does not generate shopping prompts.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -180,30 +156,9 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     alignSelf: 'center',
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 56,
   },
-  eyebrow: { color: '#667067', fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
-  heading: {
-    color: '#202922',
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -1.1,
-    marginTop: 7,
-  },
-  subtitle: { color: '#59615b', fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 600 },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 26 },
-  statCard: {
-    flexGrow: 1,
-    minWidth: 112,
-    backgroundColor: '#faf9f5',
-    borderColor: '#dcddd7',
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 15,
-  },
-  statValue: { color: '#294333', fontSize: 24, fontWeight: '800' },
-  statLabel: { color: '#717771', fontSize: 12, marginTop: 3 },
   warning: { color: '#8b4f35', fontSize: 13, marginTop: 16 },
   section: { marginTop: 28 },
   sectionTitle: { color: '#263128', fontSize: 21, fontWeight: '800' },
@@ -245,5 +200,4 @@ const styles = StyleSheet.create({
   emptyTitle: { color: '#263028', fontSize: 18, fontWeight: '800' },
   emptyBody: { color: '#687069', fontSize: 14, lineHeight: 21, marginTop: 7 },
   emptyLine: { color: '#7a817a', fontSize: 13, marginTop: 12 },
-  footer: { color: '#858a85', fontSize: 11, lineHeight: 17, marginTop: 32 },
 });

@@ -175,12 +175,6 @@ export default function WardrobeOutfits() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>WARDROBE · OUTFITS</Text>
-        <Text style={styles.heading}>Compatibility is not similarity.</Text>
-        <Text style={styles.subtitle}>
-          Mark pieces that actually work together, then build deterministic outfit suggestions from complementary categories and shared context.
-        </Text>
-
         {storageMessage ? <Text style={styles.warning}>{storageMessage}</Text> : null}
 
         {!loaded ? (
@@ -190,11 +184,11 @@ export default function WardrobeOutfits() {
         ) : items.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>Your wardrobe is empty.</Text>
-            <Text style={styles.emptyBody}>Add pieces in the Wardrobe tab before building outfits.</Text>
+            <Text style={styles.emptyBody}>Add a piece in Wardrobe first.</Text>
           </View>
         ) : (
           <>
-            <Text style={styles.sectionTitle}>Build around</Text>
+            <Text style={styles.screenControlLabel}>Build around</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -225,7 +219,7 @@ export default function WardrobeOutfits() {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Suggested outfits</Text>
                   <Text style={styles.sectionIntro}>
-                    Suggestions keep the selected piece, fill complementary category slots, and rank the resulting set by pairwise compatibility.
+                    Ranked combinations built around the selected piece.
                   </Text>
                   {outfits.length > 0 ? (
                     <View style={styles.list}>
@@ -256,7 +250,7 @@ export default function WardrobeOutfits() {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Explicit relationships</Text>
                   <Text style={styles.sectionIntro}>
-                    “Pairs with” is a compatibility relation. “Layers with” is only available for outerwear with a top or one-piece. Neither changes semantic similarity.
+                    Mark combinations that work in practice. Layering is available only for compatible clothing categories.
                   </Text>
                   {candidates.length > 0 ? (
                     <View style={styles.list}>
@@ -280,9 +274,6 @@ export default function WardrobeOutfits() {
           </>
         )}
 
-        <Text style={styles.footer}>
-          Compatibility relations and outfit suggestions stay on this device. They describe pieces you already own and do not create a shopping feed.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -295,13 +286,11 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     alignSelf: 'center',
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 56,
   },
-  eyebrow: { color: '#667067', fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
-  heading: { color: '#202922', fontSize: 34, fontWeight: '800', letterSpacing: -1.1, marginTop: 7 },
-  subtitle: { color: '#59615b', fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 620 },
   warning: { color: '#8b4f35', fontSize: 13, marginTop: 16 },
+  screenControlLabel: { color: '#263128', fontSize: 17, fontWeight: '800' },
   section: { marginTop: 28 },
   sectionTitle: { color: '#263128', fontSize: 20, fontWeight: '800', marginTop: 24 },
   sectionIntro: { color: '#687069', fontSize: 13, lineHeight: 20, marginTop: 6, maxWidth: 650 },
@@ -358,5 +347,4 @@ const styles = StyleSheet.create({
   emptyTitle: { color: '#263028', fontSize: 18, fontWeight: '800' },
   emptyBody: { color: '#687069', fontSize: 14, lineHeight: 21, marginTop: 7 },
   emptyLine: { color: '#7a817a', fontSize: 13, marginTop: 12 },
-  footer: { color: '#858a85', fontSize: 11, lineHeight: 17, marginTop: 32 },
 });

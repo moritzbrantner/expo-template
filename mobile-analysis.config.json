@@ -27,9 +27,23 @@
       "name": "Open Tasks from the portfolio",
       "path": "./",
       "steps": [
-        { "action": "tap", "target": { "role": "link", "name": "Tasks" } },
-        { "action": "expectVisible", "target": { "text": "Nothing here yet. Add one thing worth doing." } },
-        { "action": "screenshot", "name": "tasks-opened-from-portfolio" }
+        {
+          "action": "tap",
+          "target": {
+            "role": "link",
+            "name": "Tasks"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Nothing here yet. Add one thing worth doing."
+          }
+        },
+        {
+          "action": "screenshot",
+          "name": "tasks-opened-from-portfolio"
+        }
       ]
     },
     {
@@ -37,13 +51,50 @@
       "name": "Create and complete a task",
       "path": "tasks/",
       "steps": [
-        { "action": "expectVisible", "target": { "text": "Nothing here yet. Add one thing worth doing." } },
-        { "action": "fill", "target": { "role": "textbox", "name": "New task" }, "value": "Mobile analysis task" },
-        { "action": "tap", "target": { "role": "button", "name": "Add" } },
-        { "action": "expectVisible", "target": { "text": "Mobile analysis task" } },
-        { "action": "tap", "target": { "role": "checkbox", "name": "Complete Mobile analysis task" } },
-        { "action": "expectVisible", "target": { "text": "Everything is complete." } },
-        { "action": "screenshot", "name": "task-completed" }
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Nothing here yet. Add one thing worth doing."
+          }
+        },
+        {
+          "action": "fill",
+          "target": {
+            "role": "textbox",
+            "name": "New task"
+          },
+          "value": "Mobile analysis task"
+        },
+        {
+          "action": "tap",
+          "target": {
+            "role": "button",
+            "name": "Add"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Mobile analysis task"
+          }
+        },
+        {
+          "action": "tap",
+          "target": {
+            "role": "checkbox",
+            "name": "Complete Mobile analysis task"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Everything is complete."
+          }
+        },
+        {
+          "action": "screenshot",
+          "name": "task-completed"
+        }
       ]
     },
     {
@@ -51,11 +102,36 @@
       "name": "Open and leave task settings",
       "path": "tasks/",
       "steps": [
-        { "action": "tap", "target": { "role": "link", "name": "Open settings" } },
-        { "action": "expectVisible", "target": { "text": "Dictation commands" } },
-        { "action": "tap", "target": { "role": "button", "name": "Back to tasks" } },
-        { "action": "expectVisible", "target": { "text": "Nothing here yet. Add one thing worth doing." } },
-        { "action": "screenshot", "name": "returned-from-settings" }
+        {
+          "action": "tap",
+          "target": {
+            "role": "link",
+            "name": "Open settings"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Dictation commands"
+          }
+        },
+        {
+          "action": "tap",
+          "target": {
+            "role": "button",
+            "name": "Back to tasks"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Nothing here yet. Add one thing worth doing."
+          }
+        },
+        {
+          "action": "screenshot",
+          "name": "returned-from-settings"
+        }
       ]
     },
     {
@@ -63,12 +139,45 @@
       "name": "Convert and swap units",
       "path": "converter/",
       "steps": [
-        { "action": "expectVisible", "target": { "text": "Convert without the clutter." } },
-        { "action": "fill", "target": { "role": "textbox", "name": "Value to convert" }, "value": "2" },
-        { "action": "expectText", "target": { "selector": "[aria-label=\"Converted value\"]" }, "text": "6.56167979" },
-        { "action": "tap", "target": { "role": "button", "name": "Swap units" } },
-        { "action": "expectText", "target": { "selector": "[aria-label=\"Converted value\"]" }, "text": "2" },
-        { "action": "screenshot", "name": "converter-swapped" }
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Convert without the clutter."
+          }
+        },
+        {
+          "action": "fill",
+          "target": {
+            "role": "textbox",
+            "name": "Value to convert"
+          },
+          "value": "2"
+        },
+        {
+          "action": "expectText",
+          "target": {
+            "selector": "[aria-label=\"Converted value\"]"
+          },
+          "text": "6.56167979"
+        },
+        {
+          "action": "tap",
+          "target": {
+            "role": "button",
+            "name": "Swap units"
+          }
+        },
+        {
+          "action": "expectText",
+          "target": {
+            "selector": "[aria-label=\"Converted value\"]"
+          },
+          "text": "2"
+        },
+        {
+          "action": "screenshot",
+          "name": "converter-swapped"
+        }
       ]
     },
     {
@@ -76,10 +185,54 @@
       "name": "Hydrate the Photos library preview",
       "path": "photos/",
       "steps": [
-        { "action": "expectVisible", "target": { "text": "Photos" } },
-        { "action": "expectVisible", "target": { "text": "Device library" } },
-        { "action": "expectVisible", "target": { "role": "tab", "name": "Library" } },
-        { "action": "screenshot", "name": "photos-hydrated" }
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Photos"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "text": "Device library"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "role": "tab",
+            "name": "Library"
+          }
+        },
+        {
+          "action": "screenshot",
+          "name": "photos-hydrated"
+        }
+      ]
+    },
+    {
+      "id": "wardrobe-primary-task-first",
+      "name": "Open Wardrobe on the primary task",
+      "path": "wardrobe/",
+      "steps": [
+        {
+          "action": "expectVisible",
+          "target": {
+            "role": "textbox",
+            "name": "Search wardrobe"
+          }
+        },
+        {
+          "action": "expectVisible",
+          "target": {
+            "role": "button",
+            "name": "Add clothing item"
+          }
+        },
+        {
+          "action": "screenshot",
+          "name": "wardrobe-utility-first"
+        }
       ]
     }
   ],

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "appSlug": "shopping-list",
+  "supportedLocales": ["en", "de", "es"],
+  "supportUrl": "",
+  "privacyUrl": "",
+  "storeReadiness": {
+    "listingAssetsReady": false,
+    "privacyDeclarationReady": false
+  },
+  "release": {
+    "buildProfile": "production",
+    "internalSubmitProfile": "internal",
+    "productionSubmitProfile": "production"
+  }
+}

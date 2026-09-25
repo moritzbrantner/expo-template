@@ -15,8 +15,11 @@ on:
           - gifts
           - habits
           - money
+          - notes
           - photos
+          - shopping-list
           - tasks
+          - timer
           - wardrobe
       platform:
         description: Store platform(s) to qualify. Android does not require Apple credentials.

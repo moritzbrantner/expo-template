@@ -25,4 +25,4 @@ Use `.coding-tooling.json` as the executable validation contract. For normal cha
 
 ## Acceptance
 
-A change is ready only when its exact head satisfies the repository's required validation. Missing, skipped, or still-running checks are not evidence of success.
+Use the repository's normal checks and GitHub's current required-check status to decide readiness. Do not run a separate exact-head or runner-identity validation pass.

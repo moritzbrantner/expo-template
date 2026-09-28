@@ -37,7 +37,7 @@ describe('local storage package', () => {
     assert.deepEqual(await store.load(), ['one', 'two']);
   });
 
-  test('fails closed to the consumer fallback when storage is unavailable', async () => {
+  test('propagates storage transport failures so consumers cannot overwrite unknown state', async () => {
     const storage: LocalStorageAdapter = {
       async getItem() {
         throw new Error('unavailable');
@@ -49,6 +49,19 @@ describe('local storage package', () => {
     const store = createLocalJsonStore({
       key: '@example/list-v1',
       deserialize: () => ['unexpected'],
+      fallback: () => ['fallback'],
+      storage,
+    });
+
+    await assert.rejects(() => store.load(), /unavailable/);
+    await assert.rejects(() => store.save(['replacement']), /unavailable/);
+  });
+
+  test('uses the consumer fallback only after a successful read that cannot be decoded', async () => {
+    const storage = memoryStorage({ '@example/list-v1': '{broken' });
+    const store = createLocalJsonStore({
+      key: '@example/list-v1',
+      deserialize: (stored) => JSON.parse(stored ?? '[]') as string[],
       fallback: () => ['fallback'],
       storage,
     });

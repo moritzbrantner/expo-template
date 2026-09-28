@@ -26,7 +26,7 @@ services:
       - mailpit
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:latest@sha256:74d609a42ec279aa63c6b4622a6fa9b5408d1ad5b1d76a1c4be40a265ce0863d
     ports:
       - '8825:8025'
 

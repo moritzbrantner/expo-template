@@ -51,7 +51,7 @@ test('gift storage preserves the existing state key and serializer', async () =>
   ]);
 });
 
-test('gift storage falls back to an empty state when transport reads fail', async () => {
+test('gift storage propagates transport read failures so writes stay disabled', async () => {
   const storage: LocalStorageAdapter = {
     async getItem() {
       throw new Error('storage unavailable');
@@ -60,5 +60,12 @@ test('gift storage falls back to an empty state when transport reads fail', asyn
   };
 
   const store = createGiftStateStore(storage);
+  await assert.rejects(() => store.load(), /storage unavailable/);
+});
+
+test('gift storage still treats malformed persisted state as empty domain data', async () => {
+  const memory = memoryStorage('{broken');
+  const store = createGiftStateStore(memory.storage);
+
   assert.deepEqual(await store.load(), emptyGiftState());
 });

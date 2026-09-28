@@ -106,6 +106,7 @@ export default function HabitsApp() {
   const [draft, setDraft] = useState('');
   const [target, setTarget] = useState<(typeof TARGETS)[number]>(5);
   const [hydrated, setHydrated] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const today = localDateKey();
   const days = useMemo(() => previousDayKeys(7), [today]);
 
@@ -113,10 +114,15 @@ export default function HabitsApp() {
     let active = true;
     void habitStorage.load()
       .then((storedHabits) => {
-        if (active) setHabits(storedHabits);
+        if (active) {
+          setHabits(storedHabits);
+          setHydrated(true);
+        }
       })
-      .finally(() => {
-        if (active) setHydrated(true);
+      .catch(() => {
+        if (active) {
+          setStorageError('Reload before making changes so existing habits stay safe.');
+        }
       });
     return () => {
       active = false;
@@ -132,6 +138,22 @@ export default function HabitsApp() {
   }, [habits, hydrated]);
 
   const doneToday = habits.filter((habit) => isHabitDone(habit, today)).length;
+
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.content}>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>
+              {storageError ? 'Could not load habits.' : 'Loading habits…'}
+            </Text>
+            {storageError ? <Text style={styles.emptyText}>{storageError}</Text> : null}
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const addHabit = () => {
     if (!draft.trim()) return;

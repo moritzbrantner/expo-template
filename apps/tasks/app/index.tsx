@@ -136,6 +136,7 @@ export default function TasksApp() {
   const [draft, setDraft] = useState('');
   const [filter, setFilter] = useState<TaskFilter>('open');
   const [hydrated, setHydrated] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const [dictationMode, setDictationMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [dictationStatus, setDictationStatus] = useState<string | null>(null);
@@ -154,11 +155,12 @@ export default function TasksApp() {
       .then((storedTasks) => {
         if (active) {
           setTasks(storedTasks);
+          setHydrated(true);
         }
       })
-      .finally(() => {
+      .catch(() => {
         if (active) {
-          setHydrated(true);
+          setStorageError('Reload before making changes so existing tasks stay safe.');
         }
       });
 
@@ -220,6 +222,21 @@ export default function TasksApp() {
   const visibleTasks = useMemo(() => filterTasks(tasks, filter), [filter, tasks]);
   const openCount = tasks.filter((task) => !task.completed).length;
   const doneCount = tasks.length - openCount;
+
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.content}>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>
+              {storageError ?? 'Loading saved tasks…'}
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const updateDraft = (value: string) => {
     draftRef.current = value;

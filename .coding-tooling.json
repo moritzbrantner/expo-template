@@ -19,7 +19,7 @@
   },
   "merge": {
     "authority": "hosted",
-    "requiredChecks": ["validate / validate"]
+    "requiredChecks": ["validate / Fast Validation"]
   },
-  "conventionRefs": ["AGENT-001", "AGENT-007", "REPO-004", "REPO-008"]
+  "conventionRefs": ["PRINCIPLE-001", "REP-002", "PRINCIPLE-003", "TEMPLATE-003", "TEMPLATE-004"]
 }

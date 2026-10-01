@@ -79,7 +79,7 @@ jobs:
           mkdir -p .mobile-preview
           ln -s "$GITHUB_WORKSPACE/_site" .mobile-preview/expo-template
           python3 -m http.server 4173 --bind 127.0.0.1 --directory .mobile-preview > /tmp/expo-template-preview.log 2>&1 &
-          for attempt in {1..40}; do
+          for _attempt in {1..40}; do
             if curl --fail --silent http://127.0.0.1:4173/expo-template/ > /dev/null; then
               exit 0
             fi

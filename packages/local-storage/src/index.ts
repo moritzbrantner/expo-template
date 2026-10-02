@@ -26,8 +26,8 @@ export function createLocalJsonStore<T>({
 }: LocalJsonStoreOptions<T>): LocalJsonStore<T> {
   return {
     async load() {
+      const stored = await storage.getItem(key);
       try {
-        const stored = await storage.getItem(key);
         return deserialize(migrate ? migrate(stored) : stored);
       } catch {
         return fallback();

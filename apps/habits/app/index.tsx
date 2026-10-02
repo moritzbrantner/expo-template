@@ -106,6 +106,7 @@ export default function HabitsApp() {
   const [draft, setDraft] = useState('');
   const [target, setTarget] = useState<(typeof TARGETS)[number]>(5);
   const [hydrated, setHydrated] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const today = localDateKey();
   const days = useMemo(() => previousDayKeys(7), [today]);
 
@@ -113,10 +114,15 @@ export default function HabitsApp() {
     let active = true;
     void habitStorage.load()
       .then((storedHabits) => {
-        if (active) setHabits(storedHabits);
+        if (active) {
+          setHabits(storedHabits);
+          setHydrated(true);
+        }
       })
-      .finally(() => {
-        if (active) setHydrated(true);
+      .catch(() => {
+        if (active) {
+          setStorageError('Reload before making changes so existing habits stay safe.');
+        }
       });
     return () => {
       active = false;
@@ -134,7 +140,7 @@ export default function HabitsApp() {
   const doneToday = habits.filter((habit) => isHabitDone(habit, today)).length;
 
   const addHabit = () => {
-    if (!draft.trim()) return;
+    if (!hydrated || !draft.trim()) return;
     setHabits((current) => [...current, createHabit(draft, habitId(), target)]);
     setDraft('');
   };
@@ -149,6 +155,11 @@ export default function HabitsApp() {
           <Text style={styles.summary}>
             {doneToday} of {habits.length} checked in today
           </Text>
+          {!hydrated ? (
+            <Text style={styles.summary}>
+              {storageError ?? 'Loading habits…'}
+            </Text>
+          ) : null}
 
           <View style={styles.composerCard}>
             <Text style={styles.sectionTitle}>Add a habit</Text>
@@ -180,9 +191,13 @@ export default function HabitsApp() {
               ))}
             </View>
             <Pressable
-              disabled={!draft.trim()}
+              disabled={!hydrated || !draft.trim()}
               onPress={addHabit}
-              style={({ pressed }) => [styles.addButton, !draft.trim() && styles.disabled, pressed && styles.pressed]}>
+              style={({ pressed }) => [
+                styles.addButton,
+                (!hydrated || !draft.trim()) && styles.disabled,
+                pressed && styles.pressed,
+              ]}>
               <Text style={styles.addButtonText}>Add habit</Text>
             </Pressable>
           </View>

@@ -139,24 +139,8 @@ export default function HabitsApp() {
 
   const doneToday = habits.filter((habit) => isHabitDone(habit, today)).length;
 
-  if (!hydrated) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
-        <View style={styles.content}>
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>
-              {storageError ? 'Could not load habits.' : 'Loading habits…'}
-            </Text>
-            {storageError ? <Text style={styles.emptyText}>{storageError}</Text> : null}
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const addHabit = () => {
-    if (!draft.trim()) return;
+    if (!hydrated || !draft.trim()) return;
     setHabits((current) => [...current, createHabit(draft, habitId(), target)]);
     setDraft('');
   };
@@ -171,6 +155,11 @@ export default function HabitsApp() {
           <Text style={styles.summary}>
             {doneToday} of {habits.length} checked in today
           </Text>
+          {!hydrated ? (
+            <Text style={styles.summary}>
+              {storageError ?? 'Loading habits…'}
+            </Text>
+          ) : null}
 
           <View style={styles.composerCard}>
             <Text style={styles.sectionTitle}>Add a habit</Text>
@@ -202,9 +191,13 @@ export default function HabitsApp() {
               ))}
             </View>
             <Pressable
-              disabled={!draft.trim()}
+              disabled={!hydrated || !draft.trim()}
               onPress={addHabit}
-              style={({ pressed }) => [styles.addButton, !draft.trim() && styles.disabled, pressed && styles.pressed]}>
+              style={({ pressed }) => [
+                styles.addButton,
+                (!hydrated || !draft.trim()) && styles.disabled,
+                pressed && styles.pressed,
+              ]}>
               <Text style={styles.addButtonText}>Add habit</Text>
             </Pressable>
           </View>

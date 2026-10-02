@@ -112,24 +112,6 @@ export default function GiftsApp() {
     sourceGiftId,
   });
 
-  if (!loaded) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Gift Tracker</Text>
-            {loadError ? (
-              <Text style={styles.error}>{loadError}</Text>
-            ) : (
-              <Text style={styles.muted}>Loading saved gifts…</Text>
-            )}
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const handleAddPerson = () => {
     if (!loaded) {
       return;
@@ -185,7 +167,11 @@ export default function GiftsApp() {
           <Text style={styles.subtitle}>
             Remember what came from whom, what you gave, and what you plan to give next.
           </Text>
-          {!loaded ? <Text style={styles.muted}>Loading saved gifts…</Text> : null}
+          {loadError ? (
+            <Text style={styles.error}>{loadError}</Text>
+          ) : !loaded ? (
+            <Text style={styles.muted}>Loading saved gifts…</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>

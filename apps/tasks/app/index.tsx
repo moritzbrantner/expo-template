@@ -137,6 +137,7 @@ export default function TasksApp() {
   const [filter, setFilter] = useState<TaskFilter>('open');
   const [hydrated, setHydrated] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const hydratedRef = useRef(false);
   const [dictationMode, setDictationMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [dictationStatus, setDictationStatus] = useState<string | null>(null);
@@ -155,6 +156,7 @@ export default function TasksApp() {
       .then((storedTasks) => {
         if (active) {
           setTasks(storedTasks);
+          hydratedRef.current = true;
           setHydrated(true);
         }
       })
@@ -223,21 +225,6 @@ export default function TasksApp() {
   const openCount = tasks.filter((task) => !task.completed).length;
   const doneCount = tasks.length - openCount;
 
-  if (!hydrated) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
-        <View style={styles.content}>
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>
-              {storageError ?? 'Loading saved tasks…'}
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const updateDraft = (value: string) => {
     draftRef.current = value;
     setDraft(value);
@@ -245,7 +232,8 @@ export default function TasksApp() {
 
   const addTaskTitles = (titles: readonly string[]) => {
     const normalizedTitles = titles.map((title) => title.trim()).filter(Boolean);
-    if (normalizedTitles.length === 0) {
+    // Dictation callbacks can outlive the render that created them, so read the ref.
+    if (!hydratedRef.current || normalizedTitles.length === 0) {
       return;
     }
 
@@ -258,7 +246,7 @@ export default function TasksApp() {
 
   const addTask = () => {
     const title = draftRef.current.trim();
-    if (!title) {
+    if (!hydrated || !title) {
       return;
     }
 
@@ -426,6 +414,9 @@ export default function TasksApp() {
           <Text style={styles.summary}>
             {openCount} open · {doneCount} done
           </Text>
+          {!hydrated ? (
+            <Text style={styles.summary}>{storageError ?? 'Loading saved tasks…'}</Text>
+          ) : null}
 
           <View style={styles.composer}>
             <TextInput
@@ -449,11 +440,11 @@ export default function TasksApp() {
             />
             <Pressable
               accessibilityRole="button"
-              disabled={!draft.trim()}
+              disabled={!hydrated || !draft.trim()}
               onPress={addTask}
               style={({ pressed }) => [
                 styles.addButton,
-                !draft.trim() && styles.addButtonDisabled,
+                (!hydrated || !draft.trim()) && styles.addButtonDisabled,
                 pressed && styles.pressed,
               ]}>
               <Text style={styles.addButtonText}>Add</Text>

@@ -1,20 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   BABY_CLOTHING_CATEGORIES,
@@ -156,6 +156,8 @@ export default function BabyClothesScreen() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoStatus, setPhotoStatus] = useState<string | null>(null);
   const [colorSuggestion, setColorSuggestion] = useState<BabyClothingColorSuggestion | null>(null);
+  // Bumped whenever the editor or its photos change so late analysis results are dropped.
+  const colorAnalysisGeneration = useRef(0);
   const [deleteArmed, setDeleteArmed] = useState(false);
 
   useEffect(() => {
@@ -205,7 +207,7 @@ export default function BabyClothesScreen() {
     setEditor({ id: makeId('clothes'), existing: null, draft: newDraft() });
     setEditorError(null);
     setPhotoStatus(null);
-    setColorSuggestion(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
   }
 
@@ -213,8 +215,13 @@ export default function BabyClothesScreen() {
     setEditor({ id: entry.id, existing: entry, draft: draftFromEntry(entry) });
     setEditorError(null);
     setPhotoStatus(null);
-    setColorSuggestion(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
+  }
+
+  function resetColorSuggestion() {
+    colorAnalysisGeneration.current += 1;
+    setColorSuggestion(null);
   }
 
   function updateDraft(patch: Partial<BabyClothingDraft>) {
@@ -226,11 +233,19 @@ export default function BabyClothesScreen() {
   }
 
   async function analysePhotoForColor(photo: BabyClothingPhoto) {
+    colorAnalysisGeneration.current += 1;
+    const generation = colorAnalysisGeneration.current;
     try {
       const suggestion = await analyseBabyClothingPhotoColor(photo.uri);
+      if (generation !== colorAnalysisGeneration.current) {
+        return null;
+      }
       setColorSuggestion(suggestion);
       return suggestion;
     } catch {
+      if (generation !== colorAnalysisGeneration.current) {
+        return null;
+      }
       setColorSuggestion(null);
       setPhotoStatus('The photo is saved, but local color assistance could not analyze it.');
       return null;
@@ -257,6 +272,7 @@ export default function BabyClothesScreen() {
       return;
     }
 
+    const editorGeneration = colorAnalysisGeneration.current;
     setPhotoBusy(true);
     setPhotoStatus(null);
     try {
@@ -304,6 +320,10 @@ export default function BabyClothesScreen() {
           : current,
       );
 
+      if (editorGeneration !== colorAnalysisGeneration.current) {
+        // The editor was closed or changed while the photo was being copied.
+        return;
+      }
       await analysePhotoForColor(photo);
     } catch (error) {
       setPhotoStatus(error instanceof Error ? error.message : 'The clothing photo could not be added.');
@@ -317,7 +337,12 @@ export default function BabyClothesScreen() {
       return;
     }
     updateDraft({ photos: editor.draft.photos.filter((candidate) => candidate.id !== photo.id) });
-    setColorSuggestion(null);
+    resetColorSuggestion();
+    const savedWithEntry = editor.existing?.photos.some((saved) => saved.uri === photo.uri) ?? false;
+    if (!savedWithEntry) {
+      // Added during this edit session: nothing else references the managed copy.
+      void removeBabyClothingPhoto(photo).catch(() => undefined);
+    }
   }
 
   async function cancelEditor() {
@@ -330,7 +355,7 @@ export default function BabyClothesScreen() {
     setEditor(null);
     setEditorError(null);
     setPhotoStatus(null);
-    setColorSuggestion(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
   }
 
@@ -360,7 +385,7 @@ export default function BabyClothesScreen() {
       setEditor(null);
       setEditorError(null);
       setPhotoStatus(null);
-      setColorSuggestion(null);
+      resetColorSuggestion();
       setDeleteArmed(false);
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : 'The clothing entry could not be saved.');
@@ -381,7 +406,7 @@ export default function BabyClothesScreen() {
     );
     setEntries((current) => current.filter((entry) => entry.id !== editor.existing?.id));
     setEditor(null);
-    setColorSuggestion(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
   }
 

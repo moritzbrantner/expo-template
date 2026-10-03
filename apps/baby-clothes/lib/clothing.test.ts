@@ -14,6 +14,7 @@ const baseDraft = {
   name: '  Blue   bodysuits ',
   category: 'bodysuit' as const,
   brand: '  Brand Name ',
+  color: ' sky blue ',
   originalSizeLabel: ' 0–3 M ',
   normalizedSize: { minCm: 56, maxCm: 62 },
   entryType: 'group' as const,
@@ -30,6 +31,7 @@ describe('baby clothing model', () => {
     assert.equal(entry.id, 'group-1');
     assert.equal(entry.name, 'Blue bodysuits');
     assert.equal(entry.brand, 'Brand Name');
+    assert.equal(entry.color, 'sky blue');
     assert.equal(entry.originalSizeLabel, '0–3 M');
     assert.deepEqual(entry.normalizedSize, { minCm: 56, maxCm: 62 });
     assert.equal(entry.quantity, 3);
@@ -63,6 +65,7 @@ describe('baby clothing model', () => {
       {
         ...baseDraft,
         name: 'Winter suit',
+        color: 'cream',
         originalSizeLabel: '6–9 months',
         normalizedSize: { minCm: 68, maxCm: 74 },
         status: 'too-large',
@@ -79,6 +82,21 @@ describe('baby clothing model', () => {
       ).map((entry) => entry.id),
       ['small'],
     );
+    assert.deepEqual(
+      filterBabyClothingEntries([large, small], 'cream', 'all', null).map((entry) => entry.id),
+      ['large'],
+    );
+  });
+
+  test('hydrates pre-color entries without invalidating existing local inventory', () => {
+    const current = createBabyClothingEntry(baseDraft, 'legacy', new Date('2026-09-05T10:00:00Z'));
+    const legacy = { ...current } as Partial<typeof current>;
+    delete legacy.color;
+
+    const [hydrated] = deserializeBabyClothingEntries(JSON.stringify([legacy]));
+    assert.ok(hydrated);
+    assert.equal(hydrated.id, 'legacy');
+    assert.equal(hydrated.color, '');
   });
 
   test('deserialization rejects malformed entries instead of manufacturing inventory', () => {

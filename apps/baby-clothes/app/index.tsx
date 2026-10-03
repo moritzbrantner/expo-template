@@ -30,10 +30,17 @@ import {
   type BabyClothingDraft,
   type BabyClothingEntry,
   type BabyClothingPhoto,
+  type BabyClothingSizeRange,
   type BabyClothingStatus,
   type BabyClothingStatusFilter,
 } from '../lib/clothing';
+import {
+  babyClothingSizeSuggestionExplanation,
+  suggestNormalizedBabyClothingSize,
+  type BabyClothingColorSuggestion,
+} from '../lib/assistance';
 import { persistBabyClothingPhoto, removeBabyClothingPhoto } from '../lib/media';
+import { analyseBabyClothingPhotoColor } from '../lib/photo-analysis';
 import { WEB_INLINE_PHOTO_BUDGET, inlinePhotoStorageSize } from '../lib/media-helpers';
 
 const STORAGE_KEY = 'baby-clothes.entries-v1';
@@ -72,11 +79,22 @@ function makeId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function sameSizeRange(
+  left: BabyClothingSizeRange | null | undefined,
+  right: BabyClothingSizeRange | null | undefined,
+) {
+  if (!left || !right) {
+    return left === right;
+  }
+  return left.minCm === right.minCm && left.maxCm === right.maxCm;
+}
+
 function newDraft(): BabyClothingDraft {
   return {
     name: '',
     category: 'bodysuit',
     brand: '',
+    color: '',
     originalSizeLabel: '',
     normalizedSize: null,
     entryType: 'single',
@@ -92,6 +110,7 @@ function draftFromEntry(entry: BabyClothingEntry): BabyClothingDraft {
     name: entry.name,
     category: entry.category,
     brand: entry.brand,
+    color: entry.color,
     originalSizeLabel: entry.originalSizeLabel,
     normalizedSize: entry.normalizedSize,
     entryType: entry.entryType,
@@ -137,6 +156,9 @@ export default function BabyClothesScreen() {
   const [editorError, setEditorError] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoStatus, setPhotoStatus] = useState<string | null>(null);
+  const [colorSuggestion, setColorSuggestion] = useState<BabyClothingColorSuggestion | null>(null);
+  // Bumped whenever the editor or its photos change so late analysis results are dropped.
+  const colorAnalysisGeneration = useRef(0);
   const [deleteArmed, setDeleteArmed] = useState(false);
   // Bumped whenever an editor opens or closes so late photo copies can be cleaned up.
   const editorSession = useRef(0);
@@ -174,12 +196,22 @@ export default function BabyClothesScreen() {
     () => filterBabyClothingEntries(entries, query, statusFilter, sizeRange),
     [entries, query, sizeRange, statusFilter],
   );
+  const sizeSuggestion = editor
+    ? suggestNormalizedBabyClothingSize(editor.draft.originalSizeLabel)
+    : null;
+  const showSizeSuggestion =
+    Boolean(sizeSuggestion) &&
+    !sameSizeRange(editor?.draft.normalizedSize, sizeSuggestion?.range ?? null);
+  const currentColor = editor?.draft.color?.trim().toLocaleLowerCase() ?? '';
+  const showColorSuggestion =
+    colorSuggestion !== null && currentColor !== colorSuggestion.color.toLocaleLowerCase();
 
   function openNewEntry() {
     editorSession.current += 1;
     setEditor({ id: makeId('clothes'), existing: null, draft: newDraft() });
     setEditorError(null);
     setPhotoStatus(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
   }
 
@@ -188,7 +220,13 @@ export default function BabyClothesScreen() {
     setEditor({ id: entry.id, existing: entry, draft: draftFromEntry(entry) });
     setEditorError(null);
     setPhotoStatus(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
+  }
+
+  function resetColorSuggestion() {
+    colorAnalysisGeneration.current += 1;
+    setColorSuggestion(null);
   }
 
   function updateDraft(patch: Partial<BabyClothingDraft>) {
@@ -199,11 +237,47 @@ export default function BabyClothesScreen() {
     setDeleteArmed(false);
   }
 
+  async function analysePhotoForColor(photo: BabyClothingPhoto) {
+    colorAnalysisGeneration.current += 1;
+    const generation = colorAnalysisGeneration.current;
+    try {
+      const suggestion = await analyseBabyClothingPhotoColor(photo.uri);
+      if (generation !== colorAnalysisGeneration.current) {
+        return null;
+      }
+      setColorSuggestion(suggestion);
+      return suggestion;
+    } catch {
+      if (generation !== colorAnalysisGeneration.current) {
+        return null;
+      }
+      setColorSuggestion(null);
+      setPhotoStatus('The photo is saved, but local color assistance could not analyze it.');
+      return null;
+    }
+  }
+
+  async function analyseFirstPhoto() {
+    const photo = editor?.draft.photos[0];
+    if (!photo || photoBusy) {
+      return;
+    }
+
+    setPhotoBusy(true);
+    setPhotoStatus(null);
+    try {
+      await analysePhotoForColor(photo);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
   async function addPhoto(source: 'camera' | 'library') {
     if (!editor || photoBusy) {
       return;
     }
 
+    const editorGeneration = colorAnalysisGeneration.current;
     const session = editorSession.current;
     setPhotoBusy(true);
     setPhotoStatus(null);
@@ -266,6 +340,12 @@ export default function BabyClothesScreen() {
             }
           : current,
       );
+
+      if (editorGeneration !== colorAnalysisGeneration.current) {
+        // The editor was closed or changed while the photo was being copied.
+        return;
+      }
+      await analysePhotoForColor(photo);
     } catch (error) {
       setPhotoStatus(error instanceof Error ? error.message : 'The clothing photo could not be added.');
     } finally {
@@ -278,6 +358,7 @@ export default function BabyClothesScreen() {
       return;
     }
     updateDraft({ photos: editor.draft.photos.filter((candidate) => candidate.id !== photo.id) });
+    resetColorSuggestion();
     const savedWithEntry = editor.existing?.photos.some((saved) => saved.uri === photo.uri) ?? false;
     if (!savedWithEntry) {
       // Added during this edit session: nothing else references the managed copy.
@@ -296,6 +377,7 @@ export default function BabyClothesScreen() {
     setEditor(null);
     setEditorError(null);
     setPhotoStatus(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
   }
 
@@ -333,6 +415,7 @@ export default function BabyClothesScreen() {
       setEditor(null);
       setEditorError(null);
       setPhotoStatus(null);
+      resetColorSuggestion();
       setDeleteArmed(false);
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : 'The clothing entry could not be saved.');
@@ -361,6 +444,7 @@ export default function BabyClothesScreen() {
     editorSession.current += 1;
     setEntries(remaining);
     setEditor(null);
+    resetColorSuggestion();
     setDeleteArmed(false);
 
     const photos = new Map(
@@ -399,7 +483,7 @@ export default function BabyClothesScreen() {
         <TextInput
           accessibilityLabel="Search baby clothes"
           onChangeText={setQuery}
-          placeholder="Search name, brand, printed size…"
+          placeholder="Search name, brand, color, printed size…"
           placeholderTextColor="#88847d"
           style={styles.searchInput}
           value={query}
@@ -454,6 +538,7 @@ export default function BabyClothesScreen() {
                       <Text style={styles.entryName}>{entry.name}</Text>
                       <Text style={styles.entryMeta}>
                         {CATEGORY_LABELS[entry.category]}
+                        {entry.color ? ` · ${entry.color}` : ''}
                         {entry.brand ? ` · ${entry.brand}` : ''}
                       </Text>
                     </View>
@@ -521,6 +606,16 @@ export default function BabyClothesScreen() {
                 >
                   <Text style={styles.secondaryButtonText}>Choose photo</Text>
                 </Pressable>
+                {Platform.OS !== 'web' && editor.draft.photos.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={photoBusy}
+                    onPress={() => void analyseFirstPhoto()}
+                    style={styles.secondaryButton}
+                  >
+                    <Text style={styles.secondaryButtonText}>Suggest color</Text>
+                  </Pressable>
+                ) : null}
                 {photoBusy ? <ActivityIndicator /> : null}
               </View>
               {photoStatus ? <Text style={styles.helperError}>{photoStatus}</Text> : null}
@@ -610,6 +705,37 @@ export default function BabyClothesScreen() {
                 value={editor.draft.brand}
               />
 
+              <FieldLabel>Color</FieldLabel>
+              <TextInput
+                onChangeText={(color) => updateDraft({ color })}
+                placeholder="e.g. blue, cream, rust"
+                placeholderTextColor="#88847d"
+                style={styles.input}
+                value={editor.draft.color ?? ''}
+              />
+              {showColorSuggestion && colorSuggestion ? (
+                <View style={styles.suggestionBox}>
+                  <View style={styles.suggestionCopy}>
+                    <Text style={styles.suggestionTitle}>Photo suggests {colorSuggestion.color}</Text>
+                    <Text style={styles.suggestionText}>
+                      Local pixel analysis only. Review the photo before applying this coarse color.
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => updateDraft({ color: colorSuggestion.color })}
+                    style={styles.suggestionButton}
+                  >
+                    <Text style={styles.suggestionButtonText}>Use {colorSuggestion.color}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {Platform.OS === 'web' ? (
+                <Text style={styles.helperText}>
+                  Browser preview keeps color manual; local photo-color assistance runs in native builds.
+                </Text>
+              ) : null}
+
               <FieldLabel>Printed size label</FieldLabel>
               <TextInput
                 onChangeText={(originalSizeLabel) => updateDraft({ originalSizeLabel })}
@@ -619,6 +745,27 @@ export default function BabyClothesScreen() {
                 value={editor.draft.originalSizeLabel}
               />
               <Text style={styles.helperText}>Kept exactly as your reference evidence; it is not silently converted.</Text>
+              {showSizeSuggestion && sizeSuggestion ? (
+                <View style={styles.suggestionBox}>
+                  <View style={styles.suggestionCopy}>
+                    <Text style={styles.suggestionTitle}>
+                      Suggest {formatBabyClothingSize(sizeSuggestion.range)}
+                    </Text>
+                    <Text style={styles.suggestionText}>
+                      {babyClothingSizeSuggestionExplanation(sizeSuggestion)} The printed label remains unchanged.
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => updateDraft({ normalizedSize: sizeSuggestion.range })}
+                    style={styles.suggestionButton}
+                  >
+                    <Text style={styles.suggestionButtonText}>
+                      Use {formatBabyClothingSize(sizeSuggestion.range)}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
 
               <FieldLabel>Normalized fit range</FieldLabel>
               <View style={styles.wrapRow}>
@@ -744,6 +891,12 @@ const styles = StyleSheet.create({
   notesInput: { minHeight: 96 },
   helperText: { fontSize: 12, lineHeight: 17, color: '#777169', marginTop: -4 },
   helperError: { fontSize: 13, lineHeight: 18, color: '#9b3427', fontWeight: '700' },
+  suggestionBox: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#cbd7cf', backgroundColor: '#f0f5f1', borderRadius: 13, padding: 12 },
+  suggestionCopy: { flex: 1, minWidth: 190, gap: 2 },
+  suggestionTitle: { color: '#263a2e', fontSize: 14, fontWeight: '800' },
+  suggestionText: { color: '#5c6a61', fontSize: 12, lineHeight: 17 },
+  suggestionButton: { borderWidth: 1, borderColor: '#7f9487', backgroundColor: '#ffffff', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 8 },
+  suggestionButtonText: { color: '#263a2e', fontSize: 12, fontWeight: '800' },
   saveButton: { marginTop: 10, backgroundColor: '#24372c', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, alignItems: 'center' },
   saveButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
   deleteButton: { marginTop: 2, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, alignItems: 'center' },

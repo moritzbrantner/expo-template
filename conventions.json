@@ -2,11 +2,13 @@
   "schemaVersion": 1,
   "registry": "coding-agent-conventions",
   "modules": [
+    "template-authoring",
+    "expo",
+    "tooling",
+    "playwright",
     "dependencies",
     "environment",
     "git",
-    "react",
-    "playwright",
     "ui"
   ]
 }

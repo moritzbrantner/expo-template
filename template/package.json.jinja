@@ -1,5 +1,5 @@
 {
-  "name": "{{ app_slug }}",
+  "name": "{{ package_name }}",
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
@@ -9,15 +9,28 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build": "expo export --platform web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:native": "maestro test .maestro",
-    "doctor": "bunx expo-doctor",
+    "doctor": "expo-doctor",
     "verify": "bun run lint && bun run typecheck && bun test && bun run doctor",
-    "release:preflight": "bun scripts/check-store-release.ts",
-    "release:qualify": "bun run verify && bun run release:preflight",
-    "release:build": "bun scripts/build-store-release.ts"
+    "release:preflight": "bun run release:preflight:all",
+    "release:preflight:all": "bun scripts/check-store-release.ts all",
+    "release:preflight:android": "bun scripts/check-store-release.ts android",
+    "release:preflight:ios": "bun scripts/check-store-release.ts ios",
+    "release:preflight:direct": "bun scripts/check-store-release.ts direct-android",
+    "release:qualify": "bun run release:qualify:all",
+    "release:qualify:all": "bun run verify && bun run release:preflight:all",
+    "release:qualify:android": "bun run verify && bun run release:preflight:android",
+    "release:qualify:ios": "bun run verify && bun run release:preflight:ios",
+    "release:qualify:direct": "bun run verify && bun run release:preflight:direct",
+    "release:build": "bun run release:build:all",
+    "release:build:all": "bun scripts/build-store-release.ts all",
+    "release:build:android": "bun scripts/build-store-release.ts android",
+    "release:build:ios": "bun scripts/build-store-release.ts ios",
+    "release:build:direct": "bun scripts/build-store-release.ts direct-android"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -44,6 +57,7 @@
     "@types/react": "~19.2.14",
     "eslint": "^9.39.4",
     "eslint-config-expo": "~57.0.1",
+    "expo-doctor": "1.20.4",
     "typescript": "~6.0.3"
   }
 }

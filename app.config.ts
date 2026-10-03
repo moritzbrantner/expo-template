@@ -11,6 +11,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name,
     slug: config.slug,
+    web: {
+      ...config.web,
+      ...(githubPagesBaseUrl ? { output: 'static' as const } : {}),
+    },
+    plugins: [
+      ...(config.plugins ?? []),
+      'expo-font',
+      'expo-image',
+      'expo-web-browser',
+    ],
     experiments: {
       ...config.experiments,
       ...(githubPagesBaseUrl ? { baseUrl: githubPagesBaseUrl } : {}),

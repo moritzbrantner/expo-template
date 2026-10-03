@@ -16,7 +16,7 @@ A local-first Expo app for keeping a personal reading library without storing th
 
 ## Repository boundary
 
-`apps/books` is a portfolio source package rather than a root Bun workspace. Portfolio builds use the repository's shared Expo dependency graph, which keeps `services/auth-api` as the existing isolated Bun workspace and preserves its frozen Docker install contract.
+`apps/books` is a private package in the canonical root Bun workspace. The root lockfile and workspace contract own the shared Expo/React Native toolchain versions; Books owns its product behavior and optional camera dependency.
 
 ## Local checks
 

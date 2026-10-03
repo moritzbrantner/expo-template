@@ -1,9 +1,13 @@
 {
   "schemaVersion": 1,
   "appSlug": "converter",
-  "supportedLocales": ["en"],
+  "supportedLocales": ["en", "de", "es"],
   "supportUrl": "",
   "privacyUrl": "",
+  "storeReadiness": {
+    "listingAssetsReady": false,
+    "privacyDeclarationReady": false
+  },
   "release": {
     "buildProfile": "production",
     "internalSubmitProfile": "internal",

@@ -60,26 +60,42 @@ export default function RootLayout() {
           headerBackVisible: false,
           headerShadowVisible: false,
           headerStyle: { backgroundColor: '#f7f2ee' },
-          headerTitle: 'Feeding Log',
+          headerTitle: 'Feeding',
           headerTitleAlign: 'left',
           headerTitleStyle: { color: '#332c29', fontSize: 22, fontWeight: '800' },
           headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginRight: 10 }}>
+              <Link href="/log" asChild>
+                <Pressable
+                  accessibilityLabel="Open feeding log"
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    width: 40,
+                    height: 40,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 14,
+                    backgroundColor: '#efe5df',
+                    opacity: pressed ? 0.65 : 1,
+                  })}>
+                  <Text style={{ fontSize: 19, lineHeight: 22 }}>📋</Text>
+                </Pressable>
+              </Link>
               <Link href="/share" asChild>
                 <Pressable
                   accessibilityLabel="Share feeding log"
                   accessibilityRole="button"
                   style={({ pressed }) => ({
-                    minWidth: 62,
-                    height: 42,
+                    minWidth: 56,
+                    height: 40,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    borderRadius: 15,
+                    borderRadius: 14,
                     backgroundColor: '#3f5b4d',
-                    paddingHorizontal: 12,
+                    paddingHorizontal: 10,
                     opacity: pressed ? 0.65 : 1,
                   })}>
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Share</Text>
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>Share</Text>
                 </Pressable>
               </Link>
               <Link href="/stats" asChild>
@@ -87,15 +103,15 @@ export default function RootLayout() {
                   accessibilityLabel="Open stats"
                   accessibilityRole="button"
                   style={({ pressed }) => ({
-                    width: 42,
-                    height: 42,
+                    width: 40,
+                    height: 40,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    borderRadius: 15,
+                    borderRadius: 14,
                     backgroundColor: '#efe5df',
                     opacity: pressed ? 0.65 : 1,
                   })}>
-                  <Text style={{ fontSize: 20, lineHeight: 23 }}>📊</Text>
+                  <Text style={{ fontSize: 19, lineHeight: 22 }}>📊</Text>
                 </Pressable>
               </Link>
               <Link href="/settings" asChild>
@@ -103,21 +119,22 @@ export default function RootLayout() {
                   accessibilityLabel="Open settings"
                   accessibilityRole="button"
                   style={({ pressed }) => ({
-                    width: 42,
-                    height: 42,
+                    width: 40,
+                    height: 40,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    borderRadius: 15,
+                    borderRadius: 14,
                     backgroundColor: '#efe5df',
                     opacity: pressed ? 0.65 : 1,
                   })}>
-                  <Text style={{ fontSize: 22, lineHeight: 25 }}>⚙️</Text>
+                  <Text style={{ fontSize: 21, lineHeight: 24 }}>⚙️</Text>
                 </Pressable>
               </Link>
             </View>
           ),
         }}
       />
+      <Stack.Screen name="log" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="stats" options={{ headerShown: false }} />
       <Stack.Screen name="bottles" options={{ headerShown: false }} />

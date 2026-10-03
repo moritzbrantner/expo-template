@@ -144,16 +144,12 @@ export default function BabyClothesScreen() {
       .then((value) => {
         if (active) {
           setEntries(deserializeBabyClothingEntries(value));
+          setHydrated(true);
         }
       })
       .catch(() => {
         if (active) {
-          setStorageError('Local clothing data could not be loaded.');
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setHydrated(true);
+          setStorageError('Reload before making changes so saved clothes stay safe.');
         }
       });
     return () => {
@@ -325,35 +321,30 @@ export default function BabyClothesScreen() {
     setDeleteArmed(false);
   }
 
-  if (!hydrated) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loading}>
-          <ActivityIndicator />
-          <Text style={styles.muted}>Loading local wardrobe…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>LOCAL BABY WARDROBE</Text>
             <Text style={styles.title}>Baby clothes</Text>
-            <Text style={styles.subtitle}>
-              Photos, printed sizes, normalized fit ranges, and lifecycle state stay on this device.
-            </Text>
           </View>
-          <Pressable accessibilityRole="button" onPress={openNewEntry} style={styles.primaryButton}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !hydrated }}
+            disabled={!hydrated}
+            onPress={openNewEntry}
+            style={[styles.primaryButton, !hydrated && styles.disabledButton]}
+          >
             <Text style={styles.primaryButtonText}>+ Add clothes</Text>
           </Pressable>
         </View>
 
-        {storageError ? <Text style={styles.errorBanner}>{storageError}</Text> : null}
+        {storageError ? (
+          <Text style={styles.errorBanner}>{storageError}</Text>
+        ) : !hydrated ? (
+          <Text style={styles.muted}>Loading saved clothes…</Text>
+        ) : null}
 
         <TextInput
           accessibilityLabel="Search baby clothes"
@@ -649,14 +640,13 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f6f3ed' },
   modalSafeArea: { flex: 1, backgroundColor: '#fbfaf7' },
   page: { width: '100%', maxWidth: 980, alignSelf: 'center', padding: 20, paddingBottom: 48, gap: 12 },
-  loading: { flex: 1, minHeight: 480, alignItems: 'center', justifyContent: 'center', gap: 12 },
   headerRow: { flexDirection: 'row', gap: 18, alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 },
   headerCopy: { flex: 1, maxWidth: 680 },
   eyebrow: { fontSize: 12, fontWeight: '800', letterSpacing: 1.4, color: '#776f63' },
   title: { fontSize: 38, lineHeight: 42, fontWeight: '800', color: '#211f1b', marginTop: 4 },
-  subtitle: { fontSize: 16, lineHeight: 23, color: '#5d5850', marginTop: 8 },
   primaryButton: { backgroundColor: '#24372c', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13 },
   primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  disabledButton: { opacity: 0.5 },
   secondaryButton: { borderWidth: 1, borderColor: '#cfc8bc', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   secondaryButtonText: { color: '#332f29', fontSize: 14, fontWeight: '700' },
   searchInput: { borderWidth: 1, borderColor: '#d7d0c4', backgroundColor: '#ffffff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: '#211f1b' },

@@ -54,6 +54,7 @@ function relationLabel(gift: GiftRecord, state: GiftState): string {
 export default function GiftsApp() {
   const [state, setState] = useState<GiftState>(emptyGiftState());
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
   const [selectedPersonId, setSelectedPersonId] = useState('');
   const [direction, setDirection] = useState<GiftDirection>('received');
@@ -66,11 +67,15 @@ export default function GiftsApp() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    void loadGiftState().then((next) => {
-      setState(next);
-      setSelectedPersonId(next.people[0]?.id ?? '');
-      setLoaded(true);
-    });
+    void loadGiftState()
+      .then((next) => {
+        setState(next);
+        setSelectedPersonId(next.people[0]?.id ?? '');
+        setLoaded(true);
+      })
+      .catch(() => {
+        setLoadError('Reload before making changes so existing gifts stay safe.');
+      });
   }, []);
 
   const commit = (next: GiftState) => {
@@ -108,6 +113,10 @@ export default function GiftsApp() {
   });
 
   const handleAddPerson = () => {
+    if (!loaded) {
+      return;
+    }
+
     setError('');
     try {
       const id = makeId('person');
@@ -121,6 +130,10 @@ export default function GiftsApp() {
   };
 
   const handleSaveGift = () => {
+    if (!loaded) {
+      return;
+    }
+
     setError('');
     try {
       const next = addGift(state, {
@@ -145,16 +158,6 @@ export default function GiftsApp() {
     }
   };
 
-  if (!loaded) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loading}>
-          <Text style={styles.muted}>Loading gifts…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -164,6 +167,11 @@ export default function GiftsApp() {
           <Text style={styles.subtitle}>
             Remember what came from whom, what you gave, and what you plan to give next.
           </Text>
+          {loadError ? (
+            <Text style={styles.error}>{loadError}</Text>
+          ) : !loaded ? (
+            <Text style={styles.muted}>Loading saved gifts…</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>

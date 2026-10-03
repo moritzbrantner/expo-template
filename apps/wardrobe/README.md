@@ -24,7 +24,7 @@ The app deliberately does **not** implement a generic semantic graph, clustering
 
 ## Repository boundary
 
-`apps/wardrobe` is a portfolio source package rather than a root Bun workspace. It uses the repository's shared Expo dependency installation while remaining independently exportable through the portfolio Pages build.
+`apps/wardrobe` is a private package in the canonical root Bun workspace. The root lockfile and workspace contract own the shared Expo/React Native toolchain versions while Wardrobe remains independently exportable through the portfolio Pages build.
 
 ## Local checks
 

@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import { checkStoreRelease } from './check-store-release';
+import { checkDirectAndroidRelease, checkStoreRelease } from './check-store-release';
+
+type StorePlatform = 'android' | 'ios' | 'all';
 
 type EasBuild = {
   id?: string;
@@ -54,6 +56,10 @@ function normalizePlatform(value: string | undefined) {
   return value?.toLowerCase();
 }
 
+function targets(platform: StorePlatform) {
+  return platform === 'all' ? (['ios', 'android'] as const) : ([platform] as const);
+}
+
 function requireFinishedBuild(build: EasBuild, platform: 'ios' | 'android', sourceSha: string) {
   if (!build.id) {
     throw new Error(`${platform} build is missing an EAS Build ID`);
@@ -92,14 +98,25 @@ async function sha256(filePath: string) {
 
 async function main() {
   requireToken(releaseBuildToken);
-  await checkStoreRelease();
+  const requested = process.argv[2] ?? 'all';
+  const direct = requested === 'direct-android';
+  if (!direct && requested !== 'android' && requested !== 'ios' && requested !== 'all') {
+    throw new Error('usage: build-store-release.ts [android|ios|all|direct-android]');
+  }
+
+  const release = (await Bun.file('release.config.json').json()) as ReleaseConfig;
+  const platform = direct ? 'android' : (requested as StorePlatform);
+  const buildProfile = direct ? 'direct' : release.release.buildProfile;
+  if (direct) {
+    await checkDirectAndroidRelease();
+  } else {
+    await checkStoreRelease(platform);
+  }
 
   if (!/^\d+\.\d+\.\d+$/.test(easCliVersion)) {
     throw new Error('EAS_CLI_VERSION must be an exact semantic version');
   }
 
-  const release = (await Bun.file('release.config.json').json()) as ReleaseConfig;
-  const buildProfile = release.release.buildProfile;
   const sourceSha = (await runText(['git', 'rev-parse', 'HEAD'])).toLowerCase();
   if (!/^[0-9a-f]{40}$/.test(sourceSha)) {
     throw new Error('release build must start from an exact Git commit');
@@ -116,7 +133,7 @@ async function main() {
       'eas',
       'build',
       '--platform',
-      'all',
+      platform,
       '--profile',
       buildProfile,
       '--freeze-credentials',
@@ -126,80 +143,99 @@ async function main() {
     ],
     { EXPO_TOKEN: releaseBuildToken },
   );
-  const createdBuilds = parseJson<EasBuild[]>(buildOutput, 'eas build');
-  if (!Array.isArray(createdBuilds) || createdBuilds.length !== 2) {
-    throw new Error(`expected exactly two EAS builds, received ${createdBuilds.length}`);
+  const parsed = parseJson<EasBuild[] | EasBuild>(buildOutput, 'eas build');
+  const createdBuilds = Array.isArray(parsed) ? parsed : [parsed];
+  const expectedTargets = direct ? (['android'] as const) : targets(platform);
+  if (createdBuilds.length !== expectedTargets.length) {
+    throw new Error(`expected ${expectedTargets.length} EAS build(s), received ${createdBuilds.length}`);
   }
 
   const initialByPlatform = new Map(
     createdBuilds.map((build) => [normalizePlatform(build.platform), build]),
   );
-  const iosInitial = initialByPlatform.get('ios');
-  const androidInitial = initialByPlatform.get('android');
-  if (!iosInitial?.id || !androidInitial?.id) {
-    throw new Error('EAS build response must contain one iOS and one Android build ID');
+  const resolvedBuilds = new Map<'ios' | 'android', EasBuild>();
+  for (const target of expectedTargets) {
+    const initial = initialByPlatform.get(target);
+    if (!initial?.id) {
+      throw new Error(`EAS build response must contain a ${target} build ID`);
+    }
+    const build = parseJson<EasBuild>(
+      await runText(['eas', 'build:view', initial.id, '--json'], { EXPO_TOKEN: releaseBuildToken }),
+      `eas build:view ${initial.id}`,
+    );
+    requireFinishedBuild(build, target, sourceSha);
+    resolvedBuilds.set(target, build);
   }
 
-  const [iosBuild, androidBuild] = await Promise.all(
-    [iosInitial.id, androidInitial.id].map(async (id) =>
-      parseJson<EasBuild>(
-        await runText(['eas', 'build:view', id, '--json'], { EXPO_TOKEN: releaseBuildToken }),
-        `eas build:view ${id}`,
-      ),
-    ),
-  );
-
-  const ios = requireFinishedBuild(iosBuild, 'ios', sourceSha);
-  const android = requireFinishedBuild(androidBuild, 'android', sourceSha);
+  if (direct) {
+    const androidBuild = resolvedBuilds.get('android');
+    if (!androidBuild) throw new Error('direct Android build metadata is missing');
+    const android = requireFinishedBuild(androidBuild, 'android', sourceSha);
+    const root = path.resolve('.artifacts/android-direct');
+    await rm(root, { recursive: true, force: true });
+    await mkdir(root, { recursive: true });
+    const apkPath = path.join(root, 'app.apk');
+    await download(android.buildUrl, apkPath);
+    const digest = await sha256(apkPath);
+    await Bun.write(
+      path.join(root, 'android-direct.json'),
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          sourceSha,
+          buildProfile,
+          easCliVersion,
+          android: {
+            buildId: android.id,
+            path: 'app.apk',
+            sha256: digest,
+            appVersion: androidBuild.appVersion ?? null,
+            appBuildVersion: androidBuild.appBuildVersion ?? null,
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    console.log(`Qualified direct Android APK ${android.id}: sha256:${digest}`);
+    return;
+  }
 
   const root = path.resolve('.artifacts/mobile-release');
-  const iosDirectory = path.join(root, 'ios');
-  const androidDirectory = path.join(root, 'android');
   await rm(root, { recursive: true, force: true });
-  await mkdir(iosDirectory, { recursive: true });
-  await mkdir(androidDirectory, { recursive: true });
-
-  const iosPath = path.join(iosDirectory, 'app.ipa');
-  const androidPath = path.join(androidDirectory, 'app.aab');
-  await Promise.all([
-    download(ios.buildUrl, iosPath),
-    download(android.buildUrl, androidPath),
-  ]);
-
-  const [iosDigest, androidDigest] = await Promise.all([
-    sha256(iosPath),
-    sha256(androidPath),
-  ]);
-
-  const manifest = {
+  await mkdir(root, { recursive: true });
+  const manifest: Record<string, unknown> = {
     schemaVersion: 1,
     sourceSha,
     buildProfile,
     easCliVersion,
-    ios: {
-      buildId: ios.id,
-      path: 'ios/app.ipa',
-      sha256: iosDigest,
-      appVersion: iosBuild.appVersion ?? null,
-      appBuildVersion: iosBuild.appBuildVersion ?? null,
-    },
-    android: {
-      buildId: android.id,
-      path: 'android/app.aab',
-      sha256: androidDigest,
-      appVersion: androidBuild.appVersion ?? null,
-      appBuildVersion: androidBuild.appBuildVersion ?? null,
-    },
   };
+
+  for (const target of expectedTargets) {
+    const build = resolvedBuilds.get(target);
+    if (!build) throw new Error(`${target} build metadata is missing`);
+    const finished = requireFinishedBuild(build, target, sourceSha);
+    const directory = path.join(root, target);
+    await mkdir(directory, { recursive: true });
+    const filename = target === 'android' ? 'app.aab' : 'app.ipa';
+    const filePath = path.join(directory, filename);
+    await download(finished.buildUrl, filePath);
+    const digest = await sha256(filePath);
+    manifest[target] = {
+      buildId: finished.id,
+      path: `${target}/${filename}`,
+      sha256: digest,
+      appVersion: build.appVersion ?? null,
+      appBuildVersion: build.appBuildVersion ?? null,
+    };
+    console.log(`${target} build ${finished.id}: sha256:${digest}`);
+  }
 
   await Bun.write(
     path.join(root, 'mobile-release.json'),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
-
-  console.log(`Qualified EAS binaries for ${sourceSha}`);
-  console.log(`iOS build ${ios.id}: sha256:${iosDigest}`);
-  console.log(`Android build ${android.id}: sha256:${androidDigest}`);
+  console.log(`Qualified ${platform} EAS binaries for ${sourceSha}`);
 }
 
 await main();

@@ -1,0 +1,115 @@
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
+
+import {
+  buildCopierArgs,
+  createAppPlan,
+  parseCreateAppArgs,
+  registerWorkspace,
+} from './create-app';
+
+describe('parseCreateAppArgs', () => {
+  test('defaults to the smallest utility preset', () => {
+    assert.deepEqual(parseCreateAppArgs(['reading-list']), {
+      slug: 'reading-list',
+      appName: 'Reading List',
+      preset: 'utility',
+      navigation: 'stack',
+      dryRun: false,
+    });
+  });
+
+  test('maps standard to the local-first navigation baseline', () => {
+    assert.deepEqual(
+      parseCreateAppArgs([
+        'field-notes',
+        '--name',
+        'Field Notes',
+        '--preset',
+        'standard',
+      ]),
+      {
+        slug: 'field-notes',
+        appName: 'Field Notes',
+        preset: 'standard',
+        navigation: 'tabs',
+        dryRun: false,
+      },
+    );
+  });
+
+  test('preserves punctuation in human-readable app names', () => {
+    const options = parseCreateAppArgs(['reader-list', '--name', "Reader's List"]);
+    assert.equal(options.appName, "Reader's List");
+  });
+
+  test('rejects speculative presets instead of silently broadening the contract', () => {
+    assert.throws(
+      () => parseCreateAppArgs(['demo', '--preset', 'native']),
+      /Use utility or standard/,
+    );
+  });
+
+  test('rejects unsafe, ambiguous, or Android-invalid workspace slugs', () => {
+    for (const slug of ['BadName', '123-notes', 'two--hyphens', '../escape', 'trailing-']) {
+      assert.throws(() => parseCreateAppArgs([slug]), /Invalid app slug/);
+    }
+  });
+});
+
+describe('createAppPlan', () => {
+  test('maps public presets onto the canonical Copier profiles', () => {
+    const utility = createAppPlan(parseCreateAppArgs(['utility-fixture']));
+    const standard = createAppPlan(
+      parseCreateAppArgs(['standard-fixture', '--preset', 'standard']),
+    );
+
+    assert.equal(utility.profile, 'minimal');
+    assert.equal(standard.profile, 'local-first');
+    assert.equal(utility.packageName, '@expo-template/utility-fixture');
+    assert.equal(standard.workspacePath, 'apps/standard-fixture');
+  });
+
+  test('passes durable source identity through Copier rather than rewriting answers later', () => {
+    const plan = createAppPlan(
+      parseCreateAppArgs(['fixture', '--name', 'Fixture', '--navigation', 'tabs']),
+    );
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+    const args = buildCopierArgs(
+      plan,
+      'https://github.com/moritzbrantner/expo-template',
+      '/repo/apps/.create-fixture',
+      sha,
+    );
+
+    assert(args.includes('package_name=@expo-template/fixture'));
+    assert(args.includes('profile=minimal'));
+    assert(args.includes('navigation=tabs'));
+    assert.deepEqual(args.slice(0, 6), ['copy', '--trust', '--defaults', '--vcs-ref', sha, '--data']);
+    assert.deepEqual(args.slice(-2), [
+      'https://github.com/moritzbrantner/expo-template',
+      '/repo/apps/.create-fixture',
+    ]);
+  });
+});
+
+describe('registerWorkspace', () => {
+  test('adds a workspace once and keeps deterministic ordering', () => {
+    const input = JSON.stringify(
+      {
+        name: 'mobile',
+        workspaces: ['services/auth-api', 'apps/tasks'],
+        private: true,
+      },
+      null,
+      2,
+    );
+
+    const once = registerWorkspace(input, 'apps/habits');
+    const twice = registerWorkspace(once, 'apps/habits');
+    const parsed = JSON.parse(twice) as { workspaces: string[] };
+
+    assert.deepEqual(parsed.workspaces, ['apps/habits', 'apps/tasks', 'services/auth-api']);
+    assert.equal(twice, once);
+  });
+});

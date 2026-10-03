@@ -1,4 +1,4 @@
-FROM rust:1.88-bookworm AS builder
+FROM rust:1.88-bookworm@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0 AS builder
 
 ARG FOLDER_SERVER_REF=2122013bd47230429bf237bfc11c36d40fdbd25f
 
@@ -11,7 +11,7 @@ RUN mkdir -p /tmp/folder-server \
   && cargo build --release \
   && cp target/release/folder-server /usr/local/cargo/bin/folder-server
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
 
 WORKDIR /srv/folder-server
 

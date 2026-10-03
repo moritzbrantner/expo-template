@@ -15,12 +15,14 @@ test('keeps feeding-method configuration behind the settings gear', () => {
   const index = read('app/index.tsx');
   const settings = read('app/settings.tsx');
 
-  assert.match(layout, /headerTitle: 'Feeding Log'/);
+  assert.match(layout, /headerTitle: 'Feeding'/);
+  assert.match(layout, /accessibilityLabel="Open feeding log"/);
+  assert.match(layout, />📋</);
   assert.match(layout, /accessibilityLabel="Open stats"/);
   assert.match(layout, />📊</);
   assert.match(layout, /accessibilityLabel="Open settings"/);
   assert.match(layout, />⚙️</);
-  assert.match(layout, /marginRight: 12/);
+  assert.match(layout, /marginRight: 10/);
   assert.doesNotMatch(index, /BABY FEEDING|<Text style=\{styles\.heading\}>Feeding log/);
   assert.doesNotMatch(index, /Change setup|Current setup|Record only the feeding workflows/);
   assert.match(settings, /title: 'Breast milk'/);
@@ -42,7 +44,7 @@ test('keeps historical stats on a dedicated page', () => {
   assert.match(stats, /does not invent a milk volume/);
 });
 
-test('groups four-step adjustments into decrease and increase flex pairs', () => {
+test('orders amount adjustments from larger decrease through larger increase', () => {
   const index = read('app/index.tsx');
 
   assert.match(index, /stepRow: \{ flexDirection: 'row', gap: 7, marginTop: 8 \}/);
@@ -53,7 +55,7 @@ test('groups four-step adjustments into decrease and increase flex pairs', () =>
   );
   assert.match(
     index,
-    /styles\.stepGroup\}>\s*<StepButton\s*icon="\+\+"\s*label="\+10 ml"[\s\S]*?<StepButton\s*icon="\+"\s*label="\+5 ml"/,
+    /styles\.stepGroup\}>\s*<StepButton\s*icon="\+"\s*label="\+5 ml"[\s\S]*?<StepButton\s*icon="\+\+"\s*label="\+10 ml"/,
   );
   assert.match(
     index,
@@ -70,7 +72,7 @@ test('keeps date controls contextual and centers Now between time directions', (
 
   assert.match(index, /isEarlierLocalDay\(occurredAt, Date\.now\(\)\) \? \(/);
   assert.match(index, /accessibilityLabel="Set time to now"/);
-  assert.match(index, /icon="◎"\s*label="Now"/);
+  assert.match(index, /icon="◎" label="Now"/);
   assert.match(
     index,
     /label="−5 min"[\s\S]*?accessibilityLabel="Set time to now"[\s\S]*?label="\+1 h"/,
@@ -81,23 +83,21 @@ test('keeps date controls contextual and centers Now between time directions', (
   );
 });
 
-test('keeps history independently scrollable above a viewport-bottom recorder and record types on one row', () => {
+test('keeps the recorder on the main screen and history on a dedicated log page', () => {
+  const layout = read('app/_layout.tsx');
   const index = read('app/index.tsx');
-  const historyPosition = index.indexOf('contentContainerStyle={styles.historyContent}');
-  const composerPosition = index.indexOf('contentContainerStyle={styles.composerContent}');
+  const log = read('app/log.tsx');
 
-  assert.ok(historyPosition >= 0);
-  assert.ok(composerPosition > historyPosition);
-  assert.match(index, /<View style=\{styles\.screen\}>/);
-  assert.match(index, /historyScroll: \{ flex: 1, minHeight: 0 \}/);
-  assert.match(
-    index,
-    /composerScroll: \{[\s\S]*?flexGrow: 0,[\s\S]*?flexShrink: 1,[\s\S]*?maxHeight: '72%'/,
-  );
-  assert.doesNotMatch(index, /contentContainerStyle=\{styles\.content\}/);
+  assert.match(layout, /href="\/log"/);
+  assert.match(layout, /name="log" options=\{\{ headerShown: false \}\}/);
+  assert.match(index, /contentContainerStyle=\{styles\.content\}/);
+  assert.match(index, /<View style=\{styles\.composer\}>/);
   assert.match(index, /recordTypeRow: \{ flexDirection: 'row', gap: 8 \}/);
   assert.match(index, /<View style=\{styles\.recordTypeRow\}>/);
-  assert.doesNotMatch(index, /recordTypeRow:[^\n]*flexWrap/);
+  assert.doesNotMatch(index, /groupedEntries|Your feeding log will appear here|Delete .* record/);
+  assert.match(log, /const groupedEntries = useMemo/);
+  assert.match(log, /Your feeding log will appear here/);
+  assert.match(log, /accessibilityLabel=\{`Delete \$\{entryDeleteLabel\(entry\)\} record`\}/);
 });
 
 test('keeps bottle-used compact and lets recording buttons use icons, text, or both', () => {

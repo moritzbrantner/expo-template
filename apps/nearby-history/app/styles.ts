@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
   },
   setupContent: {
     alignSelf: 'center',
-    flex: 1,
+    flexGrow: 1,
     gap: 22,
     justifyContent: 'center',
     maxWidth: 620,

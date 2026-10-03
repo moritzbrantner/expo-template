@@ -139,7 +139,7 @@
     {
       "slug": "nearby-history",
       "name": "Nearby History",
-      "description": "Align a sourced reconstruction with a known historical place and blend between the present view and the past.",
+      "description": "Field calibration demo: world-lock a procedural, unsourced reconstruction fixture to a manually marked viewpoint and blend it with the present view.",
       "category": "History",
       "status": "preview",
       "source": "apps/nearby-history"

@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ARExperience } from '../components/ar-experience';
@@ -37,7 +37,7 @@ const trackingCopy: Record<ARTrackingState, { label: string; detail: string }> =
 function SetupScreen({ onStart }: { onStart: () => void }) {
   return (
     <SafeAreaView style={styles.setupSafeArea}>
-      <View style={styles.setupContent}>
+      <ScrollView contentContainerStyle={styles.setupContent}>
         <View>
           <Text style={styles.eyebrow}>HORIZON 1 · MANUAL REGISTRATION</Text>
           <Text style={styles.title}>Nearby History</Text>
@@ -78,7 +78,7 @@ function SetupScreen({ onStart }: { onStart: () => void }) {
             {Platform.OS === 'web' ? 'Open blend preview' : 'Start aligned view'}
           </Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

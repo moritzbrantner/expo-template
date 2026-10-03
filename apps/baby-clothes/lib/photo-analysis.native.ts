@@ -20,17 +20,29 @@ export async function analyseBabyClothingPhotoColor(
     compress: 0.9,
   });
 
-  const bytes = await new File(result.uri).bytes();
-  const decoded = decode(bytes, {
-    useTArray: true,
-    formatAsRGBA: true,
-    maxResolutionInMP: 1,
-    maxMemoryUsageInMB: 16,
-  });
+  const derivative = new File(result.uri);
+  try {
+    const bytes = await derivative.bytes();
+    const decoded = decode(bytes, {
+      useTArray: true,
+      formatAsRGBA: true,
+      maxResolutionInMP: 1,
+      maxMemoryUsageInMB: 16,
+    });
 
-  return suggestBabyClothingColorFromPixels(
-    decoded.data as Uint8Array,
-    decoded.width,
-    decoded.height,
-  );
+    return suggestBabyClothingColorFromPixels(
+      decoded.data as Uint8Array,
+      decoded.width,
+      decoded.height,
+    );
+  } finally {
+    // The downscaled analysis copy is user image data; do not leave it in the cache.
+    try {
+      if (derivative.exists) {
+        derivative.delete();
+      }
+    } catch {
+      // Best effort: the OS evicts cache files eventually.
+    }
+  }
 }

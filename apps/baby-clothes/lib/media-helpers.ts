@@ -51,3 +51,16 @@ export function inlineBabyClothingPhoto(
     createdAt: now.toISOString(),
   };
 }
+
+/** Total inline photo payload the web catalog may keep in browser storage (~5 MiB quota). */
+export const WEB_INLINE_PHOTO_BUDGET = 3_500_000;
+
+export function inlinePhotoStorageSize(photos: Iterable<Pick<BabyClothingPhoto, 'kind' | 'uri'>>) {
+  let total = 0;
+  for (const photo of photos) {
+    if (photo.kind === 'inline-data') {
+      total += photo.uri.length;
+    }
+  }
+  return total;
+}

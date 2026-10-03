@@ -155,6 +155,7 @@ export const styles = StyleSheet.create({
   trackingCard: {
     backgroundColor: 'rgba(15, 18, 21, 0.82)',
     borderRadius: 14,
+    flexShrink: 1,
     maxWidth: 330,
     paddingHorizontal: 14,
     paddingVertical: 11,

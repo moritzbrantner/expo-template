@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Nearby History",
+    "slug": "nearby-history",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "nearby-history",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Nearby History uses the rear camera to align a historical reconstruction with the place in front of you."
+      }
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["CAMERA"]
+    },
+    "web": {
+      "output": "single"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

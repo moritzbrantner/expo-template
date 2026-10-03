@@ -185,6 +185,26 @@
         "typescript": "6.0.3",
       },
     },
+    "apps/nearby-history": {
+      "name": "@expo-template/nearby-history",
+      "version": "0.1.0",
+      "dependencies": {
+        "@reactvision/react-viro": "2.58.1",
+        "expo": "~57.0.22",
+        "expo-router": "~57.0.21",
+        "expo-status-bar": "~57.0.1",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
+        "react-native": "0.86.3",
+        "react-native-safe-area-context": "~5.7.0",
+        "react-native-screens": "~4.26.0",
+        "react-native-web": "~0.21.2",
+      },
+      "devDependencies": {
+        "@types/react": "~19.2.14",
+        "typescript": "6.0.3",
+      },
+    },
     "apps/photos": {
       "name": "@expo-template/photos",
       "version": "0.1.0",
@@ -458,6 +478,8 @@
 
     "@expo-template/money": ["@expo-template/money@workspace:apps/money"],
 
+    "@expo-template/nearby-history": ["@expo-template/nearby-history@workspace:apps/nearby-history"],
+
     "@expo-template/photos": ["@expo-template/photos@workspace:apps/photos"],
 
     "@expo-template/tasks": ["@expo-template/tasks@workspace:apps/tasks"],
@@ -637,6 +659,8 @@
     "@react-native/normalize-colors": ["@react-native/normalize-colors@0.86.3", "", {}, "sha512-Cv3CDkprb67GrzuaS9BGbBJC/6G4lIw3nyKOHRKTqTTum4bn37y5+R0Z04L8mcbQN85eEohNrRwb7IOM4j6uvg=="],
 
     "@react-native/virtualized-lists": ["@react-native/virtualized-lists@0.86.3", "", { "dependencies": { "invariant": "^2.2.4", "nullthrows": "^1.1.1" }, "peerDependencies": { "@types/react": "^19.2.0", "react": "*", "react-native": "0.86.3" }, "optionalPeers": ["@types/react"] }, "sha512-1j44NEyNn05Ut40vHAmoSWbsIcybFkMAOBTwQt1PrESyfSS+qBoyU1LGIogNva0VIa0rQyEC5PzbA7R4/7Nhyw=="],
+
+    "@reactvision/react-viro": ["@reactvision/react-viro@2.58.1", "", { "peerDependencies": { "@reactvision/viro-web-renderer": ">=0.0.1", "expo": ">=55.0.0 <58.0.0", "react": ">=18.0.0", "react-native": ">=0.83.0 <0.87.0", "react-native-web": ">=0.19.0" }, "optionalPeers": ["@reactvision/viro-web-renderer", "expo", "react-native-web"] }, "sha512-BHlS7geHXS8354mGzSoyjjhg9d3E1QLJh+6+YIt89yuaz34JT3EWw2KV/Ikglfo71CKIO3Nj1A3tGf7/giogUA=="],
 
     "@rtsao/scc": ["@rtsao/scc@1.1.0", "", {}, "sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g=="],
 

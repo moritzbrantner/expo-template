@@ -163,9 +163,10 @@
     {
       "slug": "nearby-history",
       "name": "Nearby History",
-      "description": "Surface local stories about buildings, streets, churches, monasteries, rulers, and traditions.",
+      "description": "Field calibration demo: world-lock a procedural, unsourced reconstruction fixture to a manually marked viewpoint and blend it with the present view.",
       "category": "History",
-      "status": "planned"
+      "status": "preview",
+      "source": "apps/nearby-history"
     }
   ]
 }

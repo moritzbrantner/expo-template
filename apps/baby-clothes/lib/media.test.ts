@@ -5,7 +5,7 @@ import {
   babyClothingPhotoBaseName,
   babyClothingPhotoExtension,
   inlineBabyClothingPhoto,
-} from './media';
+} from './media-helpers';
 
 describe('baby clothing photo helpers', () => {
   test('creates filesystem-safe local photo names', () => {

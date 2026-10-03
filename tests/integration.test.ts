@@ -17,7 +17,8 @@ test('navigation surface exposes the social app shell and username profile route
   const tabsSource = readFileSync(path.join(projectRoot, 'app/(app)/(tabs)/_layout.tsx'), 'utf8');
   const stackSource = readFileSync(path.join(projectRoot, 'app/_layout.tsx'), 'utf8');
 
-  assert.match(tabsSource, /name="index"/);
+  assert.match(tabsSource, /name="home"/);
+  assert.doesNotMatch(tabsSource, /name="index"/);
   assert.match(tabsSource, /name="discover"/);
   assert.match(tabsSource, /name="activity"/);
   assert.match(tabsSource, /name="me"/);
@@ -26,6 +27,8 @@ test('navigation surface exposes the social app shell and username profile route
   assert.doesNotMatch(tabsSource, /name="settings"/);
   assert.match(stackSource, /name="\(public\)"/);
   assert.match(stackSource, /name="\(app\)"/);
+  assert.ok(readFileSync(path.join(projectRoot, 'app/(public)/index.tsx'), 'utf8').includes('Social app-shell baseline'));
+  assert.ok(readFileSync(path.join(projectRoot, 'app/(app)/(tabs)/home.tsx'), 'utf8').includes('Signed in as'));
   assert.ok(readFileSync(path.join(projectRoot, 'app/(public)/u/[username].tsx'), 'utf8').includes('profile-follow-button'));
 });
 

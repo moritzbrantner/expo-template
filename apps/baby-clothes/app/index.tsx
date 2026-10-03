@@ -391,19 +391,26 @@ export default function BabyClothesScreen() {
         ? updateBabyClothingEntry(editor.existing, editor.draft)
         : createBabyClothingEntry(editor.draft, editor.id);
 
-      setEntries((current) =>
-        editor.existing
-          ? current.map((entry) => (entry.id === next.id ? next : entry))
-          : [next, ...current],
-      );
+      const nextEntries = editor.existing
+        ? entries.map((entry) => (entry.id === next.id ? next : entry))
+        : [next, ...entries];
+      setEntries(nextEntries);
       editorSession.current += 1;
 
       const retainedUris = new Set(next.photos.map((photo) => photo.uri));
       const removedPhotos =
         editor.existing?.photos.filter((photo) => !retainedUris.has(photo.uri)) ?? [];
-      await Promise.all(removedPhotos.map((photo) => removeBabyClothingPhoto(photo))).catch(
-        () => undefined,
-      );
+      if (removedPhotos.length > 0) {
+        // Persist the edit before erasing photos so the saved entry never points at deleted files.
+        const persisted = await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextEntries))
+          .then(() => true)
+          .catch(() => false);
+        if (persisted) {
+          await Promise.all(removedPhotos.map((photo) => removeBabyClothingPhoto(photo))).catch(
+            () => undefined,
+          );
+        }
+      }
 
       setEditor(null);
       setEditorError(null);

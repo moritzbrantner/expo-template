@@ -8,13 +8,13 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   BABY_CLOTHING_CATEGORIES,
@@ -257,6 +257,11 @@ export default function BabyClothesScreen() {
       return;
     }
     updateDraft({ photos: editor.draft.photos.filter((candidate) => candidate.id !== photo.id) });
+    const savedWithEntry = editor.existing?.photos.some((saved) => saved.uri === photo.uri) ?? false;
+    if (!savedWithEntry) {
+      // Added during this edit session: nothing else references the managed copy.
+      void removeBabyClothingPhoto(photo).catch(() => undefined);
+    }
   }
 
   async function cancelEditor() {

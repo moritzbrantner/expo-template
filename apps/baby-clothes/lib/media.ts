@@ -18,7 +18,9 @@ export async function persistBabyClothingPhoto(
   timestamp = Date.now(),
 ): Promise<BabyClothingPhoto> {
   if (Platform.OS === 'web') {
-    return inlineBabyClothingPhoto(asset, photoId, new Date(timestamp));
+    const photo = inlineBabyClothingPhoto(asset, photoId, new Date(timestamp));
+    const { downscaleWebPhotoDataUri } = await import('./web-photo');
+    return { ...photo, uri: await downscaleWebPhotoDataUri(photo.uri) };
   }
 
   const { Directory, File, Paths } = await import('expo-file-system');

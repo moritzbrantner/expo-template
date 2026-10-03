@@ -129,7 +129,7 @@ export const BABY_CLOTHING_PREVIEW_ENTRIES: readonly BabyClothingEntry[] = [
     quantity: 1,
     status: 'dirty',
     photos: [previewPhoto('rust-leggings', 'leggings', '#f0e6df', '#b87559', '#6f5145')],
-    notes: 'Synthetic preview data never enters the saved local inventory.',
+    notes: 'Synthetic preview example, seeded once into this browser\'s local inventory. Delete it when no longer useful.',
     createdAt: PREVIEW_TIME,
     updatedAt: PREVIEW_TIME,
   },

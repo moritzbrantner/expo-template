@@ -58,6 +58,22 @@
       "source": "apps/contractions"
     },
     {
+      "slug": "baby-feeding",
+      "name": "Baby Feeding",
+      "description": "A private local-first log for breast-milk and formula feeds, bottle amounts, times, and pumping sessions.",
+      "category": "Family",
+      "status": "preview",
+      "source": "apps/baby-feeding"
+    },
+    {
+      "slug": "gifts",
+      "name": "Gift Tracker",
+      "description": "A private local-first record of gifts received, given, and planned, with explicit regift provenance warnings.",
+      "category": "Relationships",
+      "status": "preview",
+      "source": "apps/gifts"
+    },
+    {
       "slug": "flashlight",
       "name": "Flashlight",
       "description": "A deliberately tiny flashlight utility with no unnecessary account or tracking.",
@@ -84,6 +100,14 @@
       "description": "Plain notes with user control, portability, and a calm editing experience.",
       "category": "Everyday",
       "status": "planned"
+    },
+    {
+      "slug": "books",
+      "name": "Books",
+      "description": "A local-first reading library with ISBN scanning, book metadata, private notes, and considered reviews.",
+      "category": "Reflection",
+      "status": "preview",
+      "source": "apps/books"
     },
     {
       "slug": "calculator",

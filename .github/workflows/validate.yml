@@ -1,18 +1,17 @@
 name: Validate
 
 on:
-  push:
   pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   validate:
     permissions:
       contents: read
       packages: read
-    uses: moritzbrantner/reusable-workflows/.github/workflows/validate-repo.yml@scaffold-v2-initial
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@main
     with:
-      test_command: bun test
-      lint_command: bun run lint
-      typecheck_command: bunx tsc --noEmit
-      build_command: bun run build
-      post_validate_command: bunx expo-doctor
+      command: ${{ github.event_name == 'pull_request' && 'bun run lint && bunx tsc --noEmit && bun test && EXPO_OFFLINE=1 bunx expo-doctor' || 'bun run lint && bunx tsc --noEmit && bun test && bun run build && EXPO_OFFLINE=1 bunx expo-doctor' }}

@@ -36,7 +36,6 @@ export default function SignInScreen() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-
   async function handleSubmit() {
     const validationError = validateSignIn(email, password);
 
@@ -51,7 +50,7 @@ export default function SignInScreen() {
 
     try {
       await signIn({ email: email.trim(), password });
-      router.replace('/(app)' as Href);
+      router.replace('/home' as Href);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to sign in.');
     } finally {

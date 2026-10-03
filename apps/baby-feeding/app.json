@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Baby Feeding",
+    "slug": "baby-feeding",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "baby-feeding",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createLocalJsonStore } from '@expo-template/local-storage';
 import { Link, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +33,11 @@ import {
 } from '../lib/tasks';
 
 const STORAGE_KEY = '@expo-template/tasks/list-v1';
+const taskStorage = createLocalJsonStore<Task[]>({
+  key: STORAGE_KEY,
+  deserialize: deserializeTasks,
+  fallback: () => [],
+});
 const FILTERS: { value: TaskFilter; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'all', label: 'All' },
@@ -130,6 +136,8 @@ export default function TasksApp() {
   const [draft, setDraft] = useState('');
   const [filter, setFilter] = useState<TaskFilter>('open');
   const [hydrated, setHydrated] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const hydratedRef = useRef(false);
   const [dictationMode, setDictationMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [dictationStatus, setDictationStatus] = useState<string | null>(null);
@@ -139,22 +147,22 @@ export default function TasksApp() {
   const draftRef = useRef('');
   const inputRef = useRef<TextInput>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const shouldFinishDictationRef = useRef(false);
 
   useEffect(() => {
     let active = true;
 
-    void AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
+    void taskStorage.load()
+      .then((storedTasks) => {
         if (active) {
-          setTasks(deserializeTasks(stored));
+          setTasks(storedTasks);
+          hydratedRef.current = true;
+          setHydrated(true);
         }
       })
       .catch(() => {
-        // A damaged or unavailable local cache should not prevent the task list from opening.
-      })
-      .finally(() => {
         if (active) {
-          setHydrated(true);
+          setStorageError('Reload before making changes so existing tasks stay safe.');
         }
       });
 
@@ -169,7 +177,7 @@ export default function TasksApp() {
     }
 
     const timer = setTimeout(() => {
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      void taskStorage.save(tasks);
     }, 150);
 
     return () => clearTimeout(timer);
@@ -224,7 +232,8 @@ export default function TasksApp() {
 
   const addTaskTitles = (titles: readonly string[]) => {
     const normalizedTitles = titles.map((title) => title.trim()).filter(Boolean);
-    if (normalizedTitles.length === 0) {
+    // Dictation callbacks can outlive the render that created them, so read the ref.
+    if (!hydratedRef.current || normalizedTitles.length === 0) {
       return;
     }
 
@@ -237,7 +246,7 @@ export default function TasksApp() {
 
   const addTask = () => {
     const title = draftRef.current.trim();
-    if (!title) {
+    if (!hydrated || !title) {
       return;
     }
 
@@ -246,6 +255,7 @@ export default function TasksApp() {
   };
 
   const finishDictation = () => {
+    shouldFinishDictationRef.current = true;
     const recognition = recognitionRef.current;
     if (recognition) {
       setDictationStatus('Finishing dictation…');
@@ -278,6 +288,7 @@ export default function TasksApp() {
   };
 
   const startDictation = () => {
+    shouldFinishDictationRef.current = false;
     setDictationMode(true);
 
     const Recognition = getBrowserSpeechRecognitionConstructor();
@@ -329,11 +340,28 @@ export default function TasksApp() {
         return;
       }
 
+      if (!shouldFinishDictationRef.current) {
+        try {
+          recognitionRef.current = recognition;
+          recognition.start();
+          setIsListening(true);
+          setDictationStatus(
+            `Listening… “${dictationCommands.next}” starts another task. “${dictationCommands.done}” finishes dictation.`,
+          );
+        } catch {
+          recognitionRef.current = null;
+          setDictationStatus('Speech recognition paused. Use the keyboard microphone to keep dictating.');
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }
+        return;
+      }
+
       const remainingTitle = draftRef.current.trim();
       if (remainingTitle) {
         addTaskTitles([remainingTitle]);
       }
       updateDraft('');
+      shouldFinishDictationRef.current = false;
       setDictationMode(false);
       setDictationStatus(null);
     };
@@ -386,6 +414,9 @@ export default function TasksApp() {
           <Text style={styles.summary}>
             {openCount} open · {doneCount} done
           </Text>
+          {!hydrated ? (
+            <Text style={styles.summary}>{storageError ?? 'Loading saved tasks…'}</Text>
+          ) : null}
 
           <View style={styles.composer}>
             <TextInput
@@ -409,11 +440,11 @@ export default function TasksApp() {
             />
             <Pressable
               accessibilityRole="button"
-              disabled={!draft.trim()}
+              disabled={!hydrated || !draft.trim()}
               onPress={addTask}
               style={({ pressed }) => [
                 styles.addButton,
-                !draft.trim() && styles.addButtonDisabled,
+                (!hydrated || !draft.trim()) && styles.addButtonDisabled,
                 pressed && styles.pressed,
               ]}>
               <Text style={styles.addButtonText}>Add</Text>
@@ -507,9 +538,21 @@ export default function TasksApp() {
             </Pressable>
           ) : null}
 
-          <Text style={styles.footer}>
-            Tasks stay stored on this device. Speech recognition is handled by your browser or keyboard provider.
-          </Text>
+          <View style={styles.footerRow}>
+            <Text style={styles.footer}>
+              Tasks stay stored on this device. Speech recognition is handled by your browser or
+              keyboard provider.
+            </Text>
+            <Link href="/about" asChild>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="About"
+                hitSlop={8}
+                style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}>
+                <Text style={styles.aboutText}>About</Text>
+              </Pressable>
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -702,11 +745,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   clearText: { color: '#675d57', fontSize: 13, fontWeight: '700' },
+  footerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    gap: 10,
+    marginTop: 28,
+  },
   footer: {
     color: '#868b86',
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 28,
+  },
+  aboutLink: {
+    paddingVertical: 2,
+  },
+  aboutText: {
+    color: '#737a74',
+    fontSize: 12,
+    lineHeight: 18,
+    textDecorationLine: 'underline',
   },
   pressed: { opacity: 0.68 },
 });

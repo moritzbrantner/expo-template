@@ -5,6 +5,7 @@ import {
   babyClothingPhotoBaseName,
   babyClothingPhotoExtension,
   inlineBabyClothingPhoto,
+  inlinePhotoStorageSize,
 } from './media-helpers';
 
 describe('baby clothing photo helpers', () => {
@@ -39,5 +40,16 @@ describe('baby clothing photo helpers', () => {
       uri: 'data:image/png;base64,ZmFrZQ==',
       createdAt: '2026-09-05T10:00:00.000Z',
     });
+  });
+
+  test('counts only inline web photo payloads toward the browser budget', () => {
+    assert.equal(
+      inlinePhotoStorageSize([
+        { kind: 'inline-data', uri: 'data:image/jpeg;base64,AAAA' },
+        { kind: 'managed-file', uri: 'file:///photos/one.jpg' },
+        { kind: 'inline-data', uri: 'data:x' },
+      ]),
+      'data:image/jpeg;base64,AAAA'.length + 'data:x'.length,
+    );
   });
 });

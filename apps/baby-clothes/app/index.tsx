@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -34,6 +34,7 @@ import {
   type BabyClothingStatusFilter,
 } from '../lib/clothing';
 import { persistBabyClothingPhoto, removeBabyClothingPhoto } from '../lib/media';
+import { WEB_INLINE_PHOTO_BUDGET, inlinePhotoStorageSize } from '../lib/media-helpers';
 
 const STORAGE_KEY = 'baby-clothes.entries-v1';
 
@@ -137,6 +138,8 @@ export default function BabyClothesScreen() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoStatus, setPhotoStatus] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
+  // Bumped whenever an editor opens or closes so late photo copies can be cleaned up.
+  const editorSession = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -173,6 +176,7 @@ export default function BabyClothesScreen() {
   );
 
   function openNewEntry() {
+    editorSession.current += 1;
     setEditor({ id: makeId('clothes'), existing: null, draft: newDraft() });
     setEditorError(null);
     setPhotoStatus(null);
@@ -180,6 +184,7 @@ export default function BabyClothesScreen() {
   }
 
   function openEntry(entry: BabyClothingEntry) {
+    editorSession.current += 1;
     setEditor({ id: entry.id, existing: entry, draft: draftFromEntry(entry) });
     setEditorError(null);
     setPhotoStatus(null);
@@ -199,6 +204,7 @@ export default function BabyClothesScreen() {
       return;
     }
 
+    const session = editorSession.current;
     setPhotoBusy(true);
     setPhotoStatus(null);
     try {
@@ -237,6 +243,21 @@ export default function BabyClothesScreen() {
         result.assets[0],
         makeId('photo'),
       );
+      if (session !== editorSession.current) {
+        // The editor closed while the photo was being copied; nothing references the copy.
+        await removeBabyClothingPhoto(photo).catch(() => undefined);
+        return;
+      }
+      if (photo.kind === 'inline-data') {
+        const otherPhotos = [
+          ...entries.filter((entry) => entry.id !== editor.id).flatMap((entry) => entry.photos),
+          ...editor.draft.photos,
+        ];
+        if (inlinePhotoStorageSize([...otherPhotos, photo]) > WEB_INLINE_PHOTO_BUDGET) {
+          setPhotoStatus('Browser storage has no room for another photo. Remove a photo first.');
+          return;
+        }
+      }
       setEditor((current) =>
         current && current.id === editor.id
           ? {
@@ -268,6 +289,7 @@ export default function BabyClothesScreen() {
     if (!editor) {
       return;
     }
+    editorSession.current += 1;
     const originalUris = new Set(editor.existing?.photos.map((photo) => photo.uri) ?? []);
     const addedPhotos = editor.draft.photos.filter((photo) => !originalUris.has(photo.uri));
     await Promise.all(addedPhotos.map((photo) => removeBabyClothingPhoto(photo))).catch(() => undefined);
@@ -292,6 +314,7 @@ export default function BabyClothesScreen() {
           ? current.map((entry) => (entry.id === next.id ? next : entry))
           : [next, ...current],
       );
+      editorSession.current += 1;
 
       const retainedUris = new Set(next.photos.map((photo) => photo.uri));
       const removedPhotos =
@@ -318,12 +341,27 @@ export default function BabyClothesScreen() {
       return;
     }
 
-    await Promise.all(editor.existing.photos.map((photo) => removeBabyClothingPhoto(photo))).catch(
-      () => undefined,
-    );
-    setEntries((current) => current.filter((entry) => entry.id !== editor.existing?.id));
+    const existing = editor.existing;
+    const remaining = entries.filter((entry) => entry.id !== existing.id);
+    try {
+      // Persist the removal before erasing photos so a failed write never orphans the entry.
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+    } catch {
+      setEditorError('The clothing entry could not be deleted. Try again.');
+      return;
+    }
+
+    editorSession.current += 1;
+    setEntries(remaining);
     setEditor(null);
     setDeleteArmed(false);
+
+    const photos = new Map(
+      [...existing.photos, ...editor.draft.photos].map((photo) => [photo.uri, photo]),
+    );
+    await Promise.all([...photos.values()].map((photo) => removeBabyClothingPhoto(photo))).catch(
+      () => undefined,
+    );
   }
 
   return (

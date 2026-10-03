@@ -19,25 +19,12 @@ export const styles = StyleSheet.create({
     paddingVertical: 28,
     width: '100%',
   },
-  eyebrow: {
-    color: '#aeb7be',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
   title: {
     color: '#ffffff',
     fontSize: 42,
     fontWeight: '800',
     letterSpacing: -1.5,
     marginTop: 8,
-  },
-  lede: {
-    color: '#c7ced3',
-    fontSize: 17,
-    lineHeight: 25,
-    marginTop: 12,
-    maxWidth: 560,
   },
   siteCard: {
     backgroundColor: '#1a1f23',
@@ -100,19 +87,6 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginTop: 4,
-  },
-  boundary: {
-    gap: 5,
-  },
-  boundaryTitle: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  boundaryCopy: {
-    color: '#89939a',
-    fontSize: 12,
-    lineHeight: 18,
   },
   startButton: {
     alignItems: 'center',

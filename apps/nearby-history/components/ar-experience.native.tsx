@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import type { ARTrackingState } from '../lib/ar';
 import type { ReconstructionSite } from '../lib/site';
@@ -131,7 +131,8 @@ export function ARExperience({ site, blend, onTrackingState }: Props) {
   return (
     <View style={styles.fill}>
       <ViroARSceneNavigator
-        autofocus
+        // ARCore tracks best with its default fixed focus; only iOS opts into autofocus.
+        autofocus={Platform.OS === 'ios'}
         initialScene={{ scene: ReconstructionScene }}
         style={styles.fill}
         viroAppProps={{ site, blend, onTrackingState }}

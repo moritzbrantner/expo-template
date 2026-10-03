@@ -38,14 +38,7 @@ function SetupScreen({ onStart }: { onStart: () => void }) {
   return (
     <SafeAreaView style={styles.setupSafeArea}>
       <ScrollView contentContainerStyle={styles.setupContent}>
-        <View>
-          <Text style={styles.eyebrow}>HORIZON 1 · MANUAL REGISTRATION</Text>
-          <Text style={styles.title}>Nearby History</Text>
-          <Text style={styles.lede}>
-            Prove one historical reconstruction can stay aligned with a known place before adding
-            automatic building recognition.
-          </Text>
-        </View>
+        <Text style={styles.title}>Nearby History</Text>
 
         <View style={styles.siteCard}>
           <Text style={styles.cardLabel}>CURRENT FIELD FIXTURE</Text>
@@ -57,19 +50,6 @@ function SetupScreen({ onStart }: { onStart: () => void }) {
           <Text style={styles.calibration}>{calibrationSummary(site)}</Text>
         </View>
 
-        <View style={styles.disclosure}>
-          <Text style={styles.disclosureTitle}>Technical demo — not historical evidence</Text>
-          <Text style={styles.disclosureCopy}>{site.evidence.note}</Text>
-        </View>
-
-        <View style={styles.boundary}>
-          <Text style={styles.boundaryTitle}>This horizon intentionally excludes</Text>
-          <Text style={styles.boundaryCopy}>
-            building recognition · GPS/VPS alignment · façade matching · depth occlusion · multiple
-            sites
-          </Text>
-        </View>
-
         <Pressable
           accessibilityRole="button"
           onPress={onStart}
@@ -78,6 +58,11 @@ function SetupScreen({ onStart }: { onStart: () => void }) {
             {Platform.OS === 'web' ? 'Open blend preview' : 'Start aligned view'}
           </Text>
         </Pressable>
+
+        <View style={styles.disclosure}>
+          <Text style={styles.disclosureTitle}>Technical demo — not historical evidence</Text>
+          <Text style={styles.disclosureCopy}>{site.evidence.note}</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Baby Clothes",
+    "slug": "baby-clothes",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "baby-clothes",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Baby Clothes to choose photos of clothing items.",
+          "cameraPermission": "Allow Baby Clothes to take photos of clothing items.",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

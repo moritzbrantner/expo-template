@@ -69,8 +69,8 @@ jobs:
           if (!packageJson.scripts?.['release:preflight'] || !packageJson.scripts?.['release:qualify'] || !packageJson.scripts?.['release:build']) throw new Error('converter release scripts are incomplete');
           if (!buildScript.includes("'--freeze-credentials'") || !buildScript.includes("'--non-interactive'") || !buildScript.includes('mobile-release.json')) throw new Error('converter build must preserve exact EAS binary evidence');
 
-          const refs = [...workflow.matchAll(/moritzbrantner\/reusable-workflows\/\.github\/workflows\/[A-Za-z0-9._-]+@(main)/g)].map((match) => match[1]);
-          if (refs.length !== 3 || new Set(refs).size !== 1) throw new Error('converter release workflow must use the current reusable-workflows branch');
+          const refs = [...workflow.matchAll(/moritzbrantner\/reusable-workflows\/\.github\/workflows\/[A-Za-z0-9._-]+@([^\s#]+)/g)].map((match) => match[1]);
+          if (refs.length !== 3 || new Set(refs).size !== 1 || refs.some((ref) => !/^(?:main|[a-f0-9]{40})$/.test(ref))) throw new Error('converter release workflow must use one consistent main or exact commit reference');
           if (!workflow.includes('working_directory: apps/converter')) throw new Error('converter release workflow must execute in the converter project');
           if (!workflow.includes('artifact_paths: apps/converter/.artifacts/mobile-release')) throw new Error('converter release workflow must preserve the exact app-local artifact');
           if (!workflow.includes('build_token:') || !workflow.includes('secrets.EXPO_TOKEN')) throw new Error('converter build credential must use the opaque build seam');

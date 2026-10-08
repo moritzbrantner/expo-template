@@ -111,8 +111,8 @@ jobs:
           if (!releaseBuild.includes("'--non-interactive'")) throw new Error('release build must be non-interactive');
           if (!releasePreflight.includes('submit.internal.ios.ascAppId')) throw new Error('release preflight must require App Store Connect identity');
 
-          const refs = [...mobileRelease.matchAll(/moritzbrantner\/reusable-workflows\/\.github\/workflows\/[A-Za-z0-9._-]+@(main)/g)].map((match) => match[1]);
-          if (refs.length !== 3 || new Set(refs).size !== 1) throw new Error('mobile release workflow must use the current reusable-workflows branch');
+          const refs = [...mobileRelease.matchAll(/moritzbrantner\/reusable-workflows\/\.github\/workflows\/[A-Za-z0-9._-]+@([^\s#]+)/g)].map((match) => match[1]);
+          if (refs.length !== 3 || new Set(refs).size !== 1 || refs.some((ref) => !/^(?:main|[a-f0-9]{40})$/.test(ref))) throw new Error('mobile release workflow must use one consistent main or exact commit reference');
           if (!mobileRelease.includes('artifact_paths: .artifacts/mobile-release')) throw new Error('mobile release workflow must preserve the mobile release artifact');
           if (!mobileRelease.includes('build_token:') || !mobileRelease.includes('secrets.EXPO_TOKEN')) throw new Error('mobile qualification must pass Expo credentials only through build_token');
           if (!mobileRelease.includes('expo_token:')) throw new Error('mobile delivery must pass Expo credentials through the terminal delivery seam');

@@ -49,6 +49,27 @@
         "typescript": "6.0.3",
       },
     },
+    "apps/baby-clothes": {
+      "name": "@expo-template/baby-clothes",
+      "version": "0.1.0",
+      "dependencies": {
+        "@react-native-async-storage/async-storage": "2.2.0",
+        "expo": "~57.0.22",
+        "expo-file-system": "~57.0.7",
+        "expo-image-picker": "~57.0.17",
+        "expo-router": "~57.0.21",
+        "expo-status-bar": "~57.0.1",
+        "react": "19.2.3",
+        "react-native": "0.86.3",
+        "react-native-safe-area-context": "~5.7.0",
+        "react-native-screens": "~4.26.0",
+        "react-native-web": "~0.21.2",
+      },
+      "devDependencies": {
+        "@types/react": "~19.2.14",
+        "typescript": "6.0.3",
+      },
+    },
     "apps/baby-feeding": {
       "name": "@expo-template/baby-feeding",
       "version": "0.1.0",
@@ -461,6 +482,8 @@
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
 
     "@expo-google-fonts/material-symbols": ["@expo-google-fonts/material-symbols@0.4.32", "", {}, "sha512-+RtX6GNteOQEycWKcliKtHYQ3NvFamuD4ZCb7MLwzImkZwxRXjUO1kSVV5FFB2koK5WNYwUCye2KkDp8LFD1SQ=="],
+
+    "@expo-template/baby-clothes": ["@expo-template/baby-clothes@workspace:apps/baby-clothes"],
 
     "@expo-template/baby-feeding": ["@expo-template/baby-feeding@workspace:apps/baby-feeding"],
 

@@ -65,7 +65,7 @@ jobs:
           }
           NODE
       - name: Plan mobile remediation
-        uses: moritzbrantner/coding-tooling@0beeb6d1d6902f091e1f5169433c4ed42c901167 # main
+        uses: moritzbrantner/coding-tooling@9520016793319fb0b003218277129fa464b5bde8 # main
         with:
           operation: remediation-plan
           report-path: .artifacts/coding-tooling/mobile-remediation-plan.json

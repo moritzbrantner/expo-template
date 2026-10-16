@@ -17,7 +17,7 @@ permissions:
 jobs:
   analyze:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@9da915cde84922a5fcfd9d7ff15908be48ad1d62 # main
+    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@530d02deb4a2a54815d85bf5928e7ef3993a5918 # main
     with:
       target_url: https://moritzbrantner.github.io/expo-template/
       config_path: mobile-analysis.config.json

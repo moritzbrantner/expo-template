@@ -116,7 +116,7 @@ jobs:
     secrets: inherit
 
   merge-ready:
-    name: merge-ready
+    name: ${{ github.event_name == 'pull_request' && 'merge-ready' || 'validation-summary' }}
     if: always()
     needs: ["validate", "validation-scope", "template-contract", "pages", "mobile-release-contract", "create-app-contract", "converter-release-contract", "playwright"]
     permissions:

@@ -1,16 +1,7 @@
 name: Mobile Release Contract
 
 on:
-  pull_request:
-    paths:
-      - apps/**/app.json
-      - apps/**/app.config.ts
-      - apps/**/eas.json
-      - apps/**/release.config.json
-      - tooling/release/**
-      - .github/workflows/mobile-app-release.yml
-      - .github/workflows/android-direct-build.yml
-      - .github/workflows/mobile-release-contract.yml
+  workflow_call:
   push:
     branches:
       - main

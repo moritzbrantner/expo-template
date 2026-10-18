@@ -8,6 +8,55 @@ on:
   workflow_dispatch:
 
 jobs:
+  validation-scope:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      template-contract: ${{ steps.scope.outputs.template-contract }}
+      pages: ${{ steps.scope.outputs.pages }}
+      mobile-release-contract: ${{ steps.scope.outputs.mobile-release-contract }}
+      create-app-contract: ${{ steps.scope.outputs.create-app-contract }}
+      converter-release-contract: ${{ steps.scope.outputs.converter-release-contract }}
+      playwright: ${{ steps.scope.outputs.playwright }}
+      allow-skipped: ${{ steps.scope.outputs.allow-skipped }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+      - id: scope
+        shell: python
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          import json
+          import os
+          import re
+          import subprocess
+
+          # GitHub path filters: '*' stays within a segment; '**' crosses segments.
+          def matches(path, pattern):
+              parts = re.split(r"(\*\*/|\*\*|\*|\?)", pattern)
+              expression = "".join({"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}.get(part, re.escape(part)) for part in parts)
+              return re.fullmatch(expression, path) is not None
+
+          groups = {'template-contract': ['copier.yml', 'conventions.json', '.coding-tooling.json', '.editorconfig', 'template/**', '.github/workflows/template-contract.yml'], 'pages': ['app/**', 'assets/**', 'components/**', 'constants/**', 'hooks/**', 'lib/**', 'packages/**', 'apps/**', 'portfolio/**', 'scripts/build-pages.mjs', 'mobile-analysis.config.json', 'app.config.ts', 'app.json', 'package.json', 'bun.lock', 'tsconfig.json', '.github/workflows/pages.yml', '.github/workflows/mobile-analysis.yml'], 'mobile-release-contract': ['apps/**/app.json', 'apps/**/app.config.ts', 'apps/**/eas.json', 'apps/**/release.config.json', 'tooling/release/**', '.github/workflows/mobile-app-release.yml', '.github/workflows/android-direct-build.yml', '.github/workflows/mobile-release-contract.yml'], 'create-app-contract': ['package.json', 'bun.lock', 'copier.yml', 'template/**', 'tooling/create-app/**', 'docs/generator.md', '.github/workflows/create-app-contract.yml'], 'converter-release-contract': ['apps/converter/**', 'package.json', 'bun.lock', 'tsconfig.json', '.github/workflows/converter-mobile-release.yml', '.github/workflows/converter-release-contract.yml']}
+          required = {name: False for name in groups}
+          if os.environ["GITHUB_EVENT_NAME"] == "pull_request":
+              paths = subprocess.check_output(["git", "diff", "--name-only", "--no-renames", "-z", os.environ["BASE_SHA"] + "..." + os.environ["HEAD_SHA"]]).decode().split("\0")
+              required = {name: any(matches(path, pattern) for path in paths for pattern in patterns) for name, patterns in groups.items()}
+          skipped = [name for name, enabled in required.items() if not enabled]
+          with open(os.environ["GITHUB_EVENT_PATH"]) as event_file:
+              event = json.load(event_file)
+          playwright = os.environ["GITHUB_EVENT_NAME"] == "pull_request" and event["pull_request"]["base"]["ref"] in {"main", "master"}
+          if not playwright:
+              skipped.append("playwright")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"playwright={str(playwright).lower()}", file=output)
+              for name, enabled in required.items():
+                  print(f"{name}={str(enabled).lower()}", file=output)
+              print(f"allow-skipped={json.dumps(skipped)}", file=output)
   validate:
     permissions:
       contents: read
@@ -15,3 +64,67 @@ jobs:
     uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@5e4c334179c59bbc4a4768bf033ff1d27cd89c0c # main
     with:
       command: ${{ github.event_name == 'pull_request' && 'bun run lint && bunx tsc --noEmit && bun test && EXPO_OFFLINE=1 bunx expo-doctor' || 'bun run lint && bunx tsc --noEmit && bun test && bun run build && EXPO_OFFLINE=1 bunx expo-doctor' }}
+
+  template-contract:
+    needs: validation-scope
+    if: needs.validation-scope.outputs.template-contract == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/template-contract.yml
+    secrets: inherit
+
+  pages:
+    needs: validation-scope
+    if: needs.validation-scope.outputs.pages == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    secrets: inherit
+
+  mobile-release-contract:
+    needs: validation-scope
+    if: needs.validation-scope.outputs.mobile-release-contract == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/mobile-release-contract.yml
+    secrets: inherit
+
+  create-app-contract:
+    needs: validation-scope
+    if: needs.validation-scope.outputs.create-app-contract == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/create-app-contract.yml
+    secrets: inherit
+
+  converter-release-contract:
+    needs: validation-scope
+    if: needs.validation-scope.outputs.converter-release-contract == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/converter-release-contract.yml
+    secrets: inherit
+
+  playwright:
+    needs: validation-scope
+    if: needs.validation-scope.outputs.playwright == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/playwright.yml
+    secrets: inherit
+
+  merge-ready:
+    name: merge-ready
+    if: always()
+    needs: ["validate", "validation-scope", "template-contract", "pages", "mobile-release-contract", "create-app-contract", "converter-release-contract", "playwright"]
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: moritzbrantner/reusable-workflows/.github/actions/merge-ready@b0f25f241d76af2584dfc9e375084ff5c5cb97da
+        with:
+          needs: ${{ toJSON(needs) }}
+          required: '["validate", "validation-scope", "template-contract", "pages", "mobile-release-contract", "create-app-contract", "converter-release-contract", "playwright"]'
+          allow-skipped: ${{ needs.validation-scope.outputs.allow-skipped || '[]' }}

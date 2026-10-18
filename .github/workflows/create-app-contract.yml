@@ -1,15 +1,7 @@
 name: Create App Contract
 
 on:
-  pull_request:
-    paths:
-      - package.json
-      - bun.lock
-      - copier.yml
-      - template/**
-      - tooling/create-app/**
-      - docs/generator.md
-      - .github/workflows/create-app-contract.yml
+  workflow_call:
   push:
     branches:
       - main

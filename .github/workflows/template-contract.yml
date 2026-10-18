@@ -1,14 +1,7 @@
 name: Template Contract
 
 on:
-  pull_request:
-    paths:
-      - copier.yml
-      - conventions.json
-      - .coding-tooling.json
-      - .editorconfig
-      - template/**
-      - .github/workflows/template-contract.yml
+  workflow_call:
   push:
     branches:
       - main

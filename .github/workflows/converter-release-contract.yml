@@ -1,14 +1,7 @@
 name: Converter Release Contract
 
 on:
-  pull_request:
-    paths:
-      - apps/converter/**
-      - package.json
-      - bun.lock
-      - tsconfig.json
-      - .github/workflows/converter-mobile-release.yml
-      - .github/workflows/converter-release-contract.yml
+  workflow_call:
   push:
     branches:
       - main

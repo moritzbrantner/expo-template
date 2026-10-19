@@ -70,7 +70,7 @@ jobs:
           exit 1
 
       - name: Analyze exact Pages artifact on mobile
-        uses: moritzbrantner/mobile-analysis@530d02deb4a2a54815d85bf5928e7ef3993a5918 # main
+        uses: moritzbrantner/mobile-analysis@68bd80439c872c9771a9c0f190e74c9e3101d8ab # main
         with:
           target_url: http://127.0.0.1:4173/expo-template/
           config_path: mobile-analysis.config.json

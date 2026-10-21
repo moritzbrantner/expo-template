@@ -11,7 +11,7 @@ jobs:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
     - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       with:
-        bun-version: 1.4.3
+        bun-version: latest
     - name: Install dependencies
       run: bun install --frozen-lockfile
     - name: Install Playwright Browsers
@@ -35,7 +35,7 @@ jobs:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
     - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       with:
-        bun-version: 1.4.3
+        bun-version: latest
     - name: Install dependencies
       run: bun install --frozen-lockfile
     - name: Install Playwright Browsers

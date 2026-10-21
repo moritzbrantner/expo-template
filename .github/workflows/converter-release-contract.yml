@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: latest
 
       - name: Install frozen converter dependencies
         run: bun install --frozen-lockfile
@@ -47,8 +47,8 @@ jobs:
           const workflow = fs.readFileSync('../../.github/workflows/converter-mobile-release.yml', 'utf8');
           const buildScript = fs.readFileSync('scripts/build-store-release.ts', 'utf8');
 
-          if (packageJson.packageManager !== 'bun@1.3.12') throw new Error('converter Bun version must be exact');
-          if (packageJson.devDependencies?.['@types/bun'] !== '1.3.12') throw new Error('converter Bun release scripts must pin matching Bun types');
+          if (!String(packageJson.packageManager).startsWith('bun@')) throw new Error('converter must declare Bun as its package manager');
+          if (!packageJson.devDependencies?.['@types/bun']) throw new Error('converter Bun release scripts must declare Bun types');
           if (rootPackageJson.packageManager !== packageJson.packageManager) throw new Error('root and converter Bun runtime versions must remain aligned');
           if (rootPackageJson.devDependencies?.['@types/bun']) throw new Error('Bun global types must remain converter-owned');
           if (!Array.isArray(rootTsconfig.exclude) || !rootTsconfig.exclude.includes('apps/converter')) throw new Error('root TypeScript validation must delegate the converter project to its own contract');

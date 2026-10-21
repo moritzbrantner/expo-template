@@ -1,7 +1,19 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "github>moritzbrantner/coding-agent-conventions"
-  ],
-  "platformAutomerge": true
+  "extends": ["github>moritzbrantner/coding-agent-conventions"],
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      "description": "The Expo SDK fixes React, React Native and its native modules to one tested set; move them with `bunx expo install --fix` during an SDK upgrade instead of independently.",
+      "matchPackageNames": [
+        "react",
+        "react-dom",
+        "react-native",
+        "/^react-native-/",
+        "@types/react",
+        "@types/react-dom"
+      ],
+      "enabled": false
+    }
+  ]
 }

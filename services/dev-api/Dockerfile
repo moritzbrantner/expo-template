@@ -11,7 +11,7 @@ RUN mkdir -p /tmp/folder-server \
   && cargo build --release \
   && cp target/release/folder-server /usr/local/cargo/bin/folder-server
 
-FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 
 WORKDIR /srv/folder-server
 

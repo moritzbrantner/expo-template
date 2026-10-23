@@ -22,7 +22,7 @@ Wardrobe-gap planning is also deferred. The current model creates the reliable i
 
 ## Privacy boundary
 
-Native builds request camera permission only when the user chooses **Take photo**, and photo-library permission only when the user chooses **Choose photo**. Microphone access is disabled. Web preview supports choosing local images but does not pretend to provide the native camera workflow.
+Native builds request camera permission only when the user chooses **Take photo**. **Choose photo** opens the system image picker, which needs no broad photo-library permission. Microphone access is disabled. Web preview supports choosing local images but does not pretend to provide the native camera workflow.
 
 ## Local checks
 

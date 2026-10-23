@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -22,7 +21,6 @@ import {
   BABY_CLOTHING_STATUSES,
   babyClothingSizePreset,
   createBabyClothingEntry,
-  deserializeBabyClothingEntries,
   filterBabyClothingEntries,
   formatBabyClothingSize,
   updateBabyClothingEntry,
@@ -42,8 +40,9 @@ import {
 import { persistBabyClothingPhoto, removeBabyClothingPhoto } from '../lib/media';
 import { analyseBabyClothingPhotoColor } from '../lib/photo-analysis';
 import { WEB_INLINE_PHOTO_BUDGET, inlinePhotoStorageSize } from '../lib/media-helpers';
+import { UnreadableBabyClothesCatalogError, createBabyClothesStore } from '../lib/storage';
 
-const STORAGE_KEY = 'baby-clothes.entries-v1';
+const catalogStore = createBabyClothesStore();
 
 const CATEGORY_LABELS: Record<BabyClothingCategory, string> = {
   bodysuit: 'Bodysuit',
@@ -165,16 +164,22 @@ export default function BabyClothesScreen() {
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(STORAGE_KEY)
+    void catalogStore
+      .load()
       .then((value) => {
         if (active) {
-          setEntries(deserializeBabyClothingEntries(value));
+          setEntries(value);
           setHydrated(true);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (active) {
-          setStorageError('Reload before making changes so saved clothes stay safe.');
+          // Stay unhydrated so the automatic save never overwrites the stored catalog.
+          setStorageError(
+            error instanceof UnreadableBabyClothesCatalogError
+              ? 'Saved clothes could not be read by this version. Changes are paused so they are not overwritten.'
+              : 'Reload before making changes so saved clothes stay safe.',
+          );
         }
       });
     return () => {
@@ -186,7 +191,7 @@ export default function BabyClothesScreen() {
     if (!hydrated) {
       return;
     }
-    void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries)).catch(() => {
+    void catalogStore.save(entries).catch(() => {
       setStorageError('Local clothing changes could not be saved.');
     });
   }, [entries, hydrated]);
@@ -288,13 +293,8 @@ export default function BabyClothesScreen() {
           setPhotoStatus('Camera permission is required only to take a clothing photo.');
           return;
         }
-      } else if (Platform.OS !== 'web') {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-          setPhotoStatus('Photo-library permission is required only to choose a clothing photo.');
-          return;
-        }
       }
+      // The system image picker needs no photo-library permission on supported OS versions.
 
       const options = {
         mediaTypes: ['images'] as ImagePicker.MediaType[],
@@ -394,15 +394,24 @@ export default function BabyClothesScreen() {
       const nextEntries = editor.existing
         ? entries.map((entry) => (entry.id === next.id ? next : entry))
         : [next, ...entries];
-      setEntries(nextEntries);
-      editorSession.current += 1;
-
       const retainedUris = new Set(next.photos.map((photo) => photo.uri));
       const removedPhotos =
         editor.existing?.photos.filter((photo) => !retainedUris.has(photo.uri)) ?? [];
+
+      // Close the editor before any await so no Cancel/Remove action can delete a photo
+      // that the pending write below still references.
+      setEntries(nextEntries);
+      editorSession.current += 1;
+      setEditor(null);
+      setEditorError(null);
+      setPhotoStatus(null);
+      resetColorSuggestion();
+      setDeleteArmed(false);
+
       if (removedPhotos.length > 0) {
         // Persist the edit before erasing photos so the saved entry never points at deleted files.
-        const persisted = await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextEntries))
+        const persisted = await catalogStore
+          .save(nextEntries)
           .then(() => true)
           .catch(() => false);
         if (persisted) {
@@ -411,12 +420,6 @@ export default function BabyClothesScreen() {
           );
         }
       }
-
-      setEditor(null);
-      setEditorError(null);
-      setPhotoStatus(null);
-      resetColorSuggestion();
-      setDeleteArmed(false);
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : 'The clothing entry could not be saved.');
     }
@@ -435,7 +438,7 @@ export default function BabyClothesScreen() {
     const remaining = entries.filter((entry) => entry.id !== existing.id);
     try {
       // Persist the removal before erasing photos so a failed write never orphans the entry.
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+      await catalogStore.save(remaining);
     } catch {
       setEditorError('The clothing entry could not be deleted. Try again.');
       return;

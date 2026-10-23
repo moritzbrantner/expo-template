@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 
 import BabyClothesScreen from '../components/BabyClothesScreen';
 import { BABY_CLOTHING_PREVIEW_ENTRIES } from '../lib/preview-catalog';
+import { BABY_CLOTHES_STORAGE_KEY as STORAGE_KEY } from '../lib/storage';
 
-const STORAGE_KEY = 'baby-clothes.entries-v1';
 const PREVIEW_SEED_KEY = 'baby-clothes.preview-seeded-v1';
 
 function storageIsEmpty(value: string | null) {

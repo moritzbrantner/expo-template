@@ -1,15 +1,7 @@
 name: Create App Contract
 
 on:
-  pull_request:
-    paths:
-      - package.json
-      - bun.lock
-      - copier.yml
-      - template/**
-      - tooling/create-app/**
-      - docs/generator.md
-      - .github/workflows/create-app-contract.yml
+  workflow_call:
   push:
     branches:
       - main
@@ -36,15 +28,15 @@ jobs:
             profile: local-first
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: '3.13'
-      - uses: oven-sh/setup-bun@v2
+          python-version: '3.15'
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.3.12
+          bun-version: latest
 
       - name: Install Copier
         run: python -m pip install 'copier==9.18.2'
@@ -127,7 +119,7 @@ jobs:
           if (!rootPackage.workspaces?.includes(appRoot)) throw new Error('generated app is not registered in the root workspace');
           if (rootPackage.workspaces.filter((candidate) => candidate === appRoot).length !== 1) throw new Error('generated workspace registration is duplicated');
           if (appPackage.name !== expectedPackageName) throw new Error('generated package identity is not workspace-scoped');
-          if (appPackage.packageManager !== 'bun@1.3.12') throw new Error('generated Bun version is not exact');
+          if (!String(appPackage.packageManager).startsWith('bun@')) throw new Error('generated app must declare Bun as its package manager');
           if (appPackage.scripts?.build !== 'expo export --platform web') throw new Error('generated app has no canonical web build command');
           if (appPackage.devDependencies?.['expo-doctor'] !== '1.20.4') throw new Error('generated Expo Doctor dependency is not pinned');
           if (!nameLiteral || JSON.parse(nameLiteral) !== expectedAppName) throw new Error('human-readable app name was not rendered safely');

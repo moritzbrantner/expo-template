@@ -32,7 +32,7 @@ Wardrobe-gap planning is still deferred. The current model creates the reliable 
 
 ## Privacy boundary
 
-Native builds request camera permission only when the user chooses **Take photo**, and photo-library permission only when the user chooses **Choose photo**. Microphone access is disabled. Photo color assistance runs against a small local derivative of the selected image and does not upload the photo, call a recognition service, or download a model.
+Native builds request camera permission only when the user chooses **Take photo**. **Choose photo** opens the system image picker, which needs no broad photo-library permission. Microphone access is disabled. Photo color assistance runs against a small local derivative of the selected image and does not upload the photo, call a recognition service, or download a model.
 
 ## Local checks
 

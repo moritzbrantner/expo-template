@@ -31,6 +31,7 @@ const entry: BabyClothingEntry = {
   id: 'clothes-1',
   name: 'Striped bodysuit',
   category: 'bodysuit',
+  color: '',
   brand: '',
   originalSizeLabel: '62',
   normalizedSize: { minCm: 62, maxCm: 62 },

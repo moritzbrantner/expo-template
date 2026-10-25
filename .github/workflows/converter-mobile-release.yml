@@ -33,7 +33,7 @@ jobs:
       attestations: write
       contents: read
       id-token: write
-    uses: moritzbrantner/reusable-workflows/.github/workflows/release-qualification.yml@dc9439453923b24e657cfb6e9db647eed530e901 # main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/release-qualification.yml@2ec8d067031d4e9d093701f23a00b0ddcaef42d8 # main
     with:
       source_sha: ${{ inputs.source_sha }}
       working_directory: apps/converter
@@ -53,7 +53,7 @@ jobs:
       actions: read
       attestations: read
       contents: read
-    uses: moritzbrantner/reusable-workflows/.github/workflows/artifact-promotion.yml@dc9439453923b24e657cfb6e9db647eed530e901 # main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/artifact-promotion.yml@2ec8d067031d4e9d093701f23a00b0ddcaef42d8 # main
     with:
       qualification_run_id: ${{ github.run_id }}
       qualification_receipt_artifact_name: ${{ needs.qualify.outputs.receipt_artifact_name }}
@@ -69,7 +69,7 @@ jobs:
       actions: read
       attestations: read
       contents: read
-    uses: moritzbrantner/reusable-workflows/.github/workflows/deliver-qualified-expo-stores.yml@dc9439453923b24e657cfb6e9db647eed530e901 # main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/deliver-qualified-expo-stores.yml@2ec8d067031d4e9d093701f23a00b0ddcaef42d8 # main
     with:
       promotion_run_id: ${{ github.run_id }}
       promotion_receipt_artifact_name: ${{ needs.promote.outputs.receipt_artifact_name }}

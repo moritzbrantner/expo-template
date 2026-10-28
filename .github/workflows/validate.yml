@@ -61,7 +61,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@d5717786a8fb6485e1df1f3dcdd8e9c1d2f3fff9 # main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@33b6fc98c08e50afe34984b82fc24c369abe9238 # main
     with:
       command: ${{ github.event_name == 'pull_request' && 'bun run lint && bunx tsc --noEmit && bun test && EXPO_OFFLINE=1 bunx expo-doctor' || 'bun run lint && bunx tsc --noEmit && bun test && bun run build && EXPO_OFFLINE=1 bunx expo-doctor' }}
 

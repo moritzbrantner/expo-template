@@ -45,7 +45,7 @@ jobs:
       attestations: write
       contents: read
       id-token: write
-    uses: moritzbrantner/reusable-workflows/.github/workflows/release-qualification.yml@3da7f9206cc007d190ae3ca72eaf4a1c0841fbe9 # main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/release-qualification.yml@cfada1f90a389c51318414b65cf9f9fbac586723 # main
     with:
       source_sha: ${{ inputs.source_sha }}
       working_directory: apps/${{ inputs.app }}
@@ -65,7 +65,7 @@ jobs:
       actions: read
       attestations: read
       contents: read
-    uses: moritzbrantner/reusable-workflows/.github/workflows/artifact-promotion.yml@3da7f9206cc007d190ae3ca72eaf4a1c0841fbe9 # main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/artifact-promotion.yml@cfada1f90a389c51318414b65cf9f9fbac586723 # main
     with:
       qualification_run_id: ${{ github.run_id }}
       qualification_receipt_artifact_name: ${{ needs.qualify.outputs.receipt_artifact_name }}

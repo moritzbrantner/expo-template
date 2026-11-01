@@ -62,3 +62,10 @@ describe('baby clothes storage', () => {
     }
   });
 });
+
+test('the synthetic web preview catalog loads as a complete stored catalog', async () => {
+  const { BABY_CLOTHING_PREVIEW_ENTRIES } = await import('./preview-catalog.web');
+  const { storage } = memoryStorage(JSON.stringify(BABY_CLOTHING_PREVIEW_ENTRIES));
+  const loaded = await createBabyClothesStore(storage).load();
+  assert.equal(loaded.length, BABY_CLOTHING_PREVIEW_ENTRIES.length);
+});

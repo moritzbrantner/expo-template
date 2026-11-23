@@ -56,7 +56,7 @@ jobs:
     uses: moritzbrantner/reusable-workflows/.github/workflows/release-qualification.yml@17987ed0bfd274f75bce1923f857782824efab9c # main
     with:
       source_sha: ${{ inputs.source_sha }}
-      setup_command: npm install --global bun@1.3.12 eas-cli@23.2.0 && bun install --frozen-lockfile
+      setup_command: npm install --global bun@latest eas-cli@23.2.0 && bun install --frozen-lockfile
       qualification_command: bun run release:qualify:${{ inputs.platform }}
       build_command: bun run release:build:${{ inputs.platform }}
       artifact_paths: .artifacts/mobile-release

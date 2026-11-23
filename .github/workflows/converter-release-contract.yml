@@ -47,9 +47,8 @@ jobs:
           const workflow = fs.readFileSync('../../.github/workflows/converter-mobile-release.yml', 'utf8');
           const buildScript = fs.readFileSync('scripts/build-store-release.ts', 'utf8');
 
-          if (!String(packageJson.packageManager).startsWith('bun@')) throw new Error('converter must declare Bun as its package manager');
+          if ('packageManager' in packageJson || 'packageManager' in rootPackageJson) throw new Error('root and converter must not pin a Bun version (latest stable Bun, BUN-001)');
           if (!packageJson.devDependencies?.['@types/bun']) throw new Error('converter Bun release scripts must declare Bun types');
-          if (rootPackageJson.packageManager !== packageJson.packageManager) throw new Error('root and converter Bun runtime versions must remain aligned');
           if (rootPackageJson.devDependencies?.['@types/bun']) throw new Error('Bun global types must remain converter-owned');
           if (!Array.isArray(rootTsconfig.exclude) || !rootTsconfig.exclude.includes('apps/converter')) throw new Error('root TypeScript validation must delegate the converter project to its own contract');
           if (!tsconfig.compilerOptions?.types?.includes('bun')) throw new Error('converter TypeScript config must load Bun globals for release scripts');

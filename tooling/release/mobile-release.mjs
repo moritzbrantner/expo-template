@@ -8,7 +8,6 @@ import { spawn } from 'node:child_process';
 const TOOL_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOL_DIR, '../..');
 const EAS_CLI_VERSION = '23.2.0';
-const BUN_VERSION = '1.3.12';
 const PLATFORMS = new Set(['android', 'ios', 'all']);
 const STORE_PROFILES = new Set(['internal', 'production']);
 
@@ -92,10 +91,11 @@ function platformList(platform) {
   return platform === 'all' ? ['ios', 'android'] : [platform];
 }
 
-function requirePinnedBuildProfile(eas, profile, label) {
+// BUN-001: builds use the latest stable Bun of the EAS build image, never an exact pin.
+function requireBuildProfile(eas, profile, label) {
   const build = eas.build?.[profile];
   if (!build) fail(`${label} build profile is missing`);
-  if (build.bun !== BUN_VERSION) fail(`${label} build profile must pin Bun ${BUN_VERSION}`);
+  if (build.bun !== undefined) fail(`${label} build profile must not pin Bun (BUN-001: latest stable)`);
   return build;
 }
 
@@ -131,7 +131,7 @@ function checkAndroidStore({ expo, eas, release }) {
   requirePermanentIdentifier(expo.android?.package, 'Android package');
   const buildProfile = release.release?.buildProfile;
   if (buildProfile !== 'production') fail('the store build profile must be production');
-  const productionBuild = requirePinnedBuildProfile(eas, buildProfile, 'production');
+  const productionBuild = requireBuildProfile(eas, buildProfile, 'production');
   if (productionBuild.autoIncrement !== true) {
     fail('the production Android build profile must autoIncrement native versions');
   }
@@ -149,7 +149,7 @@ function checkIosStore({ expo, eas, release }) {
   requirePermanentIdentifier(expo.ios?.bundleIdentifier, 'iOS bundleIdentifier');
   const buildProfile = release.release?.buildProfile;
   if (buildProfile !== 'production') fail('the store build profile must be production');
-  const productionBuild = requirePinnedBuildProfile(eas, buildProfile, 'production');
+  const productionBuild = requireBuildProfile(eas, buildProfile, 'production');
   if (productionBuild.autoIncrement !== true) {
     fail('the production iOS build profile must autoIncrement native versions');
   }
@@ -203,7 +203,7 @@ async function directPreflight(appDirectory) {
   const state = await loadReleaseState(appDirectory);
   checkCommon(state);
   requirePermanentIdentifier(state.expo.android?.package, 'Android package');
-  const direct = requirePinnedBuildProfile(state.eas, 'direct', 'direct');
+  const direct = requireBuildProfile(state.eas, 'direct', 'direct');
   if (direct.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
     fail('eas.json build.direct must produce an internally distributed Android APK');
   }
@@ -309,7 +309,6 @@ async function buildStore(appDirectory, platform) {
     sourceSha,
     buildProfile,
     easCliVersion: EAS_CLI_VERSION,
-    bunVersion: BUN_VERSION,
   };
 
   for (const target of targets) {
@@ -376,7 +375,6 @@ async function buildDirectAndroid(appDirectory) {
         sourceSha,
         buildProfile: 'direct',
         easCliVersion: EAS_CLI_VERSION,
-        bunVersion: BUN_VERSION,
         android: {
           buildId: build.id,
           path: 'app.apk',
@@ -445,9 +443,9 @@ async function fleetCheck() {
       if (eas.cli?.version !== EAS_CLI_VERSION || eas.cli?.requireCommit !== true) {
         fail('EAS CLI/source policy is not pinned');
       }
-      const production = requirePinnedBuildProfile(eas, 'production', 'production');
+      const production = requireBuildProfile(eas, 'production', 'production');
       if (production.autoIncrement !== true) fail('production build must autoIncrement');
-      const direct = requirePinnedBuildProfile(eas, 'direct', 'direct');
+      const direct = requireBuildProfile(eas, 'direct', 'direct');
       if (direct.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
         fail('direct Android APK profile is missing');
       }

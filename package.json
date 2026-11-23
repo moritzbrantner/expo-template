@@ -2,7 +2,6 @@
   "name": "mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
-  "packageManager": "bun@1.4.5",
   "workspaces": [
     "apps/*",
     "packages/*",

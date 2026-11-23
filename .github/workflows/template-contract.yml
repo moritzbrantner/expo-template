@@ -76,7 +76,7 @@ jobs:
           const initializesNotifications = layout.includes("import '../core/notifications/local-reminders';");
 
           if (packageJson.name !== `fixture-${expected}`) throw new Error('wrong generated slug');
-          if (!String(packageJson.packageManager).startsWith('bun@')) throw new Error('generated app must declare Bun as its package manager');
+          if ('packageManager' in packageJson) throw new Error('generated app must not pin a Bun version (latest stable Bun, BUN-001)');
           if (conventions.registry !== 'coding-agent-conventions') throw new Error('missing generated convention registry');
           if (tooling.profile !== 'repository-foundation-v1') throw new Error('missing generated tooling profile');
           if (!tooling.tiers?.fast?.includes('typecheck')) throw new Error('generated fast tier must typecheck');

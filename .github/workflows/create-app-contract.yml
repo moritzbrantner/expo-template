@@ -119,7 +119,7 @@ jobs:
           if (!rootPackage.workspaces?.includes(appRoot)) throw new Error('generated app is not registered in the root workspace');
           if (rootPackage.workspaces.filter((candidate) => candidate === appRoot).length !== 1) throw new Error('generated workspace registration is duplicated');
           if (appPackage.name !== expectedPackageName) throw new Error('generated package identity is not workspace-scoped');
-          if (!String(appPackage.packageManager).startsWith('bun@')) throw new Error('generated app must declare Bun as its package manager');
+          if ('packageManager' in appPackage) throw new Error('generated app must not pin a Bun version (latest stable Bun, BUN-001)');
           if (appPackage.scripts?.build !== 'expo export --platform web') throw new Error('generated app has no canonical web build command');
           if (appPackage.devDependencies?.['expo-doctor'] !== '1.20.4') throw new Error('generated Expo Doctor dependency is not pinned');
           if (!nameLiteral || JSON.parse(nameLiteral) !== expectedAppName) throw new Error('human-readable app name was not rendered safely');

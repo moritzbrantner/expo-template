@@ -39,8 +39,6 @@ type ReleaseConfig = {
   };
 };
 
-const BUN_VERSION = '1.3.12';
-
 function requireValue(value: unknown, label: string): asserts value {
   if (value === undefined || value === null || value === '') {
     throw new Error(`${label} must be configured before a release`);
@@ -71,10 +69,11 @@ function platforms(platform: StorePlatform) {
   throw new Error('release platform must be android, ios, or all');
 }
 
-function requirePinnedBuildProfile(eas: EasConfig, profile: string, label: string) {
+// BUN-001: builds use the latest stable Bun of the EAS build image, never an exact pin.
+function requireBuildProfile(eas: EasConfig, profile: string, label: string) {
   const build = eas.build?.[profile];
   if (!build) throw new Error(`${label} build profile is missing`);
-  if (build.bun !== BUN_VERSION) throw new Error(`${label} build profile must pin Bun ${BUN_VERSION}`);
+  if (build.bun !== undefined) throw new Error(`${label} build profile must not pin Bun (BUN-001: latest stable)`);
   return build;
 }
 
@@ -122,7 +121,7 @@ function checkAndroid(eas: EasConfig, release: ReleaseConfig) {
   if (!config.android?.package || config.android.package.startsWith('com.example.')) {
     throw new Error('configure a permanent Android package before an Android store release');
   }
-  const build = requirePinnedBuildProfile(eas, release.release.buildProfile, 'production');
+  const build = requireBuildProfile(eas, release.release.buildProfile, 'production');
   if (build.autoIncrement !== true) {
     throw new Error('the production EAS build profile must autoIncrement native build versions');
   }
@@ -140,7 +139,7 @@ function checkIos(eas: EasConfig, release: ReleaseConfig) {
   if (!config.ios?.bundleIdentifier || config.ios.bundleIdentifier.startsWith('com.example.')) {
     throw new Error('configure a permanent iOS bundleIdentifier before an iOS store release');
   }
-  const build = requirePinnedBuildProfile(eas, release.release.buildProfile, 'production');
+  const build = requireBuildProfile(eas, release.release.buildProfile, 'production');
   if (build.autoIncrement !== true) {
     throw new Error('the production EAS build profile must autoIncrement native build versions');
   }
@@ -180,7 +179,7 @@ export async function checkDirectAndroidRelease() {
   if (!config.android?.package || config.android.package.startsWith('com.example.')) {
     throw new Error('configure a permanent Android package before a direct APK release');
   }
-  const direct = requirePinnedBuildProfile(eas, 'direct', 'direct');
+  const direct = requireBuildProfile(eas, 'direct', 'direct');
   if (direct.distribution !== 'internal' || direct.android?.buildType !== 'apk') {
     throw new Error('eas.json build.direct must produce an internally distributed Android APK');
   }

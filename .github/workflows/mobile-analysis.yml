@@ -17,7 +17,7 @@ permissions:
 jobs:
   analyze:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@88e8062a4aa9da366106b5d2a00d4a1d56929528 # main
+    uses: moritzbrantner/mobile-analysis/.github/workflows/analyze.yml@ca907d9485a7d33f73aeb0ca60cb94f66344dad2 # main
     with:
       target_url: https://moritzbrantner.github.io/expo-template/
       config_path: mobile-analysis.config.json
@@ -65,7 +65,7 @@ jobs:
           }
           NODE
       - name: Plan mobile remediation
-        uses: moritzbrantner/coding-tooling@1d89f753b857fd39451f2f44a76f376657b99f9d # main
+        uses: moritzbrantner/coding-tooling@fe746ce29648080bb5342aa6d1093ae6010a67c6 # main
         with:
           operation: remediation-plan
           report-path: .artifacts/coding-tooling/mobile-remediation-plan.json
